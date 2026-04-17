@@ -5,6 +5,7 @@ import { Moliya } from "@/components/sections/Moliya";
 import { Oquvchilar } from "@/components/sections/Oquvchilar";
 import { Hodimlar } from "@/components/sections/Hodimlar";
 import logo from "@/assets/logo.webp";
+import { AssistantChat } from "@/components/dashboard/AssistantChat";
 import { Phone, Wallet, GraduationCap, Users } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -17,6 +18,13 @@ const Index = () => {
     { id: "oquvchilar", icon: GraduationCap, label: "O'quvchi" },
     { id: "hodimlar", icon: Users, label: "Hodim" },
   ];
+
+  const contextLabel: Record<SectionId, string> = {
+    sotuv: "Sotuv Analizi",
+    moliya: "Moliya",
+    oquvchilar: "O'quvchilar",
+    hodimlar: "Hodimlar",
+  };
 
   return (
     <div className="min-h-screen flex bg-background">
@@ -33,6 +41,8 @@ const Index = () => {
           {active === "oquvchilar" && <Oquvchilar />}
           {active === "hodimlar" && <Hodimlar />}
         </main>
+
+        <AssistantChat key={active} context={contextLabel[active]} />
 
         <nav className="lg:hidden fixed bottom-0 inset-x-0 bg-card border-t border-border flex">
           {mobileItems.map((it) => {
