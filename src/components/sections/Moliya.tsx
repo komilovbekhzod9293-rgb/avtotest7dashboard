@@ -10,18 +10,19 @@ const API_KEY = "AIzaSyB4kyYep05877BBpI9Rfv0SNcFhHVGBF5E";
 const UZ_MONTHS = ["Yan","Fev","Mar","Apr","May","Iyn","Iyl","Avg","Sen","Okt","Noy","Dek"];
 const EXPENSE_COLORS = ["hsl(222 47% 11%)","hsl(220 9% 46%)","hsl(230 70% 55%)","hsl(38 92% 50%)","hsl(220 13% 78%)"];
 
-// Форматирование сумов: 1 290 000 → "1 290 000 so'm"
-const fmt = (n: number) => {
-  return Math.round(Math.abs(n)).toLocaleString("ru-RU") + " so'm";
-};
+const fmt = (n: number) => Math.round(Math.abs(n)).toLocaleString("ru-RU") + " so'm";
 
 function parseSumma(raw: string): number {
-  const cleaned = raw
-    .replace(/p\./gi, "")
+  const str = raw.trim();
+  const isNegative = str.startsWith("-");
+  // убираем минус, "p.", все пробелы, потом запятую → точка
+  const cleaned = str
+    .replace("-", "")
+    .replace(/p\./i, "")
     .replace(/\s/g, "")
-    .replace(/\.(?=\d{3,})/g, "")
     .replace(",", ".");
-  return parseFloat(cleaned) || 0;
+  const num = parseFloat(cleaned) || 0;
+  return isNegative ? -num : num;
 }
 
 interface Row { sana: string; ism: string; filial: string; turi: string; summa: number; kategoriya: string; izoh: string; }
@@ -36,10 +37,15 @@ export function Moliya() {
       .then((res) => { if (!res.ok) throw new Error(`API xatosi: ${res.status}`); return res.json(); })
       .then((data) => {
         const [, ...dataRows] = data.values as string[][];
-        setRows(dataRows.filter((r) => r.length >= 5 && r[0]).map((r) => ({
-          sana: r[0] ?? "", ism: r[1] ?? "", filial: r[2] ?? "", turi: r[3] ?? "",
-          summa: parseSumma(r[4] ?? "0"), kategoriya: r[5] ?? "", izoh: r[6] ?? "",
-        })));
+        const parsed = dataRows
+          .filter((r) => r.length >= 5 && r[0] && r[4])
+          .map((r) => ({
+            sana: r[0] ?? "", ism: r[1] ?? "", filial: r[2] ?? "", turi: r[3] ?? "",
+            summa: parseSumma(r[4]),
+            kategoriya: r[5] ?? "", izoh: r[6] ?? "",
+          }));
+        console.log("Parsed rows:", parsed); // для отладки
+        setRows(parsed);
       })
       .catch((e) => setError(e.message))
       .finally(() => setLoading(false));
@@ -48,16 +54,11 @@ export function Moliya() {
   if (loading) return <div className="flex items-center justify-center h-64 gap-3 text-muted-foreground"><Loader2 className="h-5 w-5 animate-spin" /><span>Yuklanmoqda…</span></div>;
   if (error) return <div className="flex items-center justify-center h-64 gap-3 text-danger"><AlertCircle className="h-5 w-5" /><span>Xatolik: {error}</span></div>;
 
-  // Jami daromad = сумма всех положительных (выручка)
   const totalRevenue = rows.filter((r) => r.summa > 0).reduce((s, r) => s + r.summa, 0);
-  // Jami xarajat = сумма всех отрицательных (расходы)
   const totalExpenses = rows.filter((r) => r.summa < 0).reduce((s, r) => s + Math.abs(r.summa), 0);
-  // Sof foyda = выручка - расходы
   const totalProfit = totalRevenue - totalExpenses;
-  // Marja = (прибыль / выручка) * 100
   const margin = totalRevenue > 0 ? ((totalProfit / totalRevenue) * 100).toFixed(1) : "0.0";
 
-  // График по месяцам
   const monthMap: Record<string, { revenue: number; expenses: number }> = {};
   rows.forEach((r) => {
     const parts = r.sana.split(".");
@@ -74,7 +75,6 @@ export function Moliya() {
     "Foyda": Math.round((v.revenue - v.expenses) / 1_000_000),
   }));
 
-  // Разбивка расходов по филиалам
   const filialMap: Record<string, number> = {};
   rows.filter((r) => r.summa < 0).forEach((r) => {
     const k = r.filial || "Boshqa";
@@ -89,7 +89,7 @@ export function Moliya() {
     <div>
       <Header title="Moliya" subtitle="Daromad, xarajat va foyda tahlili" />
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
-        <StatCard label="Jami daromad (Vyuchka)" value={fmt(totalRevenue)} icon={<Wallet className="h-4 w-4" />} />
+        <StatCard label="Jami daromad" value={fmt(totalRevenue)} icon={<Wallet className="h-4 w-4" />} />
         <StatCard label="Jami xarajat" value={fmt(totalExpenses)} icon={<TrendingDown className="h-4 w-4" />} />
         <StatCard label="Sof foyda" value={fmt(totalProfit)} icon={<TrendingUp className="h-4 w-4" />} />
         <StatCard label="Marja" value={`${margin}%`} icon={<PiggyBank className="h-4 w-4" />} />
@@ -152,13 +152,7 @@ export function Moliya() {
           <table className="w-full text-sm">
             <thead>
               <tr className="text-left text-xs text-muted-foreground uppercase tracking-wider">
-                <th className="pb-3 font-medium">Sana</th>
-                <th className="pb-3 font-medium">Ism</th>
-                <th className="pb-3 font-medium">Filial</th>
-                <th className="pb-3 font-medium">Turi</th>
-                <th className="pb-3 font-medium text-right">Summa</th>
-                <th className="pb-3 font-medium">Kategoriya</th>
-                <th className="pb-3 font-medium">Izoh</th>
+                <th className="pb-3 font-medium">Sana</th><th className="pb-3 font-medium">Ism</th><th className="pb-3 font-medium">Filial</th><th className="pb-3 font-medium">Turi</th><th className="pb-3 font-medium text-right">Summa</th><th className="pb-3 font-medium">Kategoriya</th><th className="pb-3 font-medium">Izoh</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-border">
