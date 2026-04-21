@@ -10,17 +10,16 @@ const API_KEY = "AIzaSyB4kyYep05877BBpI9Rfv0SNcFhHVGBF5E";
 const UZ_MONTHS = ["Yan","Fev","Mar","Apr","May","Iyn","Iyl","Avg","Sen","Okt","Noy","Dek"];
 const EXPENSE_COLORS = ["hsl(222 47% 11%)","hsl(220 9% 46%)","hsl(230 70% 55%)","hsl(38 92% 50%)","hsl(220 13% 78%)"];
 
+// Форматирование сумов: 1 290 000 → "1 290 000 so'm"
 const fmt = (n: number) => {
-  if (Math.abs(n) >= 1_000_000) return `${(n / 1_000_000).toFixed(1)} mln`;
-  if (Math.abs(n) >= 1_000) return `${(n / 1_000).toFixed(0)} ming`;
-  return `${Math.round(n)}`;
+  return Math.round(Math.abs(n)).toLocaleString("ru-RU") + " so'm";
 };
 
 function parseSumma(raw: string): number {
-  // убираем всё кроме цифр, запятой, точки и минуса
   const cleaned = raw
     .replace(/p\./gi, "")
-    .replace(/[^\d,.\-]/g, "")
+    .replace(/\s/g, "")
+    .replace(/\.(?=\d{3,})/g, "")
     .replace(",", ".");
   return parseFloat(cleaned) || 0;
 }
@@ -37,7 +36,7 @@ export function Moliya() {
       .then((res) => { if (!res.ok) throw new Error(`API xatosi: ${res.status}`); return res.json(); })
       .then((data) => {
         const [, ...dataRows] = data.values as string[][];
-        setRows(dataRows.filter((r) => r.length >= 5).map((r) => ({
+        setRows(dataRows.filter((r) => r.length >= 5 && r[0]).map((r) => ({
           sana: r[0] ?? "", ism: r[1] ?? "", filial: r[2] ?? "", turi: r[3] ?? "",
           summa: parseSumma(r[4] ?? "0"), kategoriya: r[5] ?? "", izoh: r[6] ?? "",
         })));
@@ -49,11 +48,16 @@ export function Moliya() {
   if (loading) return <div className="flex items-center justify-center h-64 gap-3 text-muted-foreground"><Loader2 className="h-5 w-5 animate-spin" /><span>Yuklanmoqda…</span></div>;
   if (error) return <div className="flex items-center justify-center h-64 gap-3 text-danger"><AlertCircle className="h-5 w-5" /><span>Xatolik: {error}</span></div>;
 
+  // Jami daromad = сумма всех положительных (выручка)
   const totalRevenue = rows.filter((r) => r.summa > 0).reduce((s, r) => s + r.summa, 0);
-  const totalExpenses = Math.abs(rows.filter((r) => r.summa < 0).reduce((s, r) => s + r.summa, 0));
+  // Jami xarajat = сумма всех отрицательных (расходы)
+  const totalExpenses = rows.filter((r) => r.summa < 0).reduce((s, r) => s + Math.abs(r.summa), 0);
+  // Sof foyda = выручка - расходы
   const totalProfit = totalRevenue - totalExpenses;
+  // Marja = (прибыль / выручка) * 100
   const margin = totalRevenue > 0 ? ((totalProfit / totalRevenue) * 100).toFixed(1) : "0.0";
 
+  // График по месяцам
   const monthMap: Record<string, { revenue: number; expenses: number }> = {};
   rows.forEach((r) => {
     const parts = r.sana.split(".");
@@ -66,22 +70,28 @@ export function Moliya() {
 
   const chartData = Object.entries(monthMap).map(([month, v]) => ({
     month,
-    revenue: Math.round(v.revenue / 1_000_000),
-    profit: Math.round((v.revenue - v.expenses) / 1_000_000),
+    "Daromad": Math.round(v.revenue / 1_000_000),
+    "Foyda": Math.round((v.revenue - v.expenses) / 1_000_000),
   }));
 
+  // Разбивка расходов по филиалам
   const filialMap: Record<string, number> = {};
-  rows.filter((r) => r.summa < 0).forEach((r) => { const k = r.filial || "Boshqa"; filialMap[k] = (filialMap[k] ?? 0) + Math.abs(r.summa); });
+  rows.filter((r) => r.summa < 0).forEach((r) => {
+    const k = r.filial || "Boshqa";
+    filialMap[k] = (filialMap[k] ?? 0) + Math.abs(r.summa);
+  });
   const totalExp = Object.values(filialMap).reduce((a, b) => a + b, 0) || 1;
-  const expenseBreakdown = Object.entries(filialMap).map(([name, val], i) => ({ name, value: Math.round((val / totalExp) * 100), color: EXPENSE_COLORS[i % EXPENSE_COLORS.length] }));
+  const expenseBreakdown = Object.entries(filialMap).map(([name, val], i) => ({
+    name, value: Math.round((val / totalExp) * 100), color: EXPENSE_COLORS[i % EXPENSE_COLORS.length],
+  }));
 
   return (
     <div>
       <Header title="Moliya" subtitle="Daromad, xarajat va foyda tahlili" />
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
-        <StatCard label="Jami daromad" value={fmt(totalRevenue) + " so'm"} icon={<Wallet className="h-4 w-4" />} />
-        <StatCard label="Jami xarajat" value={fmt(totalExpenses) + " so'm"} icon={<TrendingDown className="h-4 w-4" />} />
-        <StatCard label="Sof foyda" value={fmt(totalProfit) + " so'm"} icon={<TrendingUp className="h-4 w-4" />} />
+        <StatCard label="Jami daromad (Vyuchka)" value={fmt(totalRevenue)} icon={<Wallet className="h-4 w-4" />} />
+        <StatCard label="Jami xarajat" value={fmt(totalExpenses)} icon={<TrendingDown className="h-4 w-4" />} />
+        <StatCard label="Sof foyda" value={fmt(totalProfit)} icon={<TrendingUp className="h-4 w-4" />} />
         <StatCard label="Marja" value={`${margin}%`} icon={<PiggyBank className="h-4 w-4" />} />
       </div>
 
@@ -103,9 +113,9 @@ export function Moliya() {
               <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" vertical={false} />
               <XAxis dataKey="month" stroke="hsl(var(--muted-foreground))" fontSize={12} tickLine={false} axisLine={false} />
               <YAxis stroke="hsl(var(--muted-foreground))" fontSize={12} tickLine={false} axisLine={false} />
-              <Tooltip contentStyle={{ background: "hsl(var(--card))", border: "1px solid hsl(var(--border))", borderRadius: 12, fontSize: 12 }} />
-              <Area type="monotone" dataKey="revenue" stroke="hsl(var(--primary))" strokeWidth={2.5} fill="url(#rev)" />
-              <Area type="monotone" dataKey="profit" stroke="hsl(var(--brand))" strokeWidth={2.5} fill="url(#prof)" />
+              <Tooltip contentStyle={{ background: "hsl(var(--card))", border: "1px solid hsl(var(--border))", borderRadius: 12, fontSize: 12 }} formatter={(val) => [`${val} mln`, ""]} />
+              <Area type="monotone" dataKey="Daromad" stroke="hsl(var(--primary))" strokeWidth={2.5} fill="url(#rev)" />
+              <Area type="monotone" dataKey="Foyda" stroke="hsl(var(--brand))" strokeWidth={2.5} fill="url(#prof)" />
             </AreaChart>
           </ResponsiveContainer>
         </div>
@@ -116,9 +126,21 @@ export function Moliya() {
           {expenseBreakdown.length === 0 ? <p className="text-sm text-muted-foreground">Xarajatlar yo'q</p> : (
             <>
               <ResponsiveContainer width="100%" height={200}>
-                <PieChart><Pie data={expenseBreakdown} dataKey="value" innerRadius={55} outerRadius={80} paddingAngle={2}>{expenseBreakdown.map((e, i) => <Cell key={i} fill={e.color} />)}</Pie><Tooltip contentStyle={{ background: "hsl(var(--card))", border: "1px solid hsl(var(--border))", borderRadius: 12, fontSize: 12 }} /></PieChart>
+                <PieChart>
+                  <Pie data={expenseBreakdown} dataKey="value" innerRadius={55} outerRadius={80} paddingAngle={2}>
+                    {expenseBreakdown.map((e, i) => <Cell key={i} fill={e.color} />)}
+                  </Pie>
+                  <Tooltip contentStyle={{ background: "hsl(var(--card))", border: "1px solid hsl(var(--border))", borderRadius: 12, fontSize: 12 }} />
+                </PieChart>
               </ResponsiveContainer>
-              <div className="mt-3 space-y-2">{expenseBreakdown.map((e) => (<div key={e.name} className="flex items-center justify-between text-sm"><span className="inline-flex items-center gap-2"><span className="h-2.5 w-2.5 rounded-sm" style={{ background: e.color }} />{e.name}</span><span className="num font-medium">{e.value}%</span></div>))}</div>
+              <div className="mt-3 space-y-2">
+                {expenseBreakdown.map((e) => (
+                  <div key={e.name} className="flex items-center justify-between text-sm">
+                    <span className="inline-flex items-center gap-2"><span className="h-2.5 w-2.5 rounded-sm" style={{ background: e.color }} />{e.name}</span>
+                    <span className="num font-medium">{e.value}%</span>
+                  </div>
+                ))}
+              </div>
             </>
           )}
         </div>
@@ -128,9 +150,17 @@ export function Moliya() {
         <h3 className="font-semibold mb-4">So'nggi tranzaksiyalar</h3>
         <div className="overflow-x-auto">
           <table className="w-full text-sm">
-            <thead><tr className="text-left text-xs text-muted-foreground uppercase tracking-wider">
-              <th className="pb-3 font-medium">Sana</th><th className="pb-3 font-medium">Ism</th><th className="pb-3 font-medium">Filial</th><th className="pb-3 font-medium">Turi</th><th className="pb-3 font-medium text-right">Summa</th><th className="pb-3 font-medium">Kategoriya</th><th className="pb-3 font-medium">Izoh</th>
-            </tr></thead>
+            <thead>
+              <tr className="text-left text-xs text-muted-foreground uppercase tracking-wider">
+                <th className="pb-3 font-medium">Sana</th>
+                <th className="pb-3 font-medium">Ism</th>
+                <th className="pb-3 font-medium">Filial</th>
+                <th className="pb-3 font-medium">Turi</th>
+                <th className="pb-3 font-medium text-right">Summa</th>
+                <th className="pb-3 font-medium">Kategoriya</th>
+                <th className="pb-3 font-medium">Izoh</th>
+              </tr>
+            </thead>
             <tbody className="divide-y divide-border">
               {[...rows].reverse().slice(0, 20).map((r, i) => (
                 <tr key={i}>
@@ -138,7 +168,9 @@ export function Moliya() {
                   <td className="py-3 font-medium">{r.ism}</td>
                   <td className="py-3 text-muted-foreground">{r.filial}</td>
                   <td className="py-3 text-muted-foreground">{r.turi}</td>
-                  <td className={`py-3 text-right num font-semibold ${r.summa >= 0 ? "text-success" : "text-danger"}`}>{r.summa >= 0 ? "+" : ""}{fmt(r.summa)}</td>
+                  <td className={`py-3 text-right num font-semibold ${r.summa >= 0 ? "text-success" : "text-danger"}`}>
+                    {r.summa >= 0 ? "+" : "-"}{fmt(Math.abs(r.summa))}
+                  </td>
                   <td className="py-3">{r.kategoriya || "—"}</td>
                   <td className="py-3 text-muted-foreground text-xs max-w-[200px] truncate">{r.izoh || "—"}</td>
                 </tr>
