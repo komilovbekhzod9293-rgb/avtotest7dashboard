@@ -13,11 +13,15 @@ const EXPENSE_COLORS = ["hsl(222 47% 11%)","hsl(220 9% 46%)","hsl(230 70% 55%)",
 const fmt = (n: number) => {
   if (Math.abs(n) >= 1_000_000) return `${(n / 1_000_000).toFixed(1)} mln`;
   if (Math.abs(n) >= 1_000) return `${(n / 1_000).toFixed(0)} ming`;
-  return `${n}`;
+  return `${Math.round(n)}`;
 };
 
 function parseSumma(raw: string): number {
-  const cleaned = raw.replace(/p\./gi, "").replace(/\s/g, "").replace(",", ".");
+  // убираем всё кроме цифр, запятой, точки и минуса
+  const cleaned = raw
+    .replace(/p\./gi, "")
+    .replace(/[^\d,.\-]/g, "")
+    .replace(",", ".");
   return parseFloat(cleaned) || 0;
 }
 
