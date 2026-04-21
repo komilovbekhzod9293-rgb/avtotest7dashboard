@@ -12,6 +12,12 @@ const UZ_MONTHS = ["Yan","Fev","Mar","Apr","May","Iyn","Iyl","Avg","Sen","Okt","
 const EXPENSE_COLORS = ["hsl(222 47% 11%)","hsl(220 9% 46%)","hsl(230 70% 55%)","hsl(38 92% 50%)","hsl(220 13% 78%)"];
 
 const fmt = (n: number) => Math.round(Math.abs(n)).toLocaleString("ru-RU") + " so'm";
+const fmtShort = (n: number) => {
+  const abs = Math.abs(n);
+  if (abs >= 1_000_000) return (n / 1_000_000).toFixed(1) + " mln";
+  if (abs >= 1_000) return Math.round(n / 1_000) + " ming";
+  return Math.round(n) + "";
+};
 
 function parseSumma(raw: string): number {
   const str = raw.trim();
@@ -28,7 +34,6 @@ function parseDate(sana: string): Date | null {
 }
 
 type Period = "kun" | "hafta" | "oy" | "barchasi";
-
 interface Row { sana: string; ism: string; filial: string; turi: string; summa: number; kirimChiqim: string; izoh: string; }
 
 export function Moliya() {
@@ -54,17 +59,13 @@ export function Moliya() {
   if (loading) return <div className="flex items-center justify-center h-64 gap-3 text-muted-foreground"><Loader2 className="h-5 w-5 animate-spin" /><span>Yuklanmoqda…</span></div>;
   if (error) return <div className="flex items-center justify-center h-64 gap-3 text-danger"><AlertCircle className="h-5 w-5" /><span>Xatolik: {error}</span></div>;
 
-  // Фильтр по периоду
   const now = new Date();
   const filtered = rows.filter((r) => {
     if (period === "barchasi") return true;
     const d = parseDate(r.sana);
     if (!d) return false;
     if (period === "kun") return d.toDateString() === now.toDateString();
-    if (period === "hafta") {
-      const diff = (now.getTime() - d.getTime()) / (1000 * 60 * 60 * 24);
-      return diff >= 0 && diff < 7;
-    }
+    if (period === "hafta") return (now.getTime() - d.getTime()) / (1000*60*60*24) >= 0 && (now.getTime() - d.getTime()) / (1000*60*60*24) < 7;
     if (period === "oy") return d.getMonth() === now.getMonth() && d.getFullYear() === now.getFullYear();
     return true;
   });
@@ -78,6 +79,8 @@ export function Moliya() {
   const yunusobodRevenue = filtered.filter((r) => r.summa > 0 && r.filial === "Yunusobod").reduce((s, r) => s + r.summa, 0);
   const novzaExpenses = filtered.filter((r) => r.summa < 0 && r.filial === "Novza").reduce((s, r) => s + Math.abs(r.summa), 0);
   const yunusobodExpenses = filtered.filter((r) => r.summa < 0 && r.filial === "Yunusobod").reduce((s, r) => s + Math.abs(r.summa), 0);
+  const novzaProfit = novzaRevenue - novzaExpenses;
+  const yunusobodProfit = yunusobodRevenue - yunusobodExpenses;
 
   const monthMap: Record<string, { revenue: number; expenses: number }> = {};
   filtered.forEach((r) => {
@@ -90,9 +93,7 @@ export function Moliya() {
   });
 
   const chartData = Object.entries(monthMap).map(([month, v]) => ({
-    month,
-    "Daromad": Math.round(v.revenue / 1_000_000),
-    "Foyda": Math.round((v.revenue - v.expenses) / 1_000_000),
+    month, "Daromad": Math.round(v.revenue / 1_000_000), "Foyda": Math.round((v.revenue - v.expenses) / 1_000_000),
   }));
 
   const filialMap: Record<string, number> = {};
@@ -116,7 +117,6 @@ export function Moliya() {
     <div>
       <Header title="Moliya" subtitle="Daromad, xarajat va foyda tahlili" />
 
-      {/* Фильтр периода */}
       <div className="flex gap-2 mb-6">
         {periods.map((p) => (
           <button key={p.id} onClick={() => setPeriod(p.id)}
@@ -128,15 +128,18 @@ export function Moliya() {
         ))}
       </div>
 
-      {/* Общая статистика */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-4">
         <StatCard label="Jami daromad" value={fmt(totalRevenue)} icon={<Wallet className="h-4 w-4" />} />
         <StatCard label="Jami xarajat" value={fmt(totalExpenses)} icon={<TrendingDown className="h-4 w-4" />} />
-        <StatCard label="Sof foyda" value={fmt(totalProfit)} icon={<TrendingUp className="h-4 w-4" />} />
+        <StatCard
+          label="Sof foyda"
+          value={fmt(totalProfit)}
+          hint={`Novza: ${fmtShort(novzaProfit)}  |  Yunusobod: ${fmtShort(yunusobodProfit)}`}
+          icon={<TrendingUp className="h-4 w-4" />}
+        />
         <StatCard label="Marja" value={`${margin}%`} icon={<PiggyBank className="h-4 w-4" />} />
       </div>
 
-      {/* По филиалам */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
         <StatCard label="Novza — Daromad" value={fmt(novzaRevenue)} icon={<TrendingUp className="h-4 w-4" />} />
         <StatCard label="Yunusobod — Daromad" value={fmt(yunusobodRevenue)} icon={<TrendingUp className="h-4 w-4" />} />
