@@ -3,6 +3,7 @@ import { Header } from "@/components/dashboard/Header";
 import { StatCard } from "@/components/dashboard/StatCard";
 import { Wallet, TrendingDown, TrendingUp, PiggyBank, Loader2, AlertCircle } from "lucide-react";
 import { Area, AreaChart, CartesianGrid, Cell, Pie, PieChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
+import { cn } from "@/lib/utils";
 
 const SHEET_ID = "1bLel0b3ULXWJ71Tgn_ynl5fvBrDIMZXo-CzeV9lnE3k";
 const SHEET_NAME = "moliya";
@@ -15,15 +16,18 @@ const fmt = (n: number) => Math.round(Math.abs(n)).toLocaleString("ru-RU") + " s
 function parseSumma(raw: string): number {
   const str = raw.trim();
   const isNegative = str.includes("-");
-  // оставляем только цифры, пробелы и запятую — потом чистим
-  const cleaned = str
-    .replace(/-/g, "")
-    .replace(/[^\d\s,]/g, "")  // убираем всё нечисловое кроме пробелов и запятой
-    .replace(/\s/g, "")         // убираем пробелы
-    .replace(",", ".");          // запятая → точка
+  const cleaned = str.replace(/-/g, "").replace(/[^\d\s,]/g, "").replace(/\s/g, "").replace(",", ".");
   const num = parseFloat(cleaned) || 0;
   return isNegative ? -num : num;
 }
+
+function parseDate(sana: string): Date | null {
+  const parts = sana.split(".");
+  if (parts.length < 3) return null;
+  return new Date(parseInt(parts[2]), parseInt(parts[1]) - 1, parseInt(parts[0]));
+}
+
+type Period = "kun" | "hafta" | "oy" | "barchasi";
 
 interface Row { sana: string; ism: string; filial: string; turi: string; summa: number; kirimChiqim: string; izoh: string; }
 
@@ -31,24 +35,17 @@ export function Moliya() {
   const [rows, setRows] = useState<Row[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [period, setPeriod] = useState<Period>("barchasi");
 
   useEffect(() => {
     fetch(`https://sheets.googleapis.com/v4/spreadsheets/${SHEET_ID}/values/${SHEET_NAME}?key=${API_KEY}`)
       .then((res) => { if (!res.ok) throw new Error(`API xatosi: ${res.status}`); return res.json(); })
       .then((data) => {
         const [, ...dataRows] = data.values as string[][];
-        const parsed = dataRows
-          .filter((r) => r.length >= 6 && r[0] && r[5])
-          .map((r) => ({
-            sana: r[0] ?? "",
-            ism: r[1] ?? "",
-            filial: r[2] ?? "",
-            turi: r[4] ?? "",
-            summa: parseSumma(r[5]),
-            kirimChiqim: r[6] ?? "",
-            izoh: r[7] ?? "",
-          }));
-        setRows(parsed);
+        setRows(dataRows.filter((r) => r.length >= 6 && r[0] && r[5]).map((r) => ({
+          sana: r[0] ?? "", ism: r[1] ?? "", filial: r[2] ?? "", turi: r[4] ?? "",
+          summa: parseSumma(r[5]), kirimChiqim: r[6] ?? "", izoh: r[7] ?? "",
+        })));
       })
       .catch((e) => setError(e.message))
       .finally(() => setLoading(false));
@@ -57,13 +54,33 @@ export function Moliya() {
   if (loading) return <div className="flex items-center justify-center h-64 gap-3 text-muted-foreground"><Loader2 className="h-5 w-5 animate-spin" /><span>Yuklanmoqda…</span></div>;
   if (error) return <div className="flex items-center justify-center h-64 gap-3 text-danger"><AlertCircle className="h-5 w-5" /><span>Xatolik: {error}</span></div>;
 
-  const totalRevenue = rows.filter((r) => r.summa > 0).reduce((s, r) => s + r.summa, 0);
-  const totalExpenses = rows.filter((r) => r.summa < 0).reduce((s, r) => s + Math.abs(r.summa), 0);
+  // Фильтр по периоду
+  const now = new Date();
+  const filtered = rows.filter((r) => {
+    if (period === "barchasi") return true;
+    const d = parseDate(r.sana);
+    if (!d) return false;
+    if (period === "kun") return d.toDateString() === now.toDateString();
+    if (period === "hafta") {
+      const diff = (now.getTime() - d.getTime()) / (1000 * 60 * 60 * 24);
+      return diff >= 0 && diff < 7;
+    }
+    if (period === "oy") return d.getMonth() === now.getMonth() && d.getFullYear() === now.getFullYear();
+    return true;
+  });
+
+  const totalRevenue = filtered.filter((r) => r.summa > 0).reduce((s, r) => s + r.summa, 0);
+  const totalExpenses = filtered.filter((r) => r.summa < 0).reduce((s, r) => s + Math.abs(r.summa), 0);
   const totalProfit = totalRevenue - totalExpenses;
   const margin = totalRevenue > 0 ? ((totalProfit / totalRevenue) * 100).toFixed(1) : "0.0";
 
+  const novzaRevenue = filtered.filter((r) => r.summa > 0 && r.filial === "Novza").reduce((s, r) => s + r.summa, 0);
+  const yunusobodRevenue = filtered.filter((r) => r.summa > 0 && r.filial === "Yunusobod").reduce((s, r) => s + r.summa, 0);
+  const novzaExpenses = filtered.filter((r) => r.summa < 0 && r.filial === "Novza").reduce((s, r) => s + Math.abs(r.summa), 0);
+  const yunusobodExpenses = filtered.filter((r) => r.summa < 0 && r.filial === "Yunusobod").reduce((s, r) => s + Math.abs(r.summa), 0);
+
   const monthMap: Record<string, { revenue: number; expenses: number }> = {};
-  rows.forEach((r) => {
+  filtered.forEach((r) => {
     const parts = r.sana.split(".");
     if (parts.length < 2) return;
     const key = UZ_MONTHS[parseInt(parts[1], 10) - 1] ?? r.sana;
@@ -79,7 +96,7 @@ export function Moliya() {
   }));
 
   const filialMap: Record<string, number> = {};
-  rows.filter((r) => r.summa < 0).forEach((r) => {
+  filtered.filter((r) => r.summa < 0).forEach((r) => {
     const k = r.filial || "Boshqa";
     filialMap[k] = (filialMap[k] ?? 0) + Math.abs(r.summa);
   });
@@ -88,14 +105,43 @@ export function Moliya() {
     name, value: Math.round((val / totalExp) * 100), color: EXPENSE_COLORS[i % EXPENSE_COLORS.length],
   }));
 
+  const periods: { id: Period; label: string }[] = [
+    { id: "kun", label: "Bugun" },
+    { id: "hafta", label: "Hafta" },
+    { id: "oy", label: "Oy" },
+    { id: "barchasi", label: "Barchasi" },
+  ];
+
   return (
     <div>
       <Header title="Moliya" subtitle="Daromad, xarajat va foyda tahlili" />
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+
+      {/* Фильтр периода */}
+      <div className="flex gap-2 mb-6">
+        {periods.map((p) => (
+          <button key={p.id} onClick={() => setPeriod(p.id)}
+            className={cn("px-4 py-1.5 rounded-lg text-sm font-medium transition",
+              period === p.id ? "bg-primary text-primary-foreground" : "bg-secondary text-muted-foreground hover:text-foreground"
+            )}>
+            {p.label}
+          </button>
+        ))}
+      </div>
+
+      {/* Общая статистика */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-4">
         <StatCard label="Jami daromad" value={fmt(totalRevenue)} icon={<Wallet className="h-4 w-4" />} />
         <StatCard label="Jami xarajat" value={fmt(totalExpenses)} icon={<TrendingDown className="h-4 w-4" />} />
         <StatCard label="Sof foyda" value={fmt(totalProfit)} icon={<TrendingUp className="h-4 w-4" />} />
         <StatCard label="Marja" value={`${margin}%`} icon={<PiggyBank className="h-4 w-4" />} />
+      </div>
+
+      {/* По филиалам */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+        <StatCard label="Novza — Daromad" value={fmt(novzaRevenue)} icon={<TrendingUp className="h-4 w-4" />} />
+        <StatCard label="Yunusobod — Daromad" value={fmt(yunusobodRevenue)} icon={<TrendingUp className="h-4 w-4" />} />
+        <StatCard label="Novza — Xarajat" value={fmt(novzaExpenses)} icon={<TrendingDown className="h-4 w-4" />} />
+        <StatCard label="Yunusobod — Xarajat" value={fmt(yunusobodExpenses)} icon={<TrendingDown className="h-4 w-4" />} />
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 mb-6">
@@ -133,7 +179,7 @@ export function Moliya() {
                   <Pie data={expenseBreakdown} dataKey="value" innerRadius={55} outerRadius={80} paddingAngle={2}>
                     {expenseBreakdown.map((e, i) => <Cell key={i} fill={e.color} />)}
                   </Pie>
-                  <Tooltip contentStyle={{ background: "hsl(var(--card))", border: "1px solid hsl(var(--border))", borderRadius: 12, fontSize: 12 }} />
+                  <Tooltip contentStyle={{ background: "hsl(var(--card))", border: "1px solid hsl(var(--border))", borderRadius: 12, fontSize: 12 }} formatter={(val) => [`${val}%`, ""]} />
                 </PieChart>
               </ResponsiveContainer>
               <div className="mt-3 space-y-2">
@@ -164,7 +210,7 @@ export function Moliya() {
               </tr>
             </thead>
             <tbody className="divide-y divide-border">
-              {[...rows].reverse().slice(0, 20).map((r, i) => (
+              {[...filtered].reverse().slice(0, 20).map((r, i) => (
                 <tr key={i}>
                   <td className="py-3 num text-muted-foreground">{r.sana}</td>
                   <td className="py-3 font-medium">{r.ism}</td>
