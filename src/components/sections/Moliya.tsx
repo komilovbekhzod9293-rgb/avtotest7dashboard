@@ -15,10 +15,9 @@ const fmt = (n: number) => Math.round(Math.abs(n)).toLocaleString("ru-RU") + " s
 function parseSumma(raw: string): number {
   const str = raw.trim();
   const isNegative = str.startsWith("-");
-  // убираем минус, "p.", все пробелы, потом запятую → точка
   const cleaned = str
     .replace("-", "")
-    .replace(/p\./i, "")
+    .replace(/[рp]\./i, "")
     .replace(/\s/g, "")
     .replace(",", ".");
   const num = parseFloat(cleaned) || 0;
@@ -44,7 +43,6 @@ export function Moliya() {
             summa: parseSumma(r[4]),
             kategoriya: r[5] ?? "", izoh: r[6] ?? "",
           }));
-        console.log("Parsed rows:", parsed); // для отладки
         setRows(parsed);
       })
       .catch((e) => setError(e.message))
