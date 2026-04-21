@@ -14,17 +14,18 @@ const fmt = (n: number) => Math.round(Math.abs(n)).toLocaleString("ru-RU") + " s
 
 function parseSumma(raw: string): number {
   const str = raw.trim();
-  const isNegative = str.startsWith("-");
+  const isNegative = str.includes("-");
+  // оставляем только цифры, пробелы и запятую — потом чистим
   const cleaned = str
-    .replace("-", "")
-    .replace(/[рp]\./i, "")
-    .replace(/\s/g, "")
-    .replace(",", ".");
+    .replace(/-/g, "")
+    .replace(/[^\d\s,]/g, "")  // убираем всё нечисловое кроме пробелов и запятой
+    .replace(/\s/g, "")         // убираем пробелы
+    .replace(",", ".");          // запятая → точка
   const num = parseFloat(cleaned) || 0;
   return isNegative ? -num : num;
 }
 
-interface Row { sana: string; ism: string; filial: string; turi: string; summa: number; kategoriya: string; izoh: string; }
+interface Row { sana: string; ism: string; filial: string; turi: string; summa: number; kirimChiqim: string; izoh: string; }
 
 export function Moliya() {
   const [rows, setRows] = useState<Row[]>([]);
@@ -37,11 +38,15 @@ export function Moliya() {
       .then((data) => {
         const [, ...dataRows] = data.values as string[][];
         const parsed = dataRows
-          .filter((r) => r.length >= 5 && r[0] && r[4])
+          .filter((r) => r.length >= 6 && r[0] && r[5])
           .map((r) => ({
-            sana: r[0] ?? "", ism: r[1] ?? "", filial: r[2] ?? "", turi: r[3] ?? "",
-            summa: parseSumma(r[4]),
-            kategoriya: r[5] ?? "", izoh: r[6] ?? "",
+            sana: r[0] ?? "",
+            ism: r[1] ?? "",
+            filial: r[2] ?? "",
+            turi: r[4] ?? "",
+            summa: parseSumma(r[5]),
+            kirimChiqim: r[6] ?? "",
+            izoh: r[7] ?? "",
           }));
         setRows(parsed);
       })
@@ -150,7 +155,12 @@ export function Moliya() {
           <table className="w-full text-sm">
             <thead>
               <tr className="text-left text-xs text-muted-foreground uppercase tracking-wider">
-                <th className="pb-3 font-medium">Sana</th><th className="pb-3 font-medium">Ism</th><th className="pb-3 font-medium">Filial</th><th className="pb-3 font-medium">Turi</th><th className="pb-3 font-medium text-right">Summa</th><th className="pb-3 font-medium">Kategoriya</th><th className="pb-3 font-medium">Izoh</th>
+                <th className="pb-3 font-medium">Sana</th>
+                <th className="pb-3 font-medium">Ism</th>
+                <th className="pb-3 font-medium">Filial</th>
+                <th className="pb-3 font-medium">Turi</th>
+                <th className="pb-3 font-medium text-right">Summa</th>
+                <th className="pb-3 font-medium">Izoh</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-border">
@@ -163,7 +173,6 @@ export function Moliya() {
                   <td className={`py-3 text-right num font-semibold ${r.summa >= 0 ? "text-success" : "text-danger"}`}>
                     {r.summa >= 0 ? "+" : "-"}{fmt(Math.abs(r.summa))}
                   </td>
-                  <td className="py-3">{r.kategoriya || "—"}</td>
                   <td className="py-3 text-muted-foreground text-xs max-w-[200px] truncate">{r.izoh || "—"}</td>
                 </tr>
               ))}
