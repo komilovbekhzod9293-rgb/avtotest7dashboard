@@ -1,4 +1,3 @@
-// v2 
 import { useEffect, useState } from "react";
 import { Header } from "@/components/dashboard/Header";
 import { StatCard } from "@/components/dashboard/StatCard";
@@ -129,38 +128,93 @@ export function Moliya() {
         ))}
       </div>
 
-      {/* Строка 1 — общая статистика */}
+      {/* Строка 1 — общая статистика с цветами */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-4">
-        <StatCard label="Jami daromad" value={fmt(totalRevenue)} icon={<Wallet className="h-4 w-4" />} />
-        <StatCard label="Jami xarajat" value={fmt(totalExpenses)} icon={<TrendingDown className="h-4 w-4" />} />
-        <StatCard label="Sof foyda" value={fmt(totalProfit)} hint={`Novza: ${fmtShort(novzaProfit)}  |  Yunusobod: ${fmtShort(yunusobodProfit)}`} icon={<TrendingUp className="h-4 w-4" />} />
-        <StatCard label="Marja" value={`${margin}%`} icon={<PiggyBank className="h-4 w-4" />} />
+        <div className="rounded-2xl p-5 shadow-soft border border-emerald-100 bg-gradient-to-br from-emerald-50 to-white">
+          <div className="flex items-center justify-between mb-3">
+            <span className="text-sm text-emerald-700 font-medium">Jami daromad</span>
+            <div className="h-8 w-8 rounded-full bg-emerald-100 flex items-center justify-center"><Wallet className="h-4 w-4 text-emerald-600" /></div>
+          </div>
+          <p className="text-2xl font-bold text-emerald-900 num">{fmt(totalRevenue)}</p>
+        </div>
+
+        <div className="rounded-2xl p-5 shadow-soft border border-red-100 bg-gradient-to-br from-red-50 to-white">
+          <div className="flex items-center justify-between mb-3">
+            <span className="text-sm text-red-700 font-medium">Jami xarajat</span>
+            <div className="h-8 w-8 rounded-full bg-red-100 flex items-center justify-center"><TrendingDown className="h-4 w-4 text-red-600" /></div>
+          </div>
+          <p className="text-2xl font-bold text-red-900 num">{fmt(totalExpenses)}</p>
+        </div>
+
+        <div className="rounded-2xl p-5 shadow-soft border border-blue-100 bg-gradient-to-br from-blue-50 to-white">
+          <div className="flex items-center justify-between mb-3">
+            <span className="text-sm text-blue-700 font-medium">Sof foyda</span>
+            <div className="h-8 w-8 rounded-full bg-blue-100 flex items-center justify-center"><TrendingUp className="h-4 w-4 text-blue-600" /></div>
+          </div>
+          <p className="text-2xl font-bold text-blue-900 num">{fmt(totalProfit)}</p>
+          <p className="text-xs text-blue-600 mt-1">Novza: {fmtShort(novzaProfit)}  |  Yunusobod: {fmtShort(yunusobodProfit)}</p>
+        </div>
+
+        <div className="rounded-2xl p-5 shadow-soft border border-purple-100 bg-gradient-to-br from-purple-50 to-white">
+          <div className="flex items-center justify-between mb-3">
+            <span className="text-sm text-purple-700 font-medium">Marja</span>
+            <div className="h-8 w-8 rounded-full bg-purple-100 flex items-center justify-center"><PiggyBank className="h-4 w-4 text-purple-600" /></div>
+          </div>
+          <p className="text-2xl font-bold text-purple-900 num">{margin}%</p>
+        </div>
       </div>
 
-      {/* Строка 2 — статистика по филиалам */}
+      {/* Строка 2 — по филиалам */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-4">
-        <StatCard label="Novza — Daromad" value={fmt(novzaRevenue)} icon={<TrendingUp className="h-4 w-4" />} />
-        <StatCard label="Yunusobod — Daromad" value={fmt(yunusobodRevenue)} icon={<TrendingUp className="h-4 w-4" />} />
-        <StatCard label="Novza — Xarajat" value={fmt(novzaExpenses)} icon={<TrendingDown className="h-4 w-4" />} />
-        <StatCard label="Yunusobod — Xarajat" value={fmt(yunusobodExpenses)} icon={<TrendingDown className="h-4 w-4" />} />
+        <div className="rounded-2xl p-5 shadow-soft border border-emerald-100 bg-gradient-to-br from-emerald-50 to-white">
+          <div className="flex items-center justify-between mb-3">
+            <span className="text-sm text-emerald-700 font-medium">Novza — Daromad</span>
+            <div className="h-8 w-8 rounded-full bg-emerald-100 flex items-center justify-center"><TrendingUp className="h-4 w-4 text-emerald-600" /></div>
+          </div>
+          <p className="text-xl font-bold text-emerald-900 num">{fmt(novzaRevenue)}</p>
+        </div>
+
+        <div className="rounded-2xl p-5 shadow-soft border border-emerald-100 bg-gradient-to-br from-emerald-50 to-white">
+          <div className="flex items-center justify-between mb-3">
+            <span className="text-sm text-emerald-700 font-medium">Yunusobod — Daromad</span>
+            <div className="h-8 w-8 rounded-full bg-emerald-100 flex items-center justify-center"><TrendingUp className="h-4 w-4 text-emerald-600" /></div>
+          </div>
+          <p className="text-xl font-bold text-emerald-900 num">{fmt(yunusobodRevenue)}</p>
+        </div>
+
+        <div className="rounded-2xl p-5 shadow-soft border border-red-100 bg-gradient-to-br from-red-50 to-white">
+          <div className="flex items-center justify-between mb-3">
+            <span className="text-sm text-red-700 font-medium">Novza — Xarajat</span>
+            <div className="h-8 w-8 rounded-full bg-red-100 flex items-center justify-center"><TrendingDown className="h-4 w-4 text-red-600" /></div>
+          </div>
+          <p className="text-xl font-bold text-red-900 num">{fmt(novzaExpenses)}</p>
+        </div>
+
+        <div className="rounded-2xl p-5 shadow-soft border border-red-100 bg-gradient-to-br from-red-50 to-white">
+          <div className="flex items-center justify-between mb-3">
+            <span className="text-sm text-red-700 font-medium">Yunusobod — Xarajat</span>
+            <div className="h-8 w-8 rounded-full bg-red-100 flex items-center justify-center"><TrendingDown className="h-4 w-4 text-red-600" /></div>
+          </div>
+          <p className="text-xl font-bold text-red-900 num">{fmt(yunusobodExpenses)}</p>
+        </div>
       </div>
 
-      {/* Строка 3 — широкие карточки чистой прибыли по филиалам */}
+      {/* Строка 3 — широкие карточки прибыли по филиалам */}
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-6">
-        <div className="bg-card rounded-2xl border border-border p-5 shadow-soft">
-          <p className="text-sm text-muted-foreground mb-1">Novza — Sof foyda</p>
-          <p className="text-2xl font-bold num">{fmt(novzaProfit)}</p>
-          <div className="flex gap-6 mt-3 text-xs text-muted-foreground">
-            <span>Daromad: <span className="text-foreground font-medium num">{fmt(novzaRevenue)}</span></span>
-            <span>Xarajat: <span className="text-foreground font-medium num">{fmt(novzaExpenses)}</span></span>
+        <div className="rounded-2xl p-5 shadow-soft border border-blue-100 bg-gradient-to-br from-blue-50 to-white">
+          <p className="text-sm text-blue-700 font-medium mb-1">Novza — Sof foyda</p>
+          <p className="text-2xl font-bold text-blue-900 num">{fmt(novzaProfit)}</p>
+          <div className="flex gap-6 mt-3 text-xs text-blue-600">
+            <span>Daromad: <span className="font-semibold">{fmt(novzaRevenue)}</span></span>
+            <span>Xarajat: <span className="font-semibold">{fmt(novzaExpenses)}</span></span>
           </div>
         </div>
-        <div className="bg-card rounded-2xl border border-border p-5 shadow-soft">
-          <p className="text-sm text-muted-foreground mb-1">Yunusobod — Sof foyda</p>
-          <p className="text-2xl font-bold num">{fmt(yunusobodProfit)}</p>
-          <div className="flex gap-6 mt-3 text-xs text-muted-foreground">
-            <span>Daromad: <span className="text-foreground font-medium num">{fmt(yunusobodRevenue)}</span></span>
-            <span>Xarajat: <span className="text-foreground font-medium num">{fmt(yunusobodExpenses)}</span></span>
+        <div className="rounded-2xl p-5 shadow-soft border border-blue-100 bg-gradient-to-br from-blue-50 to-white">
+          <p className="text-sm text-blue-700 font-medium mb-1">Yunusobod — Sof foyda</p>
+          <p className="text-2xl font-bold text-blue-900 num">{fmt(yunusobodProfit)}</p>
+          <div className="flex gap-6 mt-3 text-xs text-blue-600">
+            <span>Daromad: <span className="font-semibold">{fmt(yunusobodRevenue)}</span></span>
+            <span>Xarajat: <span className="font-semibold">{fmt(yunusobodExpenses)}</span></span>
           </div>
         </div>
       </div>
@@ -217,7 +271,10 @@ export function Moliya() {
       </div>
 
       <div className="bg-card rounded-2xl border border-border p-5 shadow-soft">
-        <h3 className="font-semibold mb-4">So'nggi tranzaksiyalar</h3>
+        <div className="flex items-center justify-between mb-4">
+          <h3 className="font-semibold">Tranzaksiyalar ({filtered.length})</h3>
+          <span className="text-xs text-muted-foreground">{period === "barchasi" ? "Barchasi" : period === "kun" ? "Bugun" : period === "hafta" ? "Hafta" : "Oy"}</span>
+        </div>
         <div className="overflow-x-auto">
           <table className="w-full text-sm">
             <thead>
@@ -231,13 +288,13 @@ export function Moliya() {
               </tr>
             </thead>
             <tbody className="divide-y divide-border">
-              {[...filtered].reverse().slice(0, 20).map((r, i) => (
-                <tr key={i}>
+              {[...filtered].reverse().map((r, i) => (
+                <tr key={i} className="hover:bg-secondary/60 transition">
                   <td className="py-3 num text-muted-foreground">{r.sana}</td>
                   <td className="py-3 font-medium">{r.ism}</td>
                   <td className="py-3 text-muted-foreground">{r.filial}</td>
                   <td className="py-3 text-muted-foreground">{r.turi}</td>
-                  <td className={`py-3 text-right num font-semibold ${r.summa >= 0 ? "text-success" : "text-danger"}`}>
+                  <td className={`py-3 text-right num font-semibold ${r.summa >= 0 ? "text-emerald-600" : "text-red-500"}`}>
                     {r.summa >= 0 ? "+" : "-"}{fmt(Math.abs(r.summa))}
                   </td>
                   <td className="py-3 text-muted-foreground text-xs max-w-[200px] truncate">{r.izoh || "—"}</td>
