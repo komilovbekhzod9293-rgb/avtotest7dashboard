@@ -1,7 +1,8 @@
 import { useEffect, useState } from "react";
 import { Header } from "@/components/dashboard/Header";
 import { StatCard } from "@/components/dashboard/StatCard";
-import { Users, Clock, Award, Loader2, AlertCircle } from "lucide-react";
+import { Users, Clock, Award, Loader2, AlertCircle, Calculator } from "lucide-react";
+import { cn } from "@/lib/utils";
 
 const SHEET_ID = "1AzPhbdZD5FaeSNgVjShNuJDygZElrdFkMzsauaBIscE";
 const SHEET_NAME = "Hodimlar ish vaqti";
@@ -23,18 +24,31 @@ function parseMinutes(soat: string): number {
   return parseInt(match[1] || "0") * 60 + parseInt(match[2] || "0");
 }
 
-function today(): string {
-  const now = new Date();
-  const d = String(now.getDate()).padStart(2, "0");
-  const m = String(now.getMonth() + 1).padStart(2, "0");
-  const y = now.getFullYear();
-  return `${d}.${m}.${y}`;
+function parseRowDate(sana: string): Date | null {
+  const parts = sana.split(".");
+  if (parts.length < 3) return null;
+  return new Date(parseInt(parts[2]), parseInt(parts[1]) - 1, parseInt(parts[0]));
 }
+
+function todayStr(): string {
+  const now = new Date();
+  return `${String(now.getDate()).padStart(2,"0")}.${String(now.getMonth()+1).padStart(2,"0")}.${now.getFullYear()}`;
+}
+
+type Period = "kun" | "hafta" | "oy" | "barchasi";
 
 export function Hodimlar() {
   const [rows, setRows] = useState<HodimRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [period, setPeriod] = useState<Period>("kun");
+  const [showCalc, setShowCalc] = useState(false);
+  const [calcIsm, setCalcIsm] = useState("");
+  const [calcFrom, setCalcFrom] = useState("");
+  const [calcTo, setCalcTo] = useState("");
+  const [calcStavka, setCalcStavka] = useState("");
+  const [calcNorma, setCalcNorma] = useState("8");
+  const [calcResult, setCalcResult] = useState<string | null>(null);
 
   useEffect(() => {
     const url = `https://sheets.googleapis.com/v4/spreadsheets/${SHEET_ID}/values/${encodeURIComponent(SHEET_NAME)}?key=${API_KEY}`;
@@ -43,12 +57,8 @@ export function Hodimlar() {
       .then((data) => {
         const [, ...dataRows] = data.values as string[][];
         setRows(dataRows.filter((r) => r.length >= 5 && r[0]).map((r) => ({
-          ism: r[0] ?? "",
-          sana: r[1] ?? "",
-          kelish: r[2] ?? "",
-          ketish: r[3] ?? "",
-          filial: r[4] ?? "",
-          soat: r[5] ?? "",
+          ism: r[0] ?? "", sana: r[1] ?? "", kelish: r[2] ?? "",
+          ketish: r[3] ?? "", filial: r[4] ?? "", soat: r[5] ?? "",
         })));
       })
       .catch((e) => setError(e.message))
@@ -58,30 +68,161 @@ export function Hodimlar() {
   if (loading) return <div className="flex items-center justify-center h-64 gap-3 text-muted-foreground"><Loader2 className="h-5 w-5 animate-spin" /><span>Yuklanmoqda…</span></div>;
   if (error) return <div className="flex items-center justify-center h-64 gap-3 text-danger"><AlertCircle className="h-5 w-5" /><span>Xatolik: {error}</span></div>;
 
-  const todayStr = today();
-  const todayRows = rows.filter((r) => r.sana === todayStr);
-  const displayRows = todayRows.length > 0 ? todayRows : rows;
+  const now = new Date();
+  const filtered = rows.filter((r) => {
+    const d = parseRowDate(r.sana);
+    if (!d) return false;
+    if (period === "kun") return r.sana === todayStr();
+    if (period === "hafta") {
+      const diff = (now.getTime() - d.getTime()) / (1000*60*60*24);
+      return diff >= 0 && diff < 7;
+    }
+    if (period === "oy") return d.getMonth() === now.getMonth() && d.getFullYear() === now.getFullYear();
+    return true;
+  });
 
-  const avgMinutes = displayRows.filter(r => r.soat).reduce((s, r) => s + parseMinutes(r.soat), 0) / (displayRows.filter(r => r.soat).length || 1);
+  const withTime = filtered.filter(r => r.soat);
+  const avgMinutes = withTime.length > 0 ? withTime.reduce((s, r) => s + parseMinutes(r.soat), 0) / withTime.length : 0;
   const avgH = Math.floor(avgMinutes / 60);
   const avgM = Math.round(avgMinutes % 60);
+  const mostHours = [...filtered].filter(r => r.soat).sort((a, b) => parseMinutes(b.soat) - parseMinutes(a.soat))[0];
+  const novzaCount = filtered.filter(r => r.filial.includes("Novza")).length;
+  const yunusobodCount = filtered.filter(r => r.filial.includes("Yunusobod")).length;
+  const uniqueNames = [...new Set(rows.map(r => r.ism))].filter(Boolean);
 
-  const mostHours = [...displayRows].filter(r => r.soat).sort((a, b) => parseMinutes(b.soat) - parseMinutes(a.soat))[0];
+  function calcOylik() {
+    if (!calcIsm || !calcFrom || !calcTo || !calcStavka || !calcNorma) {
+      setCalcResult("Barcha maydonlarni to'ldiring");
+      return;
+    }
+    const from = new Date(calcFrom);
+    const to = new Date(calcTo);
+    const stavka = parseFloat(calcStavka.replace(/\s/g, "").replace(",", "."));
+    const normaHour = parseFloat(calcNorma);
+    if (isNaN(stavka) || isNaN(normaHour)) {
+      setCalcResult("Stavka yoki normani to'g'ri kiriting");
+      return;
+    }
+
+    // Считаем рабочие дни в периоде (все дни кроме воскресенья)
+    let workDaysInPeriod = 0;
+    const cur = new Date(from);
+    while (cur <= to) {
+      if (cur.getDay() !== 0) workDaysInPeriod++;
+      cur.setDate(cur.getDate() + 1);
+    }
+
+    // Фактически отработанные минуты сотрудника за период
+    const workedMinutes = rows
+      .filter(r => {
+        if (r.ism !== calcIsm) return false;
+        const d = parseRowDate(r.sana);
+        if (!d) return false;
+        return d >= from && d <= to;
+      })
+      .reduce((s, r) => s + parseMinutes(r.soat), 0);
+
+    const workedH = Math.floor(workedMinutes / 60);
+    const workedM = workedMinutes % 60;
+
+    // Норма минут за период
+    const normaTotalMinutes = workDaysInPeriod * normaHour * 60;
+
+    // Зарплата пропорционально отработанному
+    const earned = Math.round(stavka * (workedMinutes / normaTotalMinutes));
+
+    setCalcResult(
+      `👤 ${calcIsm}\n` +
+      `📅 ${calcFrom} — ${calcTo}\n` +
+      `⏱ Ishlagan: ${workedH}ч ${workedM}м (${workDaysInPeriod} ish kuni normasi: ${normaHour}s/kun)\n` +
+      `💰 Hisoblangan oylik: ${earned.toLocaleString("ru-RU")} so'm`
+    );
+  }
+
+  const periods: { id: Period; label: string }[] = [
+    { id: "kun", label: "Bugun" },
+    { id: "hafta", label: "Hafta" },
+    { id: "oy", label: "Oy" },
+    { id: "barchasi", label: "Barchasi" },
+  ];
 
   return (
     <div>
       <Header title="Hodimlar" subtitle="Davomat va ish vaqti" />
 
+      <div className="flex flex-wrap gap-2 mb-6">
+        {periods.map((p) => (
+          <button key={p.id} onClick={() => setPeriod(p.id)}
+            className={cn("px-4 py-1.5 rounded-lg text-sm font-medium transition",
+              period === p.id ? "bg-primary text-primary-foreground" : "bg-secondary text-muted-foreground hover:text-foreground"
+            )}>
+            {p.label}
+          </button>
+        ))}
+        <button onClick={() => { setShowCalc(!showCalc); setCalcResult(null); }}
+          className={cn("ml-auto px-4 py-1.5 rounded-lg text-sm font-medium transition inline-flex items-center gap-2",
+            showCalc ? "bg-primary text-primary-foreground" : "bg-secondary text-muted-foreground hover:text-foreground"
+          )}>
+          <Calculator className="h-4 w-4" />
+          Oylikni Hisoblash
+        </button>
+      </div>
+
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
-        <StatCard label="Bugun ishda" value={String(todayRows.length || displayRows.length)} hint="hodim" icon={<Users className="h-4 w-4" />} />
+        <StatCard label="Ishda" value={String(filtered.length)} hint="hodim" icon={<Users className="h-4 w-4" />} />
         <StatCard label="O'rt. ish vaqti" value={avgMinutes > 0 ? `${avgH} soat ${avgM} daq` : "—"} icon={<Clock className="h-4 w-4" />} />
-        <StatCard label="Novza filial" value={String(displayRows.filter(r => r.filial.includes("Novza")).length)} hint="hodim" icon={<Users className="h-4 w-4" />} />
+        <StatCard label="Filiallar" value={String(filtered.length)} hint={`Novza: ${novzaCount}  |  Yunusobod: ${yunusobodCount}`} icon={<Users className="h-4 w-4" />} />
         <StatCard label="Ko'p ishlagan" value={mostHours?.ism.split(" ")[0] ?? "—"} hint={mostHours?.soat ?? ""} icon={<Award className="h-4 w-4" />} />
       </div>
 
+      {showCalc && (
+        <div className="bg-card rounded-2xl border border-border p-5 shadow-soft mb-6">
+          <h3 className="font-semibold mb-4 flex items-center gap-2"><Calculator className="h-4 w-4" />Oylik hisoblash</h3>
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4 mb-4">
+            <div>
+              <label className="text-xs text-muted-foreground mb-1 block">Hodim</label>
+              <select value={calcIsm} onChange={(e) => setCalcIsm(e.target.value)}
+                className="w-full px-3 py-2 rounded-lg border border-border bg-background text-sm">
+                <option value="">Tanlang</option>
+                {uniqueNames.map(n => <option key={n} value={n}>{n}</option>)}
+              </select>
+            </div>
+            <div>
+              <label className="text-xs text-muted-foreground mb-1 block">Dan (sana)</label>
+              <input type="date" value={calcFrom} onChange={(e) => setCalcFrom(e.target.value)}
+                className="w-full px-3 py-2 rounded-lg border border-border bg-background text-sm" />
+            </div>
+            <div>
+              <label className="text-xs text-muted-foreground mb-1 block">Gacha (sana)</label>
+              <input type="date" value={calcTo} onChange={(e) => setCalcTo(e.target.value)}
+                className="w-full px-3 py-2 rounded-lg border border-border bg-background text-sm" />
+            </div>
+            <div>
+              <label className="text-xs text-muted-foreground mb-1 block">Oylik stavka (so'm)</label>
+              <input type="text" placeholder="3000000" value={calcStavka} onChange={(e) => setCalcStavka(e.target.value)}
+                className="w-full px-3 py-2 rounded-lg border border-border bg-background text-sm" />
+            </div>
+            <div>
+              <label className="text-xs text-muted-foreground mb-1 block">Kunlik norma (soat)</label>
+              <input type="number" min="1" max="24" value={calcNorma} onChange={(e) => setCalcNorma(e.target.value)}
+                className="w-full px-3 py-2 rounded-lg border border-border bg-background text-sm" />
+            </div>
+          </div>
+          <button onClick={calcOylik}
+            className="px-6 py-2 bg-primary text-primary-foreground rounded-lg text-sm font-medium hover:opacity-90 transition">
+            Hisoblash
+          </button>
+          {calcResult && (
+            <div className="mt-4 p-4 bg-secondary rounded-xl text-sm font-medium whitespace-pre-line leading-relaxed">
+              {calcResult}
+            </div>
+          )}
+        </div>
+      )}
+
       <div className="bg-card rounded-2xl border border-border shadow-soft overflow-hidden">
         <div className="px-5 py-4 border-b border-border">
-          <h3 className="font-semibold">Bugungi smena</h3>
+          <h3 className="font-semibold">Hodimlar jadvali</h3>
           <p className="text-xs text-muted-foreground mt-0.5">Kelish, ketish va ish vaqti</p>
         </div>
         <div className="overflow-x-auto">
@@ -96,7 +237,9 @@ export function Hodimlar() {
               </tr>
             </thead>
             <tbody className="divide-y divide-border">
-              {displayRows.map((e, i) => (
+              {filtered.length === 0 ? (
+                <tr><td colSpan={5} className="px-5 py-8 text-center text-muted-foreground">Ma'lumot yo'q</td></tr>
+              ) : filtered.map((e, i) => (
                 <tr key={i} className="hover:bg-secondary/60 transition">
                   <td className="px-5 py-3.5">
                     <div className="flex items-center gap-3">
