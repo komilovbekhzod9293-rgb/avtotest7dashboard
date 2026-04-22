@@ -9,12 +9,7 @@ const SHEET_NAME = "Hodimlar ish vaqti";
 const API_KEY = "AIzaSyB4kyYep05877BBpI9Rfv0SNcFhHVGBF5E";
 
 interface HodimRow {
-  ism: string;
-  sana: string;
-  kelish: string;
-  ketish: string;
-  filial: string;
-  soat: string;
+  ism: string; sana: string; kelish: string; ketish: string; filial: string; soat: string;
 }
 
 function parseMinutes(soat: string): number {
@@ -28,6 +23,13 @@ function parseRowDate(sana: string): Date | null {
   const parts = sana.split(".");
   if (parts.length < 3) return null;
   return new Date(parseInt(parts[2]), parseInt(parts[1]) - 1, parseInt(parts[0]));
+}
+
+// Конвертируем input date "2026-04-21" → "21.04.2026"
+function inputToSheetDate(input: string): string {
+  const parts = input.split("-");
+  if (parts.length < 3) return "";
+  return `${parts[2]}.${parts[1]}.${parts[0]}`;
 }
 
 function todayStr(): string {
@@ -73,10 +75,7 @@ export function Hodimlar() {
     const d = parseRowDate(r.sana);
     if (!d) return false;
     if (period === "kun") return r.sana === todayStr();
-    if (period === "hafta") {
-      const diff = (now.getTime() - d.getTime()) / (1000*60*60*24);
-      return diff >= 0 && diff < 7;
-    }
+    if (period === "hafta") return (now.getTime() - d.getTime()) / (1000*60*60*24) >= 0 && (now.getTime() - d.getTime()) / (1000*60*60*24) < 7;
     if (period === "oy") return d.getMonth() === now.getMonth() && d.getFullYear() === now.getFullYear();
     return true;
   });
@@ -95,8 +94,6 @@ export function Hodimlar() {
       setCalcResult("Barcha maydonlarni to'ldiring");
       return;
     }
-    const from = new Date(calcFrom);
-    const to = new Date(calcTo);
     const stavka = parseFloat(calcStavka.replace(/\s/g, "").replace(",", "."));
     const normaHour = parseFloat(calcNorma);
     if (isNaN(stavka) || isNaN(normaHour)) {
@@ -104,37 +101,45 @@ export function Hodimlar() {
       return;
     }
 
-    // Считаем рабочие дни в периоде (все дни кроме воскресенья)
+    // Конвертируем даты из input формата в формат Sheets
+    const fromSheet = inputToSheetDate(calcFrom);
+    const toSheet = inputToSheetDate(calcTo);
+    const fromDate = parseRowDate(fromSheet);
+    const toDate = parseRowDate(toSheet);
+
+    if (!fromDate || !toDate) {
+      setCalcResult("Sanani to'g'ri kiriting");
+      return;
+    }
+
+    // Рабочие дни в периоде (все кроме воскресенья)
     let workDaysInPeriod = 0;
-    const cur = new Date(from);
-    while (cur <= to) {
+    const cur = new Date(fromDate);
+    while (cur <= toDate) {
       if (cur.getDay() !== 0) workDaysInPeriod++;
       cur.setDate(cur.getDate() + 1);
     }
 
-    // Фактически отработанные минуты сотрудника за период
-    const workedMinutes = rows
-      .filter(r => {
-        if (r.ism !== calcIsm) return false;
-        const d = parseRowDate(r.sana);
-        if (!d) return false;
-        return d >= from && d <= to;
-      })
-      .reduce((s, r) => s + parseMinutes(r.soat), 0);
+    // Отработанные минуты сотрудника за период
+    const workedRows = rows.filter(r => {
+      if (r.ism !== calcIsm) return false;
+      const d = parseRowDate(r.sana);
+      if (!d) return false;
+      return d >= fromDate && d <= toDate;
+    });
 
+    const workedMinutes = workedRows.reduce((s, r) => s + parseMinutes(r.soat), 0);
     const workedH = Math.floor(workedMinutes / 60);
     const workedM = workedMinutes % 60;
-
-    // Норма минут за период
     const normaTotalMinutes = workDaysInPeriod * normaHour * 60;
-
-    // Зарплата пропорционально отработанному
-    const earned = Math.round(stavka * (workedMinutes / normaTotalMinutes));
+    const earned = normaTotalMinutes > 0 ? Math.round(stavka * (workedMinutes / normaTotalMinutes)) : 0;
 
     setCalcResult(
       `👤 ${calcIsm}\n` +
-      `📅 ${calcFrom} — ${calcTo}\n` +
-      `⏱ Ishlagan: ${workedH}ч ${workedM}м (${workDaysInPeriod} ish kuni normasi: ${normaHour}s/kun)\n` +
+      `📅 ${fromSheet} — ${toSheet}\n` +
+      `📋 Topilgan kunlar: ${workedRows.length} ta yozuv\n` +
+      `⏱ Ishlagan: ${workedH}ч ${workedM}м\n` +
+      `📊 Norma: ${workDaysInPeriod} ish kuni × ${normaHour}s = ${Math.round(normaTotalMinutes/60)}s\n` +
       `💰 Hisoblangan oylik: ${earned.toLocaleString("ru-RU")} so'm`
     );
   }
@@ -168,13 +173,45 @@ export function Hodimlar() {
         </button>
       </div>
 
+      {/* Карточки с цветами */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
-        <StatCard label="Ishda" value={String(filtered.length)} hint="hodim" icon={<Users className="h-4 w-4" />} />
-        <StatCard label="O'rt. ish vaqti" value={avgMinutes > 0 ? `${avgH} soat ${avgM} daq` : "—"} icon={<Clock className="h-4 w-4" />} />
-        <StatCard label="Filiallar" value={String(filtered.length)} hint={`Novza: ${novzaCount}  |  Yunusobod: ${yunusobodCount}`} icon={<Users className="h-4 w-4" />} />
-        <StatCard label="Ko'p ishlagan" value={mostHours?.ism.split(" ")[0] ?? "—"} hint={mostHours?.soat ?? ""} icon={<Award className="h-4 w-4" />} />
+        <div className="rounded-2xl p-5 shadow-soft border border-blue-100 bg-gradient-to-br from-blue-50 to-white">
+          <div className="flex items-center justify-between mb-3">
+            <span className="text-sm text-blue-700 font-medium">Ishda</span>
+            <div className="h-8 w-8 rounded-full bg-blue-100 flex items-center justify-center"><Users className="h-4 w-4 text-blue-600" /></div>
+          </div>
+          <p className="text-2xl font-bold text-blue-900">{filtered.length}</p>
+          <p className="text-xs text-blue-600 mt-1">hodim</p>
+        </div>
+
+        <div className="rounded-2xl p-5 shadow-soft border border-emerald-100 bg-gradient-to-br from-emerald-50 to-white">
+          <div className="flex items-center justify-between mb-3">
+            <span className="text-sm text-emerald-700 font-medium">O'rt. ish vaqti</span>
+            <div className="h-8 w-8 rounded-full bg-emerald-100 flex items-center justify-center"><Clock className="h-4 w-4 text-emerald-600" /></div>
+          </div>
+          <p className="text-2xl font-bold text-emerald-900">{avgMinutes > 0 ? `${avgH}ч ${avgM}м` : "—"}</p>
+        </div>
+
+        <div className="rounded-2xl p-5 shadow-soft border border-purple-100 bg-gradient-to-br from-purple-50 to-white">
+          <div className="flex items-center justify-between mb-3">
+            <span className="text-sm text-purple-700 font-medium">Filiallar</span>
+            <div className="h-8 w-8 rounded-full bg-purple-100 flex items-center justify-center"><Users className="h-4 w-4 text-purple-600" /></div>
+          </div>
+          <p className="text-2xl font-bold text-purple-900">{filtered.length}</p>
+          <p className="text-xs text-purple-600 mt-1">Novza: {novzaCount}  |  Yunusobod: {yunusobodCount}</p>
+        </div>
+
+        <div className="rounded-2xl p-5 shadow-soft border border-amber-100 bg-gradient-to-br from-amber-50 to-white">
+          <div className="flex items-center justify-between mb-3">
+            <span className="text-sm text-amber-700 font-medium">Ko'p ishlagan</span>
+            <div className="h-8 w-8 rounded-full bg-amber-100 flex items-center justify-center"><Award className="h-4 w-4 text-amber-600" /></div>
+          </div>
+          <p className="text-2xl font-bold text-amber-900">{mostHours?.ism.split(" ")[0] ?? "—"}</p>
+          <p className="text-xs text-amber-600 mt-1">{mostHours?.soat ?? ""}</p>
+        </div>
       </div>
 
+      {/* Калькулятор */}
       {showCalc && (
         <div className="bg-card rounded-2xl border border-border p-5 shadow-soft mb-6">
           <h3 className="font-semibold mb-4 flex items-center gap-2"><Calculator className="h-4 w-4" />Oylik hisoblash</h3>
@@ -199,7 +236,7 @@ export function Hodimlar() {
             </div>
             <div>
               <label className="text-xs text-muted-foreground mb-1 block">Oylik stavka (so'm)</label>
-              <input type="text" placeholder="3000000" value={calcStavka} onChange={(e) => setCalcStavka(e.target.value)}
+              <input type="text" placeholder="4000000" value={calcStavka} onChange={(e) => setCalcStavka(e.target.value)}
                 className="w-full px-3 py-2 rounded-lg border border-border bg-background text-sm" />
             </div>
             <div>
@@ -213,7 +250,7 @@ export function Hodimlar() {
             Hisoblash
           </button>
           {calcResult && (
-            <div className="mt-4 p-4 bg-secondary rounded-xl text-sm font-medium whitespace-pre-line leading-relaxed">
+            <div className="mt-4 p-4 bg-emerald-50 border border-emerald-100 rounded-xl text-sm font-medium whitespace-pre-line leading-relaxed text-emerald-900">
               {calcResult}
             </div>
           )}
@@ -253,9 +290,9 @@ export function Hodimlar() {
                     </div>
                   </td>
                   <td className="px-5 py-3.5 text-muted-foreground">{e.filial}</td>
-                  <td className="px-5 py-3.5 num text-muted-foreground">{e.kelish || "—"}</td>
-                  <td className="px-5 py-3.5 num text-muted-foreground">{e.ketish || "—"}</td>
-                  <td className="px-5 py-3.5 text-right num font-medium">{e.soat || "—"}</td>
+                  <td className="px-5 py-3.5 num text-emerald-600 font-medium">{e.kelish || "—"}</td>
+                  <td className="px-5 py-3.5 num text-red-500 font-medium">{e.ketish || "—"}</td>
+                  <td className="px-5 py-3.5 text-right num font-bold text-blue-700">{e.soat || "—"}</td>
                 </tr>
               ))}
             </tbody>
