@@ -25,7 +25,6 @@ function parseRowDate(sana: string): Date | null {
   return new Date(parseInt(parts[2]), parseInt(parts[1]) - 1, parseInt(parts[0]));
 }
 
-// Конвертируем input date "2026-04-21" → "21.04.2026"
 function inputToSheetDate(input: string): string {
   const parts = input.split("-");
   if (parts.length < 3) return "";
@@ -101,7 +100,6 @@ export function Hodimlar() {
       return;
     }
 
-    // Конвертируем даты из input формата в формат Sheets
     const fromSheet = inputToSheetDate(calcFrom);
     const toSheet = inputToSheetDate(calcTo);
     const fromDate = parseRowDate(fromSheet);
@@ -112,7 +110,7 @@ export function Hodimlar() {
       return;
     }
 
-    // Рабочие дни в периоде (все кроме воскресенья)
+    // Рабочие дни в периоде (6 дней в неделю, воскресенье выходной)
     let workDaysInPeriod = 0;
     const cur = new Date(fromDate);
     while (cur <= toDate) {
@@ -120,7 +118,11 @@ export function Hodimlar() {
       cur.setDate(cur.getDate() + 1);
     }
 
-    // Отработанные минуты сотрудника за период
+    // Стоимость 1 минуты
+    const totalNormaMinutes = workDaysInPeriod * normaHour * 60;
+    const minutePrice = stavka / totalNormaMinutes;
+
+    // Отработанные минуты из Sheets
     const workedRows = rows.filter(r => {
       if (r.ism !== calcIsm) return false;
       const d = parseRowDate(r.sana);
@@ -131,15 +133,15 @@ export function Hodimlar() {
     const workedMinutes = workedRows.reduce((s, r) => s + parseMinutes(r.soat), 0);
     const workedH = Math.floor(workedMinutes / 60);
     const workedM = workedMinutes % 60;
-    const normaTotalMinutes = workDaysInPeriod * normaHour * 60;
-    const earned = normaTotalMinutes > 0 ? Math.round(stavka * (workedMinutes / normaTotalMinutes)) : 0;
+    const earned = Math.round(minutePrice * workedMinutes);
 
     setCalcResult(
       `👤 ${calcIsm}\n` +
       `📅 ${fromSheet} — ${toSheet}\n` +
-      `📋 Topilgan kunlar: ${workedRows.length} ta yozuv\n` +
-      `⏱ Ishlagan: ${workedH}ч ${workedM}м\n` +
-      `📊 Norma: ${workDaysInPeriod} ish kuni × ${normaHour}s = ${Math.round(normaTotalMinutes/60)}s\n` +
+      `📋 Topilgan yozuvlar: ${workedRows.length} ta kun\n` +
+      `⏱ Jami ishlagan: ${workedH}ч ${workedM}м\n` +
+      `📊 Norma: ${workDaysInPeriod} ish kuni × ${normaHour}s = ${Math.round(totalNormaMinutes/60)}s\n` +
+      `💵 1 daqiqa narxi: ${Math.round(minutePrice).toLocaleString("ru-RU")} so'm\n` +
       `💰 Hisoblangan oylik: ${earned.toLocaleString("ru-RU")} so'm`
     );
   }
@@ -173,7 +175,6 @@ export function Hodimlar() {
         </button>
       </div>
 
-      {/* Карточки с цветами */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
         <div className="rounded-2xl p-5 shadow-soft border border-blue-100 bg-gradient-to-br from-blue-50 to-white">
           <div className="flex items-center justify-between mb-3">
@@ -211,7 +212,6 @@ export function Hodimlar() {
         </div>
       </div>
 
-      {/* Калькулятор */}
       {showCalc && (
         <div className="bg-card rounded-2xl border border-border p-5 shadow-soft mb-6">
           <h3 className="font-semibold mb-4 flex items-center gap-2"><Calculator className="h-4 w-4" />Oylik hisoblash</h3>
