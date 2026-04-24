@@ -1,13 +1,14 @@
 import { useEffect, useState } from "react";
 import { Header } from "@/components/dashboard/Header";
 import { StatCard } from "@/components/dashboard/StatCard";
-import { Wallet, TrendingDown, TrendingUp, PiggyBank, Loader2, AlertCircle } from "lucide-react";
+import { Wallet, TrendingDown, TrendingUp, Loader2, AlertCircle, Plus, X } from "lucide-react";
 import { Area, AreaChart, CartesianGrid, Cell, Pie, PieChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
 import { cn } from "@/lib/utils";
 
 const SHEET_ID = "1bLel0b3ULXWJ71Tgn_ynl5fvBrDIMZXo-CzeV9lnE3k";
 const SHEET_NAME = "moliya";
 const API_KEY = "AIzaSyB4kyYep05877BBpI9Rfv0SNcFhHVGBF5E";
+const WEBHOOK_URL = "https://n8n.srv1215497.hstgr.cloud/webhook/moliya";
 const UZ_MONTHS = ["Yan","Fev","Mar","Apr","May","Iyn","Iyl","Avg","Sen","Okt","Noy","Dek"];
 const EXPENSE_COLORS = ["hsl(222 47% 11%)","hsl(220 9% 46%)","hsl(230 70% 55%)","hsl(38 92% 50%)","hsl(220 13% 78%)"];
 
@@ -33,8 +34,43 @@ function parseDate(sana: string): Date | null {
   return new Date(parseInt(parts[2]), parseInt(parts[1]) - 1, parseInt(parts[0]));
 }
 
+function todayInputFormat(): string {
+  const now = new Date();
+  return `${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,"0")}-${String(now.getDate()).padStart(2,"0")}`;
+}
+
+function inputToSheetDate(input: string): string {
+  const parts = input.split("-");
+  if (parts.length < 3) return "";
+  return `${parts[2]}.${parts[1]}.${parts[0]}`;
+}
+
+function formatSummaInput(val: string): string {
+  const digits = val.replace(/\D/g, "");
+  return digits.replace(/\B(?=(\d{3})+(?!\d))/g, " ");
+}
+
 type Period = "kun" | "hafta" | "oy" | "barchasi";
 interface Row { sana: string; ism: string; filial: string; turi: string; summa: number; kirimChiqim: string; izoh: string; }
+
+function Toggle({ left, right, value, onChange, leftColor, rightColor }: {
+  left: string; right: string; value: string;
+  onChange: (v: string) => void;
+  leftColor?: string; rightColor?: string;
+}) {
+  return (
+    <div className="flex rounded-lg border border-border overflow-hidden text-sm font-medium">
+      <button onClick={() => onChange(left)}
+        className={cn("flex-1 py-2 px-3 transition", value === left ? (leftColor || "bg-primary text-primary-foreground") : "bg-background text-muted-foreground hover:text-foreground")}>
+        {left}
+      </button>
+      <button onClick={() => onChange(right)}
+        className={cn("flex-1 py-2 px-3 transition border-l border-border", value === right ? (rightColor || "bg-primary text-primary-foreground") : "bg-background text-muted-foreground hover:text-foreground")}>
+        {right}
+      </button>
+    </div>
+  );
+}
 
 export function Moliya() {
   const [rows, setRows] = useState<Row[]>([]);
@@ -42,7 +78,20 @@ export function Moliya() {
   const [error, setError] = useState<string | null>(null);
   const [period, setPeriod] = useState<Period>("barchasi");
 
-  useEffect(() => {
+  // Форма
+  const [showForm, setShowForm] = useState(false);
+  const [formSana, setFormSana] = useState(todayInputFormat());
+  const [formIsm, setFormIsm] = useState("");
+  const [formFilial, setFormFilial] = useState("Novza");
+  const [formOnline, setFormOnline] = useState("Offline");
+  const [formTuri, setFormTuri] = useState("Naqd");
+  const [formSumma, setFormSumma] = useState("");
+  const [formKirim, setFormKirim] = useState("Kirim");
+  const [formIzoh, setFormIzoh] = useState("");
+  const [formLoading, setFormLoading] = useState(false);
+  const [formResult, setFormResult] = useState<string | null>(null);
+
+  const fetchData = () => {
     fetch(`https://sheets.googleapis.com/v4/spreadsheets/${SHEET_ID}/values/${SHEET_NAME}?key=${API_KEY}`)
       .then((res) => { if (!res.ok) throw new Error(`API xatosi: ${res.status}`); return res.json(); })
       .then((data) => {
@@ -54,7 +103,44 @@ export function Moliya() {
       })
       .catch((e) => setError(e.message))
       .finally(() => setLoading(false));
-  }, []);
+  };
+
+  useEffect(() => { fetchData(); }, []);
+
+  async function submitForm() {
+    if (!formIsm || !formSumma) {
+      setFormResult("❌ Ism va summani kiriting");
+      return;
+    }
+    setFormLoading(true);
+    setFormResult(null);
+    const summaNum = parseInt(formSumma.replace(/\s/g, ""));
+    const finalSumma = formKirim === "Chiqim" ? -summaNum : summaNum;
+    try {
+      await fetch(WEBHOOK_URL, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          sana: inputToSheetDate(formSana),
+          ism: formIsm,
+          filial: formFilial,
+          online_offline: formOnline,
+          turi: formTuri,
+          summa: finalSumma,
+          kirim_chiqim: formKirim,
+          izoh: formIzoh,
+        }),
+      });
+      setFormResult("✅ Muvaffaqiyatli saqlandi!");
+      setFormIsm(""); setFormSumma(""); setFormIzoh("");
+      setFormSana(todayInputFormat());
+      setTimeout(() => { fetchData(); }, 2000);
+    } catch {
+      setFormResult("❌ Xatolik yuz berdi, qayta urinib ko'ring");
+    } finally {
+      setFormLoading(false);
+    }
+  }
 
   if (loading) return <div className="flex items-center justify-center h-64 gap-3 text-muted-foreground"><Loader2 className="h-5 w-5 animate-spin" /><span>Yuklanmoqda…</span></div>;
   if (error) return <div className="flex items-center justify-center h-64 gap-3 text-danger"><AlertCircle className="h-5 w-5" /><span>Xatolik: {error}</span></div>;
@@ -117,7 +203,8 @@ export function Moliya() {
     <div>
       <Header title="Moliya" subtitle="Daromad, xarajat va foyda tahlili" />
 
-      <div className="flex gap-2 mb-6">
+      {/* Фильтры + кнопка добавить */}
+      <div className="flex flex-wrap gap-2 mb-6">
         {periods.map((p) => (
           <button key={p.id} onClick={() => setPeriod(p.id)}
             className={cn("px-4 py-1.5 rounded-lg text-sm font-medium transition",
@@ -126,9 +213,85 @@ export function Moliya() {
             {p.label}
           </button>
         ))}
+        <button onClick={() => { setShowForm(!showForm); setFormResult(null); }}
+          className={cn("ml-auto px-4 py-1.5 rounded-lg text-sm font-medium transition inline-flex items-center gap-2",
+            showForm ? "bg-primary text-primary-foreground" : "bg-emerald-600 text-white hover:bg-emerald-700"
+          )}>
+          {showForm ? <X className="h-4 w-4" /> : <Plus className="h-4 w-4" />}
+          {showForm ? "Yopish" : "Yangi yozuv"}
+        </button>
       </div>
 
-      {/* Строка 1 — общая статистика с цветами */}
+      {/* Форма добавления */}
+      {showForm && (
+        <div className="bg-card rounded-2xl border border-border p-5 shadow-soft mb-6">
+          <h3 className="font-semibold mb-4 flex items-center gap-2"><Plus className="h-4 w-4" />Yangi kirim / chiqim</h3>
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 mb-4">
+
+            <div>
+              <label className="text-xs text-muted-foreground mb-1 block">Sana</label>
+              <input type="date" value={formSana} onChange={(e) => setFormSana(e.target.value)}
+                className="w-full px-3 py-2 rounded-lg border border-border bg-background text-sm" />
+            </div>
+
+            <div>
+              <label className="text-xs text-muted-foreground mb-1 block">Ism Familya</label>
+              <input type="text" placeholder="Nazarov Asad" value={formIsm} onChange={(e) => setFormIsm(e.target.value)}
+                className="w-full px-3 py-2 rounded-lg border border-border bg-background text-sm" />
+            </div>
+
+            <div>
+              <label className="text-xs text-muted-foreground mb-1 block">Summa (so'm)</label>
+              <input type="text" placeholder="1 290 000" value={formSumma}
+                onChange={(e) => setFormSumma(formatSummaInput(e.target.value))}
+                className="w-full px-3 py-2 rounded-lg border border-border bg-background text-sm num" />
+            </div>
+
+            <div>
+              <label className="text-xs text-muted-foreground mb-1 block">Filial</label>
+              <Toggle left="Novza" right="Yunusobod" value={formFilial} onChange={setFormFilial} />
+            </div>
+
+            <div>
+              <label className="text-xs text-muted-foreground mb-1 block">Turi</label>
+              <Toggle left="Naqd" right="Karta" value={formTuri} onChange={setFormTuri} />
+            </div>
+
+            <div>
+              <label className="text-xs text-muted-foreground mb-1 block">Online / Offline</label>
+              <Toggle left="Offline" right="Online" value={formOnline} onChange={setFormOnline} />
+            </div>
+
+            <div>
+              <label className="text-xs text-muted-foreground mb-1 block">Kirim / Chiqim</label>
+              <Toggle
+                left="Kirim" right="Chiqim" value={formKirim} onChange={setFormKirim}
+                leftColor="bg-emerald-600 text-white"
+                rightColor="bg-red-500 text-white"
+              />
+            </div>
+
+            <div className="sm:col-span-2">
+              <label className="text-xs text-muted-foreground mb-1 block">Izoh (ixtiyoriy)</label>
+              <input type="text" placeholder="Izoh..." value={formIzoh} onChange={(e) => setFormIzoh(e.target.value)}
+                className="w-full px-3 py-2 rounded-lg border border-border bg-background text-sm" />
+            </div>
+          </div>
+
+          <button onClick={submitForm} disabled={formLoading}
+            className="px-6 py-2 bg-emerald-600 text-white rounded-lg text-sm font-medium hover:bg-emerald-700 transition disabled:opacity-50 inline-flex items-center gap-2">
+            {formLoading ? <><Loader2 className="h-4 w-4 animate-spin" />Saqlanmoqda…</> : "Saqlash"}
+          </button>
+
+          {formResult && (
+            <div className={cn("mt-4 p-3 rounded-xl text-sm font-medium", formResult.startsWith("✅") ? "bg-emerald-50 text-emerald-800 border border-emerald-100" : "bg-red-50 text-red-800 border border-red-100")}>
+              {formResult}
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* Строка 1 */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-4">
         <div className="rounded-2xl p-5 shadow-soft border border-emerald-100 bg-gradient-to-br from-emerald-50 to-white">
           <div className="flex items-center justify-between mb-3">
@@ -137,7 +300,6 @@ export function Moliya() {
           </div>
           <p className="text-2xl font-bold text-emerald-900 num">{fmt(totalRevenue)}</p>
         </div>
-
         <div className="rounded-2xl p-5 shadow-soft border border-red-100 bg-gradient-to-br from-red-50 to-white">
           <div className="flex items-center justify-between mb-3">
             <span className="text-sm text-red-700 font-medium">Jami xarajat</span>
@@ -145,7 +307,6 @@ export function Moliya() {
           </div>
           <p className="text-2xl font-bold text-red-900 num">{fmt(totalExpenses)}</p>
         </div>
-
         <div className="rounded-2xl p-5 shadow-soft border border-blue-100 bg-gradient-to-br from-blue-50 to-white">
           <div className="flex items-center justify-between mb-3">
             <span className="text-sm text-blue-700 font-medium">Sof foyda</span>
@@ -154,17 +315,16 @@ export function Moliya() {
           <p className="text-2xl font-bold text-blue-900 num">{fmt(totalProfit)}</p>
           <p className="text-xs text-blue-600 mt-1">Novza: {fmtShort(novzaProfit)}  |  Yunusobod: {fmtShort(yunusobodProfit)}</p>
         </div>
-
         <div className="rounded-2xl p-5 shadow-soft border border-purple-100 bg-gradient-to-br from-purple-50 to-white">
           <div className="flex items-center justify-between mb-3">
             <span className="text-sm text-purple-700 font-medium">Marja</span>
-            <div className="h-8 w-8 rounded-full bg-purple-100 flex items-center justify-center"><PiggyBank className="h-4 w-4 text-purple-600" /></div>
+            <div className="h-8 w-8 rounded-full bg-purple-100 flex items-center justify-center"><TrendingUp className="h-4 w-4 text-purple-600" /></div>
           </div>
           <p className="text-2xl font-bold text-purple-900 num">{margin}%</p>
         </div>
       </div>
 
-      {/* Строка 2 — по филиалам */}
+      {/* Строка 2 */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-4">
         <div className="rounded-2xl p-5 shadow-soft border border-emerald-100 bg-gradient-to-br from-emerald-50 to-white">
           <div className="flex items-center justify-between mb-3">
@@ -173,7 +333,6 @@ export function Moliya() {
           </div>
           <p className="text-xl font-bold text-emerald-900 num">{fmt(novzaRevenue)}</p>
         </div>
-
         <div className="rounded-2xl p-5 shadow-soft border border-emerald-100 bg-gradient-to-br from-emerald-50 to-white">
           <div className="flex items-center justify-between mb-3">
             <span className="text-sm text-emerald-700 font-medium">Yunusobod — Daromad</span>
@@ -181,7 +340,6 @@ export function Moliya() {
           </div>
           <p className="text-xl font-bold text-emerald-900 num">{fmt(yunusobodRevenue)}</p>
         </div>
-
         <div className="rounded-2xl p-5 shadow-soft border border-red-100 bg-gradient-to-br from-red-50 to-white">
           <div className="flex items-center justify-between mb-3">
             <span className="text-sm text-red-700 font-medium">Novza — Xarajat</span>
@@ -189,7 +347,6 @@ export function Moliya() {
           </div>
           <p className="text-xl font-bold text-red-900 num">{fmt(novzaExpenses)}</p>
         </div>
-
         <div className="rounded-2xl p-5 shadow-soft border border-red-100 bg-gradient-to-br from-red-50 to-white">
           <div className="flex items-center justify-between mb-3">
             <span className="text-sm text-red-700 font-medium">Yunusobod — Xarajat</span>
@@ -199,7 +356,7 @@ export function Moliya() {
         </div>
       </div>
 
-      {/* Строка 3 — широкие карточки прибыли по филиалам */}
+      {/* Строка 3 — широкие */}
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-6">
         <div className="rounded-2xl p-5 shadow-soft border border-blue-100 bg-gradient-to-br from-blue-50 to-white">
           <p className="text-sm text-blue-700 font-medium mb-1">Novza — Sof foyda</p>
@@ -219,6 +376,7 @@ export function Moliya() {
         </div>
       </div>
 
+      {/* График */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 mb-6">
         <div className="lg:col-span-2 bg-card rounded-2xl border border-border p-5 shadow-soft">
           <div className="flex items-start justify-between mb-4">
@@ -270,6 +428,7 @@ export function Moliya() {
         </div>
       </div>
 
+      {/* Таблица транзакций */}
       <div className="bg-card rounded-2xl border border-border p-5 shadow-soft">
         <div className="flex items-center justify-between mb-4">
           <h3 className="font-semibold">Tranzaksiyalar ({filtered.length})</h3>
