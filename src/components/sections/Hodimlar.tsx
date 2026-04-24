@@ -110,19 +110,11 @@ export function Hodimlar() {
       return;
     }
 
-    // Рабочие дни в периоде (6 дней в неделю, воскресенье выходной)
-    let workDaysInPeriod = 0;
-    const cur = new Date(fromDate);
-    while (cur <= toDate) {
-      if (cur.getDay() !== 0) workDaysInPeriod++;
-      cur.setDate(cur.getDate() + 1);
-    }
+    // Цена минуты от полного месяца (26 рабочих дней)
+    const monthNormaMinutes = 26 * normaHour * 60;
+    const minutePrice = stavka / monthNormaMinutes;
 
-    // Стоимость 1 минуты
-    const totalNormaMinutes = workDaysInPeriod * normaHour * 60;
-    const minutePrice = stavka / totalNormaMinutes;
-
-    // Отработанные минуты из Sheets
+    // Отработанные минуты за период
     const workedRows = rows.filter(r => {
       if (r.ism !== calcIsm) return false;
       const d = parseRowDate(r.sana);
@@ -140,7 +132,7 @@ export function Hodimlar() {
       `📅 ${fromSheet} — ${toSheet}\n` +
       `📋 Topilgan yozuvlar: ${workedRows.length} ta kun\n` +
       `⏱ Jami ishlagan: ${workedH}ч ${workedM}м\n` +
-      `📊 Norma: ${workDaysInPeriod} ish kuni × ${normaHour}s = ${Math.round(totalNormaMinutes/60)}s\n` +
+      `📊 Oylik norma: 26 ish kuni × ${normaHour}s = ${Math.round(monthNormaMinutes/60)}s\n` +
       `💵 1 daqiqa narxi: ${Math.round(minutePrice).toLocaleString("ru-RU")} so'm\n` +
       `💰 Hisoblangan oylik: ${earned.toLocaleString("ru-RU")} so'm`
     );
