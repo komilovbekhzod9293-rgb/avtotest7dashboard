@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { Header } from "@/components/dashboard/Header";
-import { Wallet, TrendingDown, TrendingUp, Loader2, AlertCircle, Plus, X, ChevronDown, ChevronUp } from "lucide-react";
+import { TrendingDown, TrendingUp, Loader2, AlertCircle, Plus, X, ChevronDown, ChevronUp, Wallet } from "lucide-react";
 import { Area, AreaChart, CartesianGrid, Cell, Pie, PieChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
 import { cn } from "@/lib/utils";
 
@@ -76,8 +76,6 @@ export function Moliya() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [period, setPeriod] = useState<Period>("barchasi");
-
-  // Форма
   const [showForm, setShowForm] = useState(false);
   const [formSana, setFormSana] = useState(todayInputFormat());
   const [formIsm, setFormIsm] = useState("");
@@ -90,11 +88,7 @@ export function Moliya() {
   const [formTelefon, setFormTelefon] = useState("");
   const [formLoading, setFormLoading] = useState(false);
   const [formResult, setFormResult] = useState<string | null>(null);
-
-  // Аккордеон Sof foyda
   const [showSofFoyda, setShowSofFoyda] = useState(false);
-
-  // Детализация расходов/доходов
   const [drillType, setDrillType] = useState<"daromad" | "xarajat" | null>(null);
   const [drillPerson, setDrillPerson] = useState<string | null>(null);
 
@@ -116,12 +110,8 @@ export function Moliya() {
   useEffect(() => { fetchData(); }, []);
 
   async function submitForm() {
-    if (!formIsm || !formSumma) {
-      setFormResult("❌ Ism va summani kiriting");
-      return;
-    }
-    setFormLoading(true);
-    setFormResult(null);
+    if (!formIsm || !formSumma) { setFormResult("❌ Ism va summani kiriting"); return; }
+    setFormLoading(true); setFormResult(null);
     const summaNum = parseInt(formSumma.replace(/\s/g, ""));
     const finalSumma = formKirim === "Chiqim" ? -summaNum : summaNum;
     try {
@@ -129,26 +119,17 @@ export function Moliya() {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          sana: inputToSheetDate(formSana),
-          ism: formIsm,
-          filial: formFilial,
-          online_offline: formOnline,
-          telefon: formOnline === "Online" ? formTelefon : "",
-          turi: formTuri,
-          summa: finalSumma,
-          kirim_chiqim: formKirim,
-          izoh: formIzoh,
+          sana: inputToSheetDate(formSana), ism: formIsm, filial: formFilial,
+          online_offline: formOnline, telefon: formOnline === "Online" ? formTelefon : "",
+          turi: formTuri, summa: finalSumma, kirim_chiqim: formKirim, izoh: formIzoh,
         }),
       });
       setFormResult("✅ Muvaffaqiyatli saqlandi!");
       setFormIsm(""); setFormSumma(""); setFormIzoh(""); setFormTelefon("");
       setFormSana(todayInputFormat());
       setTimeout(() => { fetchData(); }, 2000);
-    } catch {
-      setFormResult("❌ Xatolik yuz berdi, qayta urinib ko'ring");
-    } finally {
-      setFormLoading(false);
-    }
+    } catch { setFormResult("❌ Xatolik yuz berdi"); }
+    finally { setFormLoading(false); }
   }
 
   if (loading) return <div className="flex items-center justify-center h-64 gap-3 text-muted-foreground"><Loader2 className="h-5 w-5 animate-spin" /><span>Yuklanmoqda…</span></div>;
@@ -177,7 +158,6 @@ export function Moliya() {
   const novzaProfit = novzaRevenue - novzaExpenses;
   const yunusobodProfit = yunusobodRevenue - yunusobodExpenses;
 
-  // Группировка по имени для детализации
   const revenueByPerson: Record<string, number> = {};
   const expenseByPerson: Record<string, number> = {};
   filtered.forEach((r) => {
@@ -210,17 +190,16 @@ export function Moliya() {
     name, value: Math.round((val / totalExp) * 100), color: EXPENSE_COLORS[i % EXPENSE_COLORS.length],
   }));
 
+  const drillHistory = drillPerson ? filtered.filter(r =>
+    r.ism === drillPerson && (drillType === "daromad" ? r.summa > 0 : r.summa < 0)
+  ) : [];
+
   const periods: { id: Period; label: string }[] = [
     { id: "kun", label: "Bugun" },
     { id: "hafta", label: "Hafta" },
     { id: "oy", label: "Oy" },
     { id: "barchasi", label: "Barchasi" },
   ];
-
-  // История транзакций для выбранного человека
-  const drillHistory = drillPerson ? filtered.filter(r =>
-    r.ism === drillPerson && (drillType === "daromad" ? r.summa > 0 : r.summa < 0)
-  ) : [];
 
   return (
     <div>
@@ -261,8 +240,7 @@ export function Moliya() {
             </div>
             <div>
               <label className="text-xs text-muted-foreground mb-1 block">Summa (so'm)</label>
-              <input type="text" value={formSumma}
-                onChange={(e) => setFormSumma(formatSummaInput(e.target.value))}
+              <input type="text" value={formSumma} onChange={(e) => setFormSumma(formatSummaInput(e.target.value))}
                 className="w-full px-3 py-2 rounded-lg border border-border bg-background text-sm num" />
             </div>
             <div>
@@ -289,7 +267,7 @@ export function Moliya() {
               <Toggle left="Kirim" right="Chiqim" value={formKirim} onChange={setFormKirim}
                 leftColor="bg-emerald-600 text-white" rightColor="bg-red-500 text-white" />
             </div>
-            <div className={formOnline === "Online" ? "" : "sm:col-span-2"}>
+            <div className="sm:col-span-2">
               <label className="text-xs text-muted-foreground mb-1 block">Izoh (ixtiyoriy)</label>
               <input type="text" value={formIzoh} onChange={(e) => setFormIzoh(e.target.value)}
                 className="w-full px-3 py-2 rounded-lg border border-border bg-background text-sm" />
@@ -307,32 +285,10 @@ export function Moliya() {
         </div>
       )}
 
-      {/* Строка 1 — компактно: только Daromad, Xarajat, Sof foyda (аккордеон), Marja */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+      {/* Только 2 карточки — Sof foyda и Marja */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-6">
 
-        {/* Jami daromad — кликабельный */}
-        <div className="rounded-2xl p-5 shadow-soft border border-emerald-100 bg-gradient-to-br from-emerald-50 to-white cursor-pointer"
-          onClick={() => { setDrillType("daromad"); setDrillPerson(null); }}>
-          <div className="flex items-center justify-between mb-3">
-            <span className="text-sm text-emerald-700 font-medium">Jami daromad</span>
-            <div className="h-8 w-8 rounded-full bg-emerald-100 flex items-center justify-center"><Wallet className="h-4 w-4 text-emerald-600" /></div>
-          </div>
-          <p className="text-2xl font-bold text-emerald-900 num">{fmt(totalRevenue)}</p>
-          <p className="text-xs text-emerald-600 mt-1">Batafsil →</p>
-        </div>
-
-        {/* Jami xarajat — кликабельный */}
-        <div className="rounded-2xl p-5 shadow-soft border border-red-100 bg-gradient-to-br from-red-50 to-white cursor-pointer"
-          onClick={() => { setDrillType("xarajat"); setDrillPerson(null); }}>
-          <div className="flex items-center justify-between mb-3">
-            <span className="text-sm text-red-700 font-medium">Jami xarajat</span>
-            <div className="h-8 w-8 rounded-full bg-red-100 flex items-center justify-center"><TrendingDown className="h-4 w-4 text-red-600" /></div>
-          </div>
-          <p className="text-2xl font-bold text-red-900 num">{fmt(totalExpenses)}</p>
-          <p className="text-xs text-red-600 mt-1">Batafsil →</p>
-        </div>
-
-        {/* Sof foyda — аккордеон */}
+        {/* Sof foyda — аккордеон с детализацией внутри */}
         <div className="rounded-2xl shadow-soft border border-blue-100 bg-gradient-to-br from-blue-50 to-white overflow-hidden">
           <div className="p-5 cursor-pointer" onClick={() => setShowSofFoyda(!showSofFoyda)}>
             <div className="flex items-center justify-between mb-3">
@@ -347,35 +303,95 @@ export function Moliya() {
           </div>
 
           {showSofFoyda && (
-            <div className="border-t border-blue-100 px-5 py-4 space-y-3 bg-blue-50/50">
-              <div className="grid grid-cols-2 gap-3">
-                <div className="bg-white rounded-xl p-3 border border-emerald-100">
-                  <p className="text-xs text-emerald-700 font-medium">Novza — Daromad</p>
-                  <p className="text-base font-bold text-emerald-900 num mt-1">{fmt(novzaRevenue)}</p>
+            <div className="border-t border-blue-100 px-5 py-4 space-y-4 bg-blue-50/50">
+              {/* Daromad section */}
+              <div>
+                <div className="flex items-center justify-between mb-2 cursor-pointer"
+                  onClick={() => { setDrillType(drillType === "daromad" ? null : "daromad"); setDrillPerson(null); }}>
+                  <span className="text-xs font-semibold text-emerald-700 uppercase tracking-wider">Daromad — {fmt(totalRevenue)}</span>
+                  <ChevronDown className={cn("h-3.5 w-3.5 text-emerald-600 transition", drillType === "daromad" && "rotate-180")} />
                 </div>
-                <div className="bg-white rounded-xl p-3 border border-emerald-100">
-                  <p className="text-xs text-emerald-700 font-medium">Yunusobod — Daromad</p>
-                  <p className="text-base font-bold text-emerald-900 num mt-1">{fmt(yunusobodRevenue)}</p>
+                <div className="grid grid-cols-2 gap-2 mb-2">
+                  <div className="bg-white rounded-xl p-3 border border-emerald-100">
+                    <p className="text-xs text-emerald-700">Novza</p>
+                    <p className="text-sm font-bold text-emerald-900 num">{fmt(novzaRevenue)}</p>
+                  </div>
+                  <div className="bg-white rounded-xl p-3 border border-emerald-100">
+                    <p className="text-xs text-emerald-700">Yunusobod</p>
+                    <p className="text-sm font-bold text-emerald-900 num">{fmt(yunusobodRevenue)}</p>
+                  </div>
                 </div>
-                <div className="bg-white rounded-xl p-3 border border-red-100">
-                  <p className="text-xs text-red-700 font-medium">Novza — Xarajat</p>
-                  <p className="text-base font-bold text-red-900 num mt-1">{fmt(novzaExpenses)}</p>
-                </div>
-                <div className="bg-white rounded-xl p-3 border border-red-100">
-                  <p className="text-xs text-red-700 font-medium">Yunusobod — Xarajat</p>
-                  <p className="text-base font-bold text-red-900 num mt-1">{fmt(yunusobodExpenses)}</p>
-                </div>
+                {drillType === "daromad" && !drillPerson && (
+                  <div className="space-y-1.5">
+                    {Object.entries(revenueByPerson).sort((a, b) => b[1] - a[1]).map(([ism, summa]) => (
+                      <div key={ism} onClick={() => setDrillPerson(ism)}
+                        className="flex items-center justify-between p-2.5 rounded-lg bg-white border border-emerald-100 hover:border-emerald-300 cursor-pointer transition">
+                        <span className="text-sm font-medium">{ism}</span>
+                        <span className="num text-sm font-semibold text-emerald-600">+{fmt(summa)}</span>
+                      </div>
+                    ))}
+                  </div>
+                )}
               </div>
-              <div className="grid grid-cols-2 gap-3">
-                <div className="bg-white rounded-xl p-3 border border-blue-100">
-                  <p className="text-xs text-blue-700 font-medium">Novza — Sof foyda</p>
-                  <p className="text-base font-bold text-blue-900 num mt-1">{fmt(novzaProfit)}</p>
+
+              {/* Xarajat section */}
+              <div>
+                <div className="flex items-center justify-between mb-2 cursor-pointer"
+                  onClick={() => { setDrillType(drillType === "xarajat" ? null : "xarajat"); setDrillPerson(null); }}>
+                  <span className="text-xs font-semibold text-red-700 uppercase tracking-wider">Xarajat — {fmt(totalExpenses)}</span>
+                  <ChevronDown className={cn("h-3.5 w-3.5 text-red-600 transition", drillType === "xarajat" && "rotate-180")} />
                 </div>
-                <div className="bg-white rounded-xl p-3 border border-blue-100">
-                  <p className="text-xs text-blue-700 font-medium">Yunusobod — Sof foyda</p>
-                  <p className="text-base font-bold text-blue-900 num mt-1">{fmt(yunusobodProfit)}</p>
+                <div className="grid grid-cols-2 gap-2 mb-2">
+                  <div className="bg-white rounded-xl p-3 border border-red-100">
+                    <p className="text-xs text-red-700">Novza</p>
+                    <p className="text-sm font-bold text-red-900 num">{fmt(novzaExpenses)}</p>
+                  </div>
+                  <div className="bg-white rounded-xl p-3 border border-red-100">
+                    <p className="text-xs text-red-700">Yunusobod</p>
+                    <p className="text-sm font-bold text-red-900 num">{fmt(yunusobodExpenses)}</p>
+                  </div>
                 </div>
+                {drillType === "xarajat" && !drillPerson && (
+                  <div className="space-y-1.5">
+                    {Object.entries(expenseByPerson).sort((a, b) => b[1] - a[1]).map(([ism, summa]) => (
+                      <div key={ism} onClick={() => setDrillPerson(ism)}
+                        className="flex items-center justify-between p-2.5 rounded-lg bg-white border border-red-100 hover:border-red-300 cursor-pointer transition">
+                        <span className="text-sm font-medium">{ism}</span>
+                        <span className="num text-sm font-semibold text-red-500">-{fmt(summa)}</span>
+                      </div>
+                    ))}
+                  </div>
+                )}
               </div>
+
+              {/* История транзакций */}
+              {drillPerson && (
+                <div className="bg-white rounded-xl border border-border p-3">
+                  <div className="flex items-center justify-between mb-3">
+                    <span className="text-sm font-semibold">{drillPerson}</span>
+                    <button onClick={() => setDrillPerson(null)} className="text-xs text-muted-foreground hover:text-foreground">← Orqaga</button>
+                  </div>
+                  <div className="space-y-1.5">
+                    {drillHistory.map((r, i) => (
+                      <div key={i} className="flex items-center justify-between p-2 rounded-lg bg-secondary/60">
+                        <div>
+                          <p className="text-xs font-medium">{r.sana}</p>
+                          <p className="text-xs text-muted-foreground">{r.filial} · {r.turi}</p>
+                        </div>
+                        <span className={cn("num text-xs font-semibold", r.summa >= 0 ? "text-emerald-600" : "text-red-500")}>
+                          {r.summa >= 0 ? "+" : "-"}{fmt(Math.abs(r.summa))}
+                        </span>
+                      </div>
+                    ))}
+                    <div className="flex items-center justify-between p-2 rounded-lg bg-secondary mt-1">
+                      <span className="text-xs font-bold">Jami</span>
+                      <span className={cn("num text-xs font-bold", drillType === "daromad" ? "text-emerald-600" : "text-red-500")}>
+                        {drillType === "daromad" ? "+" : "-"}{fmt(drillHistory.reduce((s, r) => s + Math.abs(r.summa), 0))}
+                      </span>
+                    </div>
+                  </div>
+                </div>
+              )}
             </div>
           )}
         </div>
@@ -387,63 +403,9 @@ export function Moliya() {
             <div className="h-8 w-8 rounded-full bg-purple-100 flex items-center justify-center"><TrendingUp className="h-4 w-4 text-purple-600" /></div>
           </div>
           <p className="text-2xl font-bold text-purple-900 num">{margin}%</p>
+          <p className="text-xs text-purple-600 mt-1">Daromad: {fmtShort(totalRevenue)}  |  Xarajat: {fmtShort(totalExpenses)}</p>
         </div>
       </div>
-
-      {/* Детализация доходов */}
-      {drillType && !drillPerson && (
-        <div className="bg-card rounded-2xl border border-border p-5 shadow-soft mb-6">
-          <div className="flex items-center justify-between mb-4">
-            <h3 className="font-semibold">{drillType === "daromad" ? "Daromad" : "Xarajat"} — batafsil</h3>
-            <button onClick={() => setDrillType(null)} className="h-8 w-8 rounded-lg hover:bg-secondary flex items-center justify-center"><X className="h-4 w-4" /></button>
-          </div>
-          <div className="space-y-2">
-            {Object.entries(drillType === "daromad" ? revenueByPerson : expenseByPerson)
-              .sort((a, b) => b[1] - a[1])
-              .map(([ism, summa]) => (
-                <div key={ism} onClick={() => setDrillPerson(ism)}
-                  className="flex items-center justify-between p-3 rounded-xl bg-secondary/60 hover:bg-secondary cursor-pointer transition">
-                  <span className="font-medium text-sm">{ism}</span>
-                  <span className={cn("num font-semibold text-sm", drillType === "daromad" ? "text-emerald-600" : "text-red-500")}>
-                    {drillType === "daromad" ? "+" : "-"}{fmt(summa)}
-                  </span>
-                </div>
-              ))}
-          </div>
-        </div>
-      )}
-
-      {/* История транзакций выбранного человека */}
-      {drillPerson && (
-        <div className="bg-card rounded-2xl border border-border p-5 shadow-soft mb-6">
-          <div className="flex items-center justify-between mb-4">
-            <h3 className="font-semibold">{drillPerson} — tarix</h3>
-            <div className="flex gap-2">
-              <button onClick={() => setDrillPerson(null)} className="text-xs text-muted-foreground hover:text-foreground px-3 py-1.5 rounded-lg bg-secondary">← Orqaga</button>
-              <button onClick={() => { setDrillType(null); setDrillPerson(null); }} className="h-8 w-8 rounded-lg hover:bg-secondary flex items-center justify-center"><X className="h-4 w-4" /></button>
-            </div>
-          </div>
-          <div className="space-y-2">
-            {drillHistory.map((r, i) => (
-              <div key={i} className="flex items-center justify-between p-3 rounded-xl bg-secondary/60">
-                <div>
-                  <p className="text-sm font-medium">{r.sana}</p>
-                  <p className="text-xs text-muted-foreground">{r.filial} · {r.turi} {r.izoh ? `· ${r.izoh}` : ""}</p>
-                </div>
-                <span className={cn("num font-semibold text-sm", r.summa >= 0 ? "text-emerald-600" : "text-red-500")}>
-                  {r.summa >= 0 ? "+" : "-"}{fmt(Math.abs(r.summa))}
-                </span>
-              </div>
-            ))}
-            <div className="flex items-center justify-between p-3 rounded-xl bg-secondary border-t border-border mt-2">
-              <span className="text-sm font-semibold">Jami</span>
-              <span className={cn("num font-bold", drillType === "daromad" ? "text-emerald-600" : "text-red-500")}>
-                {drillType === "daromad" ? "+" : "-"}{fmt(drillHistory.reduce((s, r) => s + Math.abs(r.summa), 0))}
-              </span>
-            </div>
-          </div>
-        </div>
-      )}
 
       {/* График */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 mb-6">
@@ -497,7 +459,7 @@ export function Moliya() {
         </div>
       </div>
 
-      {/* Таблица транзакций */}
+      {/* Таблица */}
       <div className="bg-card rounded-2xl border border-border p-5 shadow-soft">
         <div className="flex items-center justify-between mb-4">
           <h3 className="font-semibold">Tranzaksiyalar ({filtered.length})</h3>
