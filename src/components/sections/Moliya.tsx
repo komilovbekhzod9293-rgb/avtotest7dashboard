@@ -1,7 +1,6 @@
 import { useEffect, useState } from "react";
 import { Header } from "@/components/dashboard/Header";
-import { StatCard } from "@/components/dashboard/StatCard";
-import { Wallet, TrendingDown, TrendingUp, Loader2, AlertCircle, Plus, X } from "lucide-react";
+import { Wallet, TrendingDown, TrendingUp, Loader2, AlertCircle, Plus, X, ChevronDown, ChevronUp } from "lucide-react";
 import { Area, AreaChart, CartesianGrid, Cell, Pie, PieChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
 import { cn } from "@/lib/utils";
 
@@ -88,10 +87,19 @@ export function Moliya() {
   const [formSumma, setFormSumma] = useState("");
   const [formKirim, setFormKirim] = useState("Kirim");
   const [formIzoh, setFormIzoh] = useState("");
+  const [formTelefon, setFormTelefon] = useState("");
   const [formLoading, setFormLoading] = useState(false);
   const [formResult, setFormResult] = useState<string | null>(null);
 
+  // Аккордеон Sof foyda
+  const [showSofFoyda, setShowSofFoyda] = useState(false);
+
+  // Детализация расходов/доходов
+  const [drillType, setDrillType] = useState<"daromad" | "xarajat" | null>(null);
+  const [drillPerson, setDrillPerson] = useState<string | null>(null);
+
   const fetchData = () => {
+    setLoading(true);
     fetch(`https://sheets.googleapis.com/v4/spreadsheets/${SHEET_ID}/values/${SHEET_NAME}?key=${API_KEY}`)
       .then((res) => { if (!res.ok) throw new Error(`API xatosi: ${res.status}`); return res.json(); })
       .then((data) => {
@@ -125,6 +133,7 @@ export function Moliya() {
           ism: formIsm,
           filial: formFilial,
           online_offline: formOnline,
+          telefon: formOnline === "Online" ? formTelefon : "",
           turi: formTuri,
           summa: finalSumma,
           kirim_chiqim: formKirim,
@@ -132,7 +141,7 @@ export function Moliya() {
         }),
       });
       setFormResult("✅ Muvaffaqiyatli saqlandi!");
-      setFormIsm(""); setFormSumma(""); setFormIzoh("");
+      setFormIsm(""); setFormSumma(""); setFormIzoh(""); setFormTelefon("");
       setFormSana(todayInputFormat());
       setTimeout(() => { fetchData(); }, 2000);
     } catch {
@@ -168,6 +177,15 @@ export function Moliya() {
   const novzaProfit = novzaRevenue - novzaExpenses;
   const yunusobodProfit = yunusobodRevenue - yunusobodExpenses;
 
+  // Группировка по имени для детализации
+  const revenueByPerson: Record<string, number> = {};
+  const expenseByPerson: Record<string, number> = {};
+  filtered.forEach((r) => {
+    const key = r.ism || "Noma'lum";
+    if (r.summa > 0) revenueByPerson[key] = (revenueByPerson[key] ?? 0) + r.summa;
+    else expenseByPerson[key] = (expenseByPerson[key] ?? 0) + Math.abs(r.summa);
+  });
+
   const monthMap: Record<string, { revenue: number; expenses: number }> = {};
   filtered.forEach((r) => {
     const parts = r.sana.split(".");
@@ -199,11 +217,15 @@ export function Moliya() {
     { id: "barchasi", label: "Barchasi" },
   ];
 
+  // История транзакций для выбранного человека
+  const drillHistory = drillPerson ? filtered.filter(r =>
+    r.ism === drillPerson && (drillType === "daromad" ? r.summa > 0 : r.summa < 0)
+  ) : [];
+
   return (
     <div>
       <Header title="Moliya" subtitle="Daromad, xarajat va foyda tahlili" />
 
-      {/* Фильтры + кнопка добавить */}
       <div className="flex flex-wrap gap-2 mb-6">
         {periods.map((p) => (
           <button key={p.id} onClick={() => setPeriod(p.id)}
@@ -222,67 +244,61 @@ export function Moliya() {
         </button>
       </div>
 
-      {/* Форма добавления */}
+      {/* Форма */}
       {showForm && (
         <div className="bg-card rounded-2xl border border-border p-5 shadow-soft mb-6">
           <h3 className="font-semibold mb-4 flex items-center gap-2"><Plus className="h-4 w-4" />Yangi kirim / chiqim</h3>
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 mb-4">
-
             <div>
               <label className="text-xs text-muted-foreground mb-1 block">Sana</label>
               <input type="date" value={formSana} onChange={(e) => setFormSana(e.target.value)}
                 className="w-full px-3 py-2 rounded-lg border border-border bg-background text-sm" />
             </div>
-
             <div>
               <label className="text-xs text-muted-foreground mb-1 block">Ism Familya</label>
-              <input type="text" placeholder="Nazarov Asad" value={formIsm} onChange={(e) => setFormIsm(e.target.value)}
+              <input type="text" value={formIsm} onChange={(e) => setFormIsm(e.target.value)}
                 className="w-full px-3 py-2 rounded-lg border border-border bg-background text-sm" />
             </div>
-
             <div>
               <label className="text-xs text-muted-foreground mb-1 block">Summa (so'm)</label>
-              <input type="text" placeholder="1 290 000" value={formSumma}
+              <input type="text" value={formSumma}
                 onChange={(e) => setFormSumma(formatSummaInput(e.target.value))}
                 className="w-full px-3 py-2 rounded-lg border border-border bg-background text-sm num" />
             </div>
-
             <div>
               <label className="text-xs text-muted-foreground mb-1 block">Filial</label>
               <Toggle left="Novza" right="Yunusobod" value={formFilial} onChange={setFormFilial} />
             </div>
-
             <div>
               <label className="text-xs text-muted-foreground mb-1 block">Turi</label>
               <Toggle left="Naqd" right="Karta" value={formTuri} onChange={setFormTuri} />
             </div>
-
             <div>
               <label className="text-xs text-muted-foreground mb-1 block">Online / Offline</label>
               <Toggle left="Offline" right="Online" value={formOnline} onChange={setFormOnline} />
             </div>
-
+            {formOnline === "Online" && (
+              <div>
+                <label className="text-xs text-muted-foreground mb-1 block">Telefon raqami</label>
+                <input type="tel" placeholder="+998 90 000 00 00" value={formTelefon} onChange={(e) => setFormTelefon(e.target.value)}
+                  className="w-full px-3 py-2 rounded-lg border border-border bg-background text-sm" />
+              </div>
+            )}
             <div>
               <label className="text-xs text-muted-foreground mb-1 block">Kirim / Chiqim</label>
-              <Toggle
-                left="Kirim" right="Chiqim" value={formKirim} onChange={setFormKirim}
-                leftColor="bg-emerald-600 text-white"
-                rightColor="bg-red-500 text-white"
-              />
+              <Toggle left="Kirim" right="Chiqim" value={formKirim} onChange={setFormKirim}
+                leftColor="bg-emerald-600 text-white" rightColor="bg-red-500 text-white" />
             </div>
-
-            <div className="sm:col-span-2">
+            <div className={formOnline === "Online" ? "" : "sm:col-span-2"}>
               <label className="text-xs text-muted-foreground mb-1 block">Izoh (ixtiyoriy)</label>
-              <input type="text" placeholder="Izoh..." value={formIzoh} onChange={(e) => setFormIzoh(e.target.value)}
+              <input type="text" value={formIzoh} onChange={(e) => setFormIzoh(e.target.value)}
                 className="w-full px-3 py-2 rounded-lg border border-border bg-background text-sm" />
             </div>
           </div>
-
           <button onClick={submitForm} disabled={formLoading}
             className="px-6 py-2 bg-emerald-600 text-white rounded-lg text-sm font-medium hover:bg-emerald-700 transition disabled:opacity-50 inline-flex items-center gap-2">
             {formLoading ? <><Loader2 className="h-4 w-4 animate-spin" />Saqlanmoqda…</> : "Saqlash"}
           </button>
-
           {formResult && (
             <div className={cn("mt-4 p-3 rounded-xl text-sm font-medium", formResult.startsWith("✅") ? "bg-emerald-50 text-emerald-800 border border-emerald-100" : "bg-red-50 text-red-800 border border-red-100")}>
               {formResult}
@@ -291,30 +307,80 @@ export function Moliya() {
         </div>
       )}
 
-      {/* Строка 1 */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-4">
-        <div className="rounded-2xl p-5 shadow-soft border border-emerald-100 bg-gradient-to-br from-emerald-50 to-white">
+      {/* Строка 1 — компактно: только Daromad, Xarajat, Sof foyda (аккордеон), Marja */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+
+        {/* Jami daromad — кликабельный */}
+        <div className="rounded-2xl p-5 shadow-soft border border-emerald-100 bg-gradient-to-br from-emerald-50 to-white cursor-pointer"
+          onClick={() => { setDrillType("daromad"); setDrillPerson(null); }}>
           <div className="flex items-center justify-between mb-3">
             <span className="text-sm text-emerald-700 font-medium">Jami daromad</span>
             <div className="h-8 w-8 rounded-full bg-emerald-100 flex items-center justify-center"><Wallet className="h-4 w-4 text-emerald-600" /></div>
           </div>
           <p className="text-2xl font-bold text-emerald-900 num">{fmt(totalRevenue)}</p>
+          <p className="text-xs text-emerald-600 mt-1">Batafsil →</p>
         </div>
-        <div className="rounded-2xl p-5 shadow-soft border border-red-100 bg-gradient-to-br from-red-50 to-white">
+
+        {/* Jami xarajat — кликабельный */}
+        <div className="rounded-2xl p-5 shadow-soft border border-red-100 bg-gradient-to-br from-red-50 to-white cursor-pointer"
+          onClick={() => { setDrillType("xarajat"); setDrillPerson(null); }}>
           <div className="flex items-center justify-between mb-3">
             <span className="text-sm text-red-700 font-medium">Jami xarajat</span>
             <div className="h-8 w-8 rounded-full bg-red-100 flex items-center justify-center"><TrendingDown className="h-4 w-4 text-red-600" /></div>
           </div>
           <p className="text-2xl font-bold text-red-900 num">{fmt(totalExpenses)}</p>
+          <p className="text-xs text-red-600 mt-1">Batafsil →</p>
         </div>
-        <div className="rounded-2xl p-5 shadow-soft border border-blue-100 bg-gradient-to-br from-blue-50 to-white">
-          <div className="flex items-center justify-between mb-3">
-            <span className="text-sm text-blue-700 font-medium">Sof foyda</span>
-            <div className="h-8 w-8 rounded-full bg-blue-100 flex items-center justify-center"><TrendingUp className="h-4 w-4 text-blue-600" /></div>
+
+        {/* Sof foyda — аккордеон */}
+        <div className="rounded-2xl shadow-soft border border-blue-100 bg-gradient-to-br from-blue-50 to-white overflow-hidden">
+          <div className="p-5 cursor-pointer" onClick={() => setShowSofFoyda(!showSofFoyda)}>
+            <div className="flex items-center justify-between mb-3">
+              <span className="text-sm text-blue-700 font-medium">Sof foyda</span>
+              <div className="flex items-center gap-1">
+                <div className="h-8 w-8 rounded-full bg-blue-100 flex items-center justify-center"><TrendingUp className="h-4 w-4 text-blue-600" /></div>
+                {showSofFoyda ? <ChevronUp className="h-4 w-4 text-blue-500" /> : <ChevronDown className="h-4 w-4 text-blue-500" />}
+              </div>
+            </div>
+            <p className="text-2xl font-bold text-blue-900 num">{fmt(totalProfit)}</p>
+            <p className="text-xs text-blue-600 mt-1">Novza: {fmtShort(novzaProfit)}  |  Yunusobod: {fmtShort(yunusobodProfit)}</p>
           </div>
-          <p className="text-2xl font-bold text-blue-900 num">{fmt(totalProfit)}</p>
-          <p className="text-xs text-blue-600 mt-1">Novza: {fmtShort(novzaProfit)}  |  Yunusobod: {fmtShort(yunusobodProfit)}</p>
+
+          {showSofFoyda && (
+            <div className="border-t border-blue-100 px-5 py-4 space-y-3 bg-blue-50/50">
+              <div className="grid grid-cols-2 gap-3">
+                <div className="bg-white rounded-xl p-3 border border-emerald-100">
+                  <p className="text-xs text-emerald-700 font-medium">Novza — Daromad</p>
+                  <p className="text-base font-bold text-emerald-900 num mt-1">{fmt(novzaRevenue)}</p>
+                </div>
+                <div className="bg-white rounded-xl p-3 border border-emerald-100">
+                  <p className="text-xs text-emerald-700 font-medium">Yunusobod — Daromad</p>
+                  <p className="text-base font-bold text-emerald-900 num mt-1">{fmt(yunusobodRevenue)}</p>
+                </div>
+                <div className="bg-white rounded-xl p-3 border border-red-100">
+                  <p className="text-xs text-red-700 font-medium">Novza — Xarajat</p>
+                  <p className="text-base font-bold text-red-900 num mt-1">{fmt(novzaExpenses)}</p>
+                </div>
+                <div className="bg-white rounded-xl p-3 border border-red-100">
+                  <p className="text-xs text-red-700 font-medium">Yunusobod — Xarajat</p>
+                  <p className="text-base font-bold text-red-900 num mt-1">{fmt(yunusobodExpenses)}</p>
+                </div>
+              </div>
+              <div className="grid grid-cols-2 gap-3">
+                <div className="bg-white rounded-xl p-3 border border-blue-100">
+                  <p className="text-xs text-blue-700 font-medium">Novza — Sof foyda</p>
+                  <p className="text-base font-bold text-blue-900 num mt-1">{fmt(novzaProfit)}</p>
+                </div>
+                <div className="bg-white rounded-xl p-3 border border-blue-100">
+                  <p className="text-xs text-blue-700 font-medium">Yunusobod — Sof foyda</p>
+                  <p className="text-base font-bold text-blue-900 num mt-1">{fmt(yunusobodProfit)}</p>
+                </div>
+              </div>
+            </div>
+          )}
         </div>
+
+        {/* Marja */}
         <div className="rounded-2xl p-5 shadow-soft border border-purple-100 bg-gradient-to-br from-purple-50 to-white">
           <div className="flex items-center justify-between mb-3">
             <span className="text-sm text-purple-700 font-medium">Marja</span>
@@ -324,57 +390,60 @@ export function Moliya() {
         </div>
       </div>
 
-      {/* Строка 2 */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-4">
-        <div className="rounded-2xl p-5 shadow-soft border border-emerald-100 bg-gradient-to-br from-emerald-50 to-white">
-          <div className="flex items-center justify-between mb-3">
-            <span className="text-sm text-emerald-700 font-medium">Novza — Daromad</span>
-            <div className="h-8 w-8 rounded-full bg-emerald-100 flex items-center justify-center"><TrendingUp className="h-4 w-4 text-emerald-600" /></div>
+      {/* Детализация доходов */}
+      {drillType && !drillPerson && (
+        <div className="bg-card rounded-2xl border border-border p-5 shadow-soft mb-6">
+          <div className="flex items-center justify-between mb-4">
+            <h3 className="font-semibold">{drillType === "daromad" ? "Daromad" : "Xarajat"} — batafsil</h3>
+            <button onClick={() => setDrillType(null)} className="h-8 w-8 rounded-lg hover:bg-secondary flex items-center justify-center"><X className="h-4 w-4" /></button>
           </div>
-          <p className="text-xl font-bold text-emerald-900 num">{fmt(novzaRevenue)}</p>
-        </div>
-        <div className="rounded-2xl p-5 shadow-soft border border-emerald-100 bg-gradient-to-br from-emerald-50 to-white">
-          <div className="flex items-center justify-between mb-3">
-            <span className="text-sm text-emerald-700 font-medium">Yunusobod — Daromad</span>
-            <div className="h-8 w-8 rounded-full bg-emerald-100 flex items-center justify-center"><TrendingUp className="h-4 w-4 text-emerald-600" /></div>
+          <div className="space-y-2">
+            {Object.entries(drillType === "daromad" ? revenueByPerson : expenseByPerson)
+              .sort((a, b) => b[1] - a[1])
+              .map(([ism, summa]) => (
+                <div key={ism} onClick={() => setDrillPerson(ism)}
+                  className="flex items-center justify-between p-3 rounded-xl bg-secondary/60 hover:bg-secondary cursor-pointer transition">
+                  <span className="font-medium text-sm">{ism}</span>
+                  <span className={cn("num font-semibold text-sm", drillType === "daromad" ? "text-emerald-600" : "text-red-500")}>
+                    {drillType === "daromad" ? "+" : "-"}{fmt(summa)}
+                  </span>
+                </div>
+              ))}
           </div>
-          <p className="text-xl font-bold text-emerald-900 num">{fmt(yunusobodRevenue)}</p>
         </div>
-        <div className="rounded-2xl p-5 shadow-soft border border-red-100 bg-gradient-to-br from-red-50 to-white">
-          <div className="flex items-center justify-between mb-3">
-            <span className="text-sm text-red-700 font-medium">Novza — Xarajat</span>
-            <div className="h-8 w-8 rounded-full bg-red-100 flex items-center justify-center"><TrendingDown className="h-4 w-4 text-red-600" /></div>
-          </div>
-          <p className="text-xl font-bold text-red-900 num">{fmt(novzaExpenses)}</p>
-        </div>
-        <div className="rounded-2xl p-5 shadow-soft border border-red-100 bg-gradient-to-br from-red-50 to-white">
-          <div className="flex items-center justify-between mb-3">
-            <span className="text-sm text-red-700 font-medium">Yunusobod — Xarajat</span>
-            <div className="h-8 w-8 rounded-full bg-red-100 flex items-center justify-center"><TrendingDown className="h-4 w-4 text-red-600" /></div>
-          </div>
-          <p className="text-xl font-bold text-red-900 num">{fmt(yunusobodExpenses)}</p>
-        </div>
-      </div>
+      )}
 
-      {/* Строка 3 — широкие */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-6">
-        <div className="rounded-2xl p-5 shadow-soft border border-blue-100 bg-gradient-to-br from-blue-50 to-white">
-          <p className="text-sm text-blue-700 font-medium mb-1">Novza — Sof foyda</p>
-          <p className="text-2xl font-bold text-blue-900 num">{fmt(novzaProfit)}</p>
-          <div className="flex gap-6 mt-3 text-xs text-blue-600">
-            <span>Daromad: <span className="font-semibold">{fmt(novzaRevenue)}</span></span>
-            <span>Xarajat: <span className="font-semibold">{fmt(novzaExpenses)}</span></span>
+      {/* История транзакций выбранного человека */}
+      {drillPerson && (
+        <div className="bg-card rounded-2xl border border-border p-5 shadow-soft mb-6">
+          <div className="flex items-center justify-between mb-4">
+            <h3 className="font-semibold">{drillPerson} — tarix</h3>
+            <div className="flex gap-2">
+              <button onClick={() => setDrillPerson(null)} className="text-xs text-muted-foreground hover:text-foreground px-3 py-1.5 rounded-lg bg-secondary">← Orqaga</button>
+              <button onClick={() => { setDrillType(null); setDrillPerson(null); }} className="h-8 w-8 rounded-lg hover:bg-secondary flex items-center justify-center"><X className="h-4 w-4" /></button>
+            </div>
+          </div>
+          <div className="space-y-2">
+            {drillHistory.map((r, i) => (
+              <div key={i} className="flex items-center justify-between p-3 rounded-xl bg-secondary/60">
+                <div>
+                  <p className="text-sm font-medium">{r.sana}</p>
+                  <p className="text-xs text-muted-foreground">{r.filial} · {r.turi} {r.izoh ? `· ${r.izoh}` : ""}</p>
+                </div>
+                <span className={cn("num font-semibold text-sm", r.summa >= 0 ? "text-emerald-600" : "text-red-500")}>
+                  {r.summa >= 0 ? "+" : "-"}{fmt(Math.abs(r.summa))}
+                </span>
+              </div>
+            ))}
+            <div className="flex items-center justify-between p-3 rounded-xl bg-secondary border-t border-border mt-2">
+              <span className="text-sm font-semibold">Jami</span>
+              <span className={cn("num font-bold", drillType === "daromad" ? "text-emerald-600" : "text-red-500")}>
+                {drillType === "daromad" ? "+" : "-"}{fmt(drillHistory.reduce((s, r) => s + Math.abs(r.summa), 0))}
+              </span>
+            </div>
           </div>
         </div>
-        <div className="rounded-2xl p-5 shadow-soft border border-blue-100 bg-gradient-to-br from-blue-50 to-white">
-          <p className="text-sm text-blue-700 font-medium mb-1">Yunusobod — Sof foyda</p>
-          <p className="text-2xl font-bold text-blue-900 num">{fmt(yunusobodProfit)}</p>
-          <div className="flex gap-6 mt-3 text-xs text-blue-600">
-            <span>Daromad: <span className="font-semibold">{fmt(yunusobodRevenue)}</span></span>
-            <span>Xarajat: <span className="font-semibold">{fmt(yunusobodExpenses)}</span></span>
-          </div>
-        </div>
-      </div>
+      )}
 
       {/* График */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 mb-6">
