@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { Header } from "@/components/dashboard/Header";
-import { TrendingUp, TrendingDown, Loader2, AlertCircle, Plus, X } from "lucide-react";
+import { TrendingUp, TrendingDown, Loader2, AlertCircle, Plus, X, CheckCircle2, Clock } from "lucide-react";
 import { Area, AreaChart, CartesianGrid, Cell, Pie, PieChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
 import { cn } from "@/lib/utils";
 
@@ -8,6 +8,9 @@ const SHEET_ID = "1bLel0b3ULXWJ71Tgn_ynl5fvBrDIMZXo-CzeV9lnE3k";
 const SHEET_NAME = "moliya";
 const API_KEY = "AIzaSyB4kyYep05877BBpI9Rfv0SNcFhHVGBF5E";
 const WEBHOOK_URL = "https://n8n.srv1215497.hstgr.cloud/webhook/moliya";
+const REJADAGI_SHEET_ID = "1pgMDVt57G6TFkHfSZDCLY8bH1R-39a1rVhQb_Be9-Kc";
+const REJADAGI_SHEET_NAME = "Sheet1";
+const REJADAGI_WEBHOOK = "https://n8n.srv1215497.hstgr.cloud/webhook/rasxod";
 const UZ_MONTHS = ["Yan","Fev","Mar","Apr","May","Iyn","Iyl","Avg","Sen","Okt","Noy","Dek"];
 const EXPENSE_COLORS = ["hsl(222 47% 11%)","hsl(220 9% 46%)","hsl(230 70% 55%)","hsl(38 92% 50%)","hsl(220 13% 78%)"];
 
@@ -44,6 +47,7 @@ function formatSummaInput(val: string): string {
 
 type Period = "kun" | "hafta" | "oy" | "barchasi";
 interface Row { sana: string; ism: string; filial: string; turi: string; summa: number; kirimChiqim: string; izoh: string; }
+interface RejadagiRow { nomi: string; sana: string; summa: number; }
 
 function Toggle({ left, right, value, onChange, leftColor, rightColor }: {
   left: string; right: string; value: string; onChange: (v: string) => void; leftColor?: string; rightColor?: string;
@@ -62,7 +66,10 @@ export function Moliya() {
   const [error, setError] = useState<string | null>(null);
   const [period, setPeriod] = useState<Period>("barchasi");
 
-  // Форма
+  const [rejadagi, setRejadagi] = useState<RejadagiRow[]>([]);
+  const [rejadagiLoading, setRejadagiLoading] = useState(true);
+
+  // Форма moliya
   const [showForm, setShowForm] = useState(false);
   const [formSana, setFormSana] = useState(todayInputFormat());
   const [formIsm, setFormIsm] = useState("");
@@ -76,10 +83,18 @@ export function Moliya() {
   const [formLoading, setFormLoading] = useState(false);
   const [formResult, setFormResult] = useState<string | null>(null);
 
-  // Модальное окно филиала
+  // Форма rejadagi
+  const [showRejadagiForm, setShowRejadagiForm] = useState(false);
+  const [rejNomi, setRejNomi] = useState("");
+  const [rejSana, setRejSana] = useState(todayInputFormat());
+  const [rejSumma, setRejSumma] = useState("");
+  const [rejLoading, setRejLoading] = useState(false);
+  const [rejResult, setRejResult] = useState<string | null>(null);
+
+  // Модальное окно
   const [modalFilial, setModalFilial] = useState<"Novza" | "Yunusobod" | null>(null);
 
-  // Фильтр транзакций
+  // Фильтр
   const [filterKirim, setFilterKirim] = useState("Barchasi");
   const [filterFilial, setFilterFilial] = useState("Barchasi");
   const [filterFrom, setFilterFrom] = useState("");
@@ -88,19 +103,35 @@ export function Moliya() {
   const fetchData = () => {
     setLoading(true);
     fetch(`https://sheets.googleapis.com/v4/spreadsheets/${SHEET_ID}/values/${SHEET_NAME}?key=${API_KEY}`)
-      .then((res) => { if (!res.ok) throw new Error(`API xatosi: ${res.status}`); return res.json(); })
-      .then((data) => {
+      .then(res => { if (!res.ok) throw new Error(`API xatosi: ${res.status}`); return res.json(); })
+      .then(data => {
         const [, ...dataRows] = data.values as string[][];
-        setRows(dataRows.filter((r) => r.length >= 6 && r[0] && r[5]).map((r) => ({
+        setRows(dataRows.filter(r => r.length >= 6 && r[0] && r[5]).map(r => ({
           sana: r[0] ?? "", ism: r[1] ?? "", filial: r[2] ?? "", turi: r[4] ?? "",
           summa: parseSumma(r[5]), kirimChiqim: r[6] ?? "", izoh: r[7] ?? "",
         })));
       })
-      .catch((e) => setError(e.message))
+      .catch(e => setError(e.message))
       .finally(() => setLoading(false));
   };
 
-  useEffect(() => { fetchData(); }, []);
+  const fetchRejadagi = () => {
+    setRejadagiLoading(true);
+    fetch(`https://sheets.googleapis.com/v4/spreadsheets/${REJADAGI_SHEET_ID}/values/${REJADAGI_SHEET_NAME}?key=${API_KEY}`)
+      .then(res => { if (!res.ok) throw new Error(); return res.json(); })
+      .then(data => {
+        const [, ...dataRows] = (data.values || []) as string[][];
+        setRejadagi(dataRows.filter(r => r.length >= 3 && r[0]).map(r => ({
+          nomi: r[0] ?? "",
+          sana: r[1] ?? "",
+          summa: parseFloat(r[2]?.replace(/\s/g, "") || "0") || 0,
+        })));
+      })
+      .catch(() => {})
+      .finally(() => setRejadagiLoading(false));
+  };
+
+  useEffect(() => { fetchData(); fetchRejadagi(); }, []);
 
   async function submitForm() {
     if (!formIsm || !formSumma) { setFormResult("❌ Ism va summani kiriting"); return; }
@@ -119,11 +150,26 @@ export function Moliya() {
     finally { setFormLoading(false); }
   }
 
+  async function submitRejadagi() {
+    if (!rejNomi || !rejSumma) { setRejResult("❌ Nomi va summani kiriting"); return; }
+    setRejLoading(true); setRejResult(null);
+    try {
+      await fetch(REJADAGI_WEBHOOK, {
+        method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ nomi: rejNomi, sana: inputToSheetDate(rejSana), summa: parseInt(rejSumma.replace(/\s/g, "")) }),
+      });
+      setRejResult("✅ Saqlandi!");
+      setRejNomi(""); setRejSumma(""); setRejSana(todayInputFormat());
+      setTimeout(() => fetchRejadagi(), 2000);
+    } catch { setRejResult("❌ Xatolik"); }
+    finally { setRejLoading(false); }
+  }
+
   if (loading) return <div className="flex items-center justify-center h-64 gap-3 text-muted-foreground"><Loader2 className="h-5 w-5 animate-spin" /><span>Yuklanmoqda…</span></div>;
   if (error) return <div className="flex items-center justify-center h-64 gap-3 text-danger"><AlertCircle className="h-5 w-5" /><span>Xatolik: {error}</span></div>;
 
   const now = new Date();
-  const periodFiltered = rows.filter((r) => {
+  const periodFiltered = rows.filter(r => {
     if (period === "barchasi") return true;
     const d = parseDate(r.sana);
     if (!d) return false;
@@ -133,7 +179,6 @@ export function Moliya() {
     return true;
   });
 
-  // Метрики
   const totalRevenue = periodFiltered.filter(r => r.summa > 0).reduce((s, r) => s + r.summa, 0);
   const totalExpenses = periodFiltered.filter(r => r.summa < 0).reduce((s, r) => s + Math.abs(r.summa), 0);
   const totalProfit = totalRevenue - totalExpenses;
@@ -146,27 +191,24 @@ export function Moliya() {
   const yunusobodExpenses = periodFiltered.filter(r => r.summa < 0 && r.filial === "Yunusobod").reduce((s, r) => s + Math.abs(r.summa), 0);
   const yunusobodProfit = yunusobodRevenue - yunusobodExpenses;
 
-  // Фильтр таблицы
+  // Накопленная сумма для rejadagi
+  let cumulative = 0;
+  const rejadagiWithStatus = rejadagi.map(item => {
+    cumulative += item.summa;
+    return { ...item, covered: cumulative <= totalProfit };
+  });
+
   const tableFiltered = periodFiltered.filter(r => {
     if (filterKirim === "Kirim" && r.summa < 0) return false;
     if (filterKirim === "Chiqim" && r.summa > 0) return false;
     if (filterFilial !== "Barchasi" && r.filial !== filterFilial) return false;
-    if (filterFrom) {
-      const fromDate = parseDate(inputToSheetDate(filterFrom));
-      const d = parseDate(r.sana);
-      if (fromDate && d && d < fromDate) return false;
-    }
-    if (filterTo) {
-      const toDate = parseDate(inputToSheetDate(filterTo));
-      const d = parseDate(r.sana);
-      if (toDate && d && d > toDate) return false;
-    }
+    if (filterFrom) { const d = parseDate(r.sana); const from = parseDate(inputToSheetDate(filterFrom)); if (d && from && d < from) return false; }
+    if (filterTo) { const d = parseDate(r.sana); const to = parseDate(inputToSheetDate(filterTo)); if (d && to && d > to) return false; }
     return true;
   });
 
-  // График
   const monthMap: Record<string, { revenue: number; expenses: number }> = {};
-  periodFiltered.forEach((r) => {
+  periodFiltered.forEach(r => {
     const parts = r.sana.split(".");
     if (parts.length < 2) return;
     const key = UZ_MONTHS[parseInt(parts[1], 10) - 1] ?? r.sana;
@@ -179,10 +221,7 @@ export function Moliya() {
   }));
 
   const filialMap: Record<string, number> = {};
-  periodFiltered.filter(r => r.summa < 0).forEach(r => {
-    const k = r.filial || "Boshqa";
-    filialMap[k] = (filialMap[k] ?? 0) + Math.abs(r.summa);
-  });
+  periodFiltered.filter(r => r.summa < 0).forEach(r => { const k = r.filial || "Boshqa"; filialMap[k] = (filialMap[k] ?? 0) + Math.abs(r.summa); });
   const totalExp = Object.values(filialMap).reduce((a, b) => a + b, 0) || 1;
   const expenseBreakdown = Object.entries(filialMap).map(([name, val], i) => ({ name, value: Math.round((val / totalExp) * 100), color: EXPENSE_COLORS[i % EXPENSE_COLORS.length] }));
 
@@ -190,7 +229,6 @@ export function Moliya() {
     { id: "kun", label: "Bugun" }, { id: "hafta", label: "Hafta" }, { id: "oy", label: "Oy" }, { id: "barchasi", label: "Barchasi" },
   ];
 
-  // Данные для модального окна
   const modalData = modalFilial ? {
     revenue: modalFilial === "Novza" ? novzaRevenue : yunusobodRevenue,
     expenses: modalFilial === "Novza" ? novzaExpenses : yunusobodExpenses,
@@ -201,18 +239,15 @@ export function Moliya() {
     <div>
       <Header title="Moliya" subtitle="Daromad, xarajat va foyda tahlili" />
 
-      {/* Период + кнопка добавить */}
       <div className="flex flex-wrap gap-2 mb-6">
-        {periods.map((p) => (
+        {periods.map(p => (
           <button key={p.id} onClick={() => setPeriod(p.id)}
-            className={cn("px-4 py-1.5 rounded-lg text-sm font-medium transition",
-              period === p.id ? "bg-primary text-primary-foreground" : "bg-secondary text-muted-foreground hover:text-foreground")}>
+            className={cn("px-4 py-1.5 rounded-lg text-sm font-medium transition", period === p.id ? "bg-primary text-primary-foreground" : "bg-secondary text-muted-foreground hover:text-foreground")}>
             {p.label}
           </button>
         ))}
         <button onClick={() => { setShowForm(!showForm); setFormResult(null); }}
-          className={cn("ml-auto px-4 py-1.5 rounded-lg text-sm font-medium transition inline-flex items-center gap-2",
-            showForm ? "bg-primary text-primary-foreground" : "bg-emerald-600 text-white hover:bg-emerald-700")}>
+          className={cn("ml-auto px-4 py-1.5 rounded-lg text-sm font-medium transition inline-flex items-center gap-2", showForm ? "bg-primary text-primary-foreground" : "bg-emerald-600 text-white hover:bg-emerald-700")}>
           {showForm ? <X className="h-4 w-4" /> : <Plus className="h-4 w-4" />}
           {showForm ? "Yopish" : "Yangi yozuv"}
         </button>
@@ -223,15 +258,15 @@ export function Moliya() {
         <div className="bg-card rounded-2xl border border-border p-5 shadow-soft mb-6">
           <h3 className="font-semibold mb-4 flex items-center gap-2"><Plus className="h-4 w-4" />Yangi kirim / chiqim</h3>
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 mb-4">
-            <div><label className="text-xs text-muted-foreground mb-1 block">Sana</label><input type="date" value={formSana} onChange={(e) => setFormSana(e.target.value)} className="w-full px-3 py-2 rounded-lg border border-border bg-background text-sm" /></div>
-            <div><label className="text-xs text-muted-foreground mb-1 block">Ism Familya</label><input type="text" value={formIsm} onChange={(e) => setFormIsm(e.target.value)} className="w-full px-3 py-2 rounded-lg border border-border bg-background text-sm" /></div>
-            <div><label className="text-xs text-muted-foreground mb-1 block">Summa (so'm)</label><input type="text" value={formSumma} onChange={(e) => setFormSumma(formatSummaInput(e.target.value))} className="w-full px-3 py-2 rounded-lg border border-border bg-background text-sm num" /></div>
+            <div><label className="text-xs text-muted-foreground mb-1 block">Sana</label><input type="date" value={formSana} onChange={e => setFormSana(e.target.value)} className="w-full px-3 py-2 rounded-lg border border-border bg-background text-sm" /></div>
+            <div><label className="text-xs text-muted-foreground mb-1 block">Ism Familya</label><input type="text" value={formIsm} onChange={e => setFormIsm(e.target.value)} className="w-full px-3 py-2 rounded-lg border border-border bg-background text-sm" /></div>
+            <div><label className="text-xs text-muted-foreground mb-1 block">Summa (so'm)</label><input type="text" value={formSumma} onChange={e => setFormSumma(formatSummaInput(e.target.value))} className="w-full px-3 py-2 rounded-lg border border-border bg-background text-sm num" /></div>
             <div><label className="text-xs text-muted-foreground mb-1 block">Filial</label><Toggle left="Novza" right="Yunusobod" value={formFilial} onChange={setFormFilial} /></div>
             <div><label className="text-xs text-muted-foreground mb-1 block">Turi</label><Toggle left="Naqd" right="Karta" value={formTuri} onChange={setFormTuri} /></div>
             <div><label className="text-xs text-muted-foreground mb-1 block">Online / Offline</label><Toggle left="Offline" right="Online" value={formOnline} onChange={setFormOnline} /></div>
-            {formOnline === "Online" && (<div><label className="text-xs text-muted-foreground mb-1 block">Telefon raqami</label><input type="tel" placeholder="+998 90 000 00 00" value={formTelefon} onChange={(e) => setFormTelefon(e.target.value)} className="w-full px-3 py-2 rounded-lg border border-border bg-background text-sm" /></div>)}
+            {formOnline === "Online" && (<div><label className="text-xs text-muted-foreground mb-1 block">Telefon raqami</label><input type="tel" placeholder="+998 90 000 00 00" value={formTelefon} onChange={e => setFormTelefon(e.target.value)} className="w-full px-3 py-2 rounded-lg border border-border bg-background text-sm" /></div>)}
             <div><label className="text-xs text-muted-foreground mb-1 block">Kirim / Chiqim</label><Toggle left="Kirim" right="Chiqim" value={formKirim} onChange={setFormKirim} leftColor="bg-emerald-600 text-white" rightColor="bg-red-500 text-white" /></div>
-            <div className="sm:col-span-2"><label className="text-xs text-muted-foreground mb-1 block">Izoh (ixtiyoriy)</label><input type="text" value={formIzoh} onChange={(e) => setFormIzoh(e.target.value)} className="w-full px-3 py-2 rounded-lg border border-border bg-background text-sm" /></div>
+            <div className="sm:col-span-2"><label className="text-xs text-muted-foreground mb-1 block">Izoh (ixtiyoriy)</label><input type="text" value={formIzoh} onChange={e => setFormIzoh(e.target.value)} className="w-full px-3 py-2 rounded-lg border border-border bg-background text-sm" /></div>
           </div>
           <button onClick={submitForm} disabled={formLoading} className="px-6 py-2 bg-emerald-600 text-white rounded-lg text-sm font-medium hover:bg-emerald-700 transition disabled:opacity-50 inline-flex items-center gap-2">
             {formLoading ? <><Loader2 className="h-4 w-4 animate-spin" />Saqlanmoqda…</> : "Saqlash"}
@@ -240,7 +275,7 @@ export function Moliya() {
         </div>
       )}
 
-      {/* Строка 1 — Marja широкий */}
+      {/* Строка 1 — Marja */}
       <div className="rounded-2xl p-5 shadow-soft border border-purple-100 bg-gradient-to-br from-purple-50 to-white mb-4">
         <div className="flex items-center justify-between">
           <div>
@@ -252,23 +287,92 @@ export function Moliya() {
         </div>
       </div>
 
-      {/* Строка 2 — Novza и Yunusobod Sof foyda */}
+      {/* Строка 2 — Novza и Yunusobod */}
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-6">
-        <div className="rounded-2xl p-5 shadow-soft border border-blue-100 bg-gradient-to-br from-blue-50 to-white cursor-pointer hover:border-blue-300 transition"
-          onClick={() => setModalFilial("Novza")}>
+        <div className="rounded-2xl p-5 shadow-soft border border-blue-100 bg-gradient-to-br from-blue-50 to-white cursor-pointer hover:border-blue-300 transition" onClick={() => setModalFilial("Novza")}>
           <p className="text-sm text-blue-700 font-medium mb-2">Novza — Sof foyda</p>
           <p className="text-2xl font-bold text-blue-900 num">{fmt(novzaProfit)}</p>
           <p className="text-xs text-blue-600 mt-2">Batafsil ko'rish →</p>
         </div>
-        <div className="rounded-2xl p-5 shadow-soft border border-blue-100 bg-gradient-to-br from-blue-50 to-white cursor-pointer hover:border-blue-300 transition"
-          onClick={() => setModalFilial("Yunusobod")}>
+        <div className="rounded-2xl p-5 shadow-soft border border-blue-100 bg-gradient-to-br from-blue-50 to-white cursor-pointer hover:border-blue-300 transition" onClick={() => setModalFilial("Yunusobod")}>
           <p className="text-sm text-blue-700 font-medium mb-2">Yunusobod — Sof foyda</p>
           <p className="text-2xl font-bold text-blue-900 num">{fmt(yunusobodProfit)}</p>
           <p className="text-xs text-blue-600 mt-2">Batafsil ko'rish →</p>
         </div>
       </div>
 
-      {/* Модальное окно филиала */}
+      {/* Rejadagi xarajatlar — листочек на холодильнике */}
+      <div className="rounded-2xl border-2 border-dashed border-amber-200 bg-amber-50 p-5 shadow-soft mb-6">
+        <div className="flex items-center justify-between mb-4">
+          <div className="flex items-center gap-2">
+            <span className="text-lg">📋</span>
+            <div>
+              <h3 className="font-semibold text-amber-900">Rejadagi xarajatlar</h3>
+              <p className="text-xs text-amber-700 mt-0.5">Sof foyda: <span className="font-bold">{fmt(totalProfit)}</span></p>
+            </div>
+          </div>
+          <button onClick={() => { setShowRejadagiForm(!showRejadagiForm); setRejResult(null); }}
+            className={cn("px-3 py-1.5 rounded-lg text-xs font-medium transition inline-flex items-center gap-1.5",
+              showRejadagiForm ? "bg-amber-300 text-amber-900" : "bg-amber-200 text-amber-800 hover:bg-amber-300")}>
+            {showRejadagiForm ? <X className="h-3.5 w-3.5" /> : <Plus className="h-3.5 w-3.5" />}
+            {showRejadagiForm ? "Yopish" : "Qo'shish"}
+          </button>
+        </div>
+
+        {/* Форма добавления */}
+        {showRejadagiForm && (
+          <div className="bg-white rounded-xl p-4 border border-amber-200 mb-4">
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 mb-3">
+              <div><label className="text-xs text-muted-foreground mb-1 block">Xarajat nomi</label><input type="text" placeholder="Ijara, Maosh..." value={rejNomi} onChange={e => setRejNomi(e.target.value)} className="w-full px-3 py-2 rounded-lg border border-border bg-background text-sm" /></div>
+              <div><label className="text-xs text-muted-foreground mb-1 block">Sana / Oy</label><input type="date" value={rejSana} onChange={e => setRejSana(e.target.value)} className="w-full px-3 py-2 rounded-lg border border-border bg-background text-sm" /></div>
+              <div><label className="text-xs text-muted-foreground mb-1 block">Summa (so'm)</label><input type="text" value={rejSumma} onChange={e => setRejSumma(formatSummaInput(e.target.value))} className="w-full px-3 py-2 rounded-lg border border-border bg-background text-sm num" /></div>
+            </div>
+            <button onClick={submitRejadagi} disabled={rejLoading} className="px-4 py-2 bg-amber-500 text-white rounded-lg text-sm font-medium hover:bg-amber-600 transition disabled:opacity-50 inline-flex items-center gap-2">
+              {rejLoading ? <><Loader2 className="h-3.5 w-3.5 animate-spin" />Saqlanmoqda…</> : "Saqlash"}
+            </button>
+            {rejResult && <span className="ml-3 text-sm font-medium text-emerald-700">{rejResult}</span>}
+          </div>
+        )}
+
+        {/* Список */}
+        {rejadagiLoading ? (
+          <div className="flex items-center gap-2 text-amber-700 text-sm"><Loader2 className="h-4 w-4 animate-spin" /><span>Yuklanmoqda…</span></div>
+        ) : rejadagiWithStatus.length === 0 ? (
+          <p className="text-sm text-amber-700 text-center py-4">Hozircha rejadagi xarajatlar yo'q</p>
+        ) : (
+          <div className="space-y-2">
+            {rejadagiWithStatus.map((item, i) => (
+              <div key={i} className={cn("flex items-center justify-between p-3 rounded-xl border transition",
+                item.covered ? "bg-emerald-50 border-emerald-200" : "bg-red-50 border-red-200")}>
+                <div className="flex items-center gap-3">
+                  {item.covered
+                    ? <CheckCircle2 className="h-5 w-5 text-emerald-500 shrink-0" />
+                    : <Clock className="h-5 w-5 text-red-400 shrink-0" />}
+                  <div>
+                    <p className={cn("font-medium text-sm", item.covered ? "text-emerald-900" : "text-red-900")}>{item.nomi}</p>
+                    <p className={cn("text-xs mt-0.5", item.covered ? "text-emerald-600" : "text-red-500")}>{item.sana}</p>
+                  </div>
+                </div>
+                <p className={cn("num font-bold text-sm", item.covered ? "text-emerald-700" : "text-red-600")}>
+                  {fmt(item.summa)}
+                </p>
+              </div>
+            ))}
+            <div className="flex items-center justify-between pt-2 border-t border-amber-200 mt-2">
+              <span className="text-xs font-semibold text-amber-800">Jami rejadagi xarajatlar</span>
+              <span className="num font-bold text-sm text-amber-900">{fmt(rejadagi.reduce((s, r) => s + r.summa, 0))}</span>
+            </div>
+            <div className="flex items-center justify-between">
+              <span className="text-xs font-semibold text-amber-800">Qolgan sof foyda</span>
+              <span className={cn("num font-bold text-sm", totalProfit - rejadagi.reduce((s, r) => s + r.summa, 0) >= 0 ? "text-emerald-700" : "text-red-600")}>
+                {fmt(totalProfit - rejadagi.reduce((s, r) => s + r.summa, 0))}
+              </span>
+            </div>
+          </div>
+        )}
+      </div>
+
+      {/* Модальное окно */}
       {modalFilial && modalData && (
         <div className="fixed inset-0 bg-foreground/30 backdrop-blur-sm z-50 flex items-center justify-center p-4">
           <div className="bg-card rounded-2xl border border-border shadow-elevated w-full max-w-md">
@@ -332,7 +436,7 @@ export function Moliya() {
               <ResponsiveContainer width="100%" height={200}>
                 <PieChart><Pie data={expenseBreakdown} dataKey="value" innerRadius={55} outerRadius={80} paddingAngle={2}>{expenseBreakdown.map((e, i) => <Cell key={i} fill={e.color} />)}</Pie><Tooltip contentStyle={{ background: "hsl(var(--card))", border: "1px solid hsl(var(--border))", borderRadius: 12, fontSize: 12 }} formatter={(val) => [`${val}%`, ""]} /></PieChart>
               </ResponsiveContainer>
-              <div className="mt-3 space-y-2">{expenseBreakdown.map((e) => (<div key={e.name} className="flex items-center justify-between text-sm"><span className="inline-flex items-center gap-2"><span className="h-2.5 w-2.5 rounded-sm" style={{ background: e.color }} />{e.name}</span><span className="num font-medium">{e.value}%</span></div>))}</div>
+              <div className="mt-3 space-y-2">{expenseBreakdown.map(e => (<div key={e.name} className="flex items-center justify-between text-sm"><span className="inline-flex items-center gap-2"><span className="h-2.5 w-2.5 rounded-sm" style={{ background: e.color }} />{e.name}</span><span className="num font-medium">{e.value}%</span></div>))}</div>
             </>
           )}
         </div>
@@ -345,7 +449,7 @@ export function Moliya() {
           <div>
             <label className="text-xs text-muted-foreground mb-1 block">Turi</label>
             <div className="flex rounded-lg border border-border overflow-hidden text-sm font-medium">
-              {["Barchasi", "Kirim", "Chiqim"].map((v) => (
+              {["Barchasi", "Kirim", "Chiqim"].map(v => (
                 <button key={v} onClick={() => setFilterKirim(v)}
                   className={cn("flex-1 py-2 px-2 transition border-r border-border last:border-0 text-xs",
                     filterKirim === v ? (v === "Kirim" ? "bg-emerald-600 text-white" : v === "Chiqim" ? "bg-red-500 text-white" : "bg-primary text-primary-foreground") : "bg-background text-muted-foreground hover:text-foreground")}>
@@ -357,7 +461,7 @@ export function Moliya() {
           <div>
             <label className="text-xs text-muted-foreground mb-1 block">Filial</label>
             <div className="flex rounded-lg border border-border overflow-hidden text-sm font-medium">
-              {["Barchasi", "Novza", "Yunusobod"].map((v) => (
+              {["Barchasi", "Novza", "Yunusobod"].map(v => (
                 <button key={v} onClick={() => setFilterFilial(v)}
                   className={cn("flex-1 py-2 px-2 transition border-r border-border last:border-0 text-xs",
                     filterFilial === v ? "bg-primary text-primary-foreground" : "bg-background text-muted-foreground hover:text-foreground")}>
@@ -366,16 +470,8 @@ export function Moliya() {
               ))}
             </div>
           </div>
-          <div>
-            <label className="text-xs text-muted-foreground mb-1 block">Dan</label>
-            <input type="date" value={filterFrom} onChange={(e) => setFilterFrom(e.target.value)}
-              className="w-full px-3 py-2 rounded-lg border border-border bg-background text-sm" />
-          </div>
-          <div>
-            <label className="text-xs text-muted-foreground mb-1 block">Gacha</label>
-            <input type="date" value={filterTo} onChange={(e) => setFilterTo(e.target.value)}
-              className="w-full px-3 py-2 rounded-lg border border-border bg-background text-sm" />
-          </div>
+          <div><label className="text-xs text-muted-foreground mb-1 block">Dan</label><input type="date" value={filterFrom} onChange={e => setFilterFrom(e.target.value)} className="w-full px-3 py-2 rounded-lg border border-border bg-background text-sm" /></div>
+          <div><label className="text-xs text-muted-foreground mb-1 block">Gacha</label><input type="date" value={filterTo} onChange={e => setFilterTo(e.target.value)} className="w-full px-3 py-2 rounded-lg border border-border bg-background text-sm" /></div>
         </div>
       </div>
 
@@ -385,21 +481,14 @@ export function Moliya() {
           <h3 className="font-semibold">Tranzaksiyalar ({tableFiltered.length})</h3>
           {(filterKirim !== "Barchasi" || filterFilial !== "Barchasi" || filterFrom || filterTo) && (
             <button onClick={() => { setFilterKirim("Barchasi"); setFilterFilial("Barchasi"); setFilterFrom(""); setFilterTo(""); }}
-              className="text-xs text-muted-foreground hover:text-foreground px-3 py-1.5 rounded-lg bg-secondary">
-              Filterni tozalash
-            </button>
+              className="text-xs text-muted-foreground hover:text-foreground px-3 py-1.5 rounded-lg bg-secondary">Filterni tozalash</button>
           )}
         </div>
         <div className="overflow-x-auto">
           <table className="w-full text-sm">
             <thead>
               <tr className="text-left text-xs text-muted-foreground uppercase tracking-wider">
-                <th className="pb-3 font-medium">Sana</th>
-                <th className="pb-3 font-medium">Ism</th>
-                <th className="pb-3 font-medium">Filial</th>
-                <th className="pb-3 font-medium">Turi</th>
-                <th className="pb-3 font-medium text-right">Summa</th>
-                <th className="pb-3 font-medium">Izoh</th>
+                <th className="pb-3 font-medium">Sana</th><th className="pb-3 font-medium">Ism</th><th className="pb-3 font-medium">Filial</th><th className="pb-3 font-medium">Turi</th><th className="pb-3 font-medium text-right">Summa</th><th className="pb-3 font-medium">Izoh</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-border">
@@ -409,9 +498,7 @@ export function Moliya() {
                   <td className="py-3 font-medium">{r.ism}</td>
                   <td className="py-3 text-muted-foreground">{r.filial}</td>
                   <td className="py-3 text-muted-foreground">{r.turi}</td>
-                  <td className={`py-3 text-right num font-semibold ${r.summa >= 0 ? "text-emerald-600" : "text-red-500"}`}>
-                    {r.summa >= 0 ? "+" : "-"}{fmt(Math.abs(r.summa))}
-                  </td>
+                  <td className={`py-3 text-right num font-semibold ${r.summa >= 0 ? "text-emerald-600" : "text-red-500"}`}>{r.summa >= 0 ? "+" : "-"}{fmt(Math.abs(r.summa))}</td>
                   <td className="py-3 text-muted-foreground text-xs max-w-[200px] truncate">{r.izoh || "—"}</td>
                 </tr>
               ))}
