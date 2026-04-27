@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { Header } from "@/components/dashboard/Header";
-import { TrendingUp, Loader2, AlertCircle, Plus, X, CheckCircle2, Clock } from "lucide-react";
+import { TrendingUp, TrendingDown, Loader2, AlertCircle, Plus, X, CheckCircle2, Clock, CalendarClock } from "lucide-react";
 import { Area, AreaChart, CartesianGrid, Cell, Pie, PieChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
 import { cn } from "@/lib/utils";
 
@@ -14,6 +14,12 @@ const UZ_MONTHS = ["Yan","Fev","Mar","Apr","May","Iyn","Iyl","Avg","Sen","Okt","
 const EXPENSE_COLORS = ["hsl(222 47% 11%)","hsl(220 9% 46%)","hsl(230 70% 55%)","hsl(38 92% 50%)","hsl(220 13% 78%)"];
 
 const fmt = (n: number) => Math.round(Math.abs(n)).toLocaleString("ru-RU") + " so'm";
+const fmtShort = (n: number) => {
+  const abs = Math.abs(n);
+  if (abs >= 1_000_000) return (n / 1_000_000).toFixed(1) + " mln";
+  if (abs >= 1_000) return Math.round(n / 1_000) + " ming";
+  return Math.round(n) + "";
+};
 
 function parseSumma(raw: string): number {
   const str = raw.trim();
@@ -64,11 +70,10 @@ export function Moliya() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [period, setPeriod] = useState<Period>("barchasi");
-
   const [rejadagi, setRejadagi] = useState<RejadagiRow[]>([]);
   const [rejadagiLoading, setRejadagiLoading] = useState(true);
 
-  // Форма moliya
+  // Форма kirim/chiqim
   const [showForm, setShowForm] = useState(false);
   const [formSana, setFormSana] = useState(todayInputFormat());
   const [formIsm, setFormIsm] = useState("");
@@ -123,11 +128,9 @@ export function Moliya() {
           dataRows
             .filter(r => r.length >= 3 && r[0] && r[3] !== "tolov qilindi")
             .map(r => ({
-              nomi: r[0] ?? "",
-              sana: r[1] ?? "",
+              nomi: r[0] ?? "", sana: r[1] ?? "",
               summa: parseFloat(r[2]?.replace(/\s/g, "") || "0") || 0,
-              status: r[3] ?? "rejada",
-              izoh: r[4] ?? "",
+              status: r[3] ?? "rejada", izoh: r[4] ?? "",
             }))
         );
       })
@@ -248,6 +251,7 @@ export function Moliya() {
     <div>
       <Header title="Moliya" subtitle="Daromad, xarajat va foyda tahlili" />
 
+      {/* Период + кнопки */}
       <div className="flex flex-wrap gap-2 mb-6">
         {periods.map(p => (
           <button key={p.id} onClick={() => setPeriod(p.id)}
@@ -255,11 +259,20 @@ export function Moliya() {
             {p.label}
           </button>
         ))}
-        <button onClick={() => { setShowForm(!showForm); setFormResult(null); }}
-          className={cn("ml-auto px-4 py-1.5 rounded-lg text-sm font-medium transition inline-flex items-center gap-2", showForm ? "bg-primary text-primary-foreground" : "bg-emerald-600 text-white hover:bg-emerald-700")}>
-          {showForm ? <X className="h-4 w-4" /> : <Plus className="h-4 w-4" />}
-          {showForm ? "Yopish" : "Yangi yozuv"}
-        </button>
+        <div className="ml-auto flex gap-2">
+          <button onClick={() => { setShowRejadagiForm(!showRejadagiForm); setRejResult(null); if (showForm) setShowForm(false); }}
+            className={cn("px-4 py-1.5 rounded-lg text-sm font-medium transition inline-flex items-center gap-2",
+              showRejadagiForm ? "bg-primary text-primary-foreground" : "bg-secondary text-muted-foreground hover:text-foreground")}>
+            {showRejadagiForm ? <X className="h-4 w-4" /> : <CalendarClock className="h-4 w-4" />}
+            {showRejadagiForm ? "Yopish" : "Rejadagi xarajat"}
+          </button>
+          <button onClick={() => { setShowForm(!showForm); setFormResult(null); if (showRejadagiForm) setShowRejadagiForm(false); }}
+            className={cn("px-4 py-1.5 rounded-lg text-sm font-medium transition inline-flex items-center gap-2",
+              showForm ? "bg-primary text-primary-foreground" : "bg-emerald-600 text-white hover:bg-emerald-700")}>
+            {showForm ? <X className="h-4 w-4" /> : <Plus className="h-4 w-4" />}
+            {showForm ? "Yopish" : "Yangi yozuv"}
+          </button>
+        </div>
       </div>
 
       {/* Форма kirim/chiqim */}
@@ -284,66 +297,59 @@ export function Moliya() {
         </div>
       )}
 
-      {/* Marja */}
-      <div className="rounded-2xl p-5 shadow-soft border border-border bg-card mb-4">
+      {/* Форма rejadagi xarajat */}
+      {showRejadagiForm && (
+        <div className="bg-card rounded-2xl border border-border p-5 shadow-soft mb-6">
+          <h3 className="font-semibold mb-4 flex items-center gap-2"><CalendarClock className="h-4 w-4" />Rejadagi xarajat qo'shish</h3>
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-4">
+            <div><label className="text-xs text-muted-foreground mb-1 block">Xarajat nomi</label><input type="text" placeholder="Ijara, Maosh..." value={rejNomi} onChange={e => setRejNomi(e.target.value)} className="w-full px-3 py-2 rounded-lg border border-border bg-background text-sm" /></div>
+            <div><label className="text-xs text-muted-foreground mb-1 block">Sana / Oy</label><input type="date" value={rejSana} onChange={e => setRejSana(e.target.value)} className="w-full px-3 py-2 rounded-lg border border-border bg-background text-sm" /></div>
+            <div><label className="text-xs text-muted-foreground mb-1 block">Summa (so'm)</label><input type="text" value={rejSumma} onChange={e => setRejSumma(formatSummaInput(e.target.value))} className="w-full px-3 py-2 rounded-lg border border-border bg-background text-sm num" /></div>
+            <div><label className="text-xs text-muted-foreground mb-1 block">Izoh</label><input type="text" value={rejIzoh} onChange={e => setRejIzoh(e.target.value)} className="w-full px-3 py-2 rounded-lg border border-border bg-background text-sm" /></div>
+          </div>
+          <button onClick={submitRejadagi} disabled={rejLoading} className="px-6 py-2 bg-primary text-primary-foreground rounded-lg text-sm font-medium hover:opacity-90 transition disabled:opacity-50 inline-flex items-center gap-2">
+            {rejLoading ? <><Loader2 className="h-4 w-4 animate-spin" />Saqlanmoqda…</> : "Saqlash"}
+          </button>
+          {rejResult && <div className={cn("mt-4 p-3 rounded-xl text-sm font-medium inline-block ml-3", rejResult.startsWith("✅") ? "text-emerald-700" : "text-red-600")}>{rejResult}</div>}
+        </div>
+      )}
+
+      {/* Строка 1 — Marja с цветом */}
+      <div className="rounded-2xl p-5 shadow-soft border border-purple-100 bg-gradient-to-br from-purple-50 to-white mb-4">
         <div className="flex items-center justify-between">
           <div>
-            <p className="text-sm text-muted-foreground font-medium mb-1">Marja</p>
-            <p className="text-3xl font-bold num">{margin}%</p>
-            <p className="text-xs text-muted-foreground mt-1">Daromad: {fmt(totalRevenue)}  ·  Xarajat: {fmt(totalExpenses)}  ·  Sof foyda: {fmt(totalProfit)}</p>
+            <p className="text-sm text-purple-700 font-medium mb-1">Marja</p>
+            <p className="text-3xl font-bold text-purple-900 num">{margin}%</p>
+            <p className="text-xs text-purple-600 mt-1">Daromad: {fmt(totalRevenue)}  ·  Xarajat: {fmt(totalExpenses)}  ·  Sof foyda: {fmt(totalProfit)}</p>
           </div>
-          <div className="h-12 w-12 rounded-full bg-secondary flex items-center justify-center"><TrendingUp className="h-6 w-6 text-foreground" /></div>
+          <div className="h-12 w-12 rounded-full bg-purple-100 flex items-center justify-center"><TrendingUp className="h-6 w-6 text-purple-600" /></div>
         </div>
       </div>
 
-      {/* Novza va Yunusobod */}
+      {/* Строка 2 — Novza и Yunusobod с цветом */}
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-6">
-        <div className="rounded-2xl p-5 shadow-soft border border-border bg-card cursor-pointer hover:bg-secondary/40 transition" onClick={() => setModalFilial("Novza")}>
-          <p className="text-sm text-muted-foreground font-medium mb-2">Novza — Sof foyda</p>
-          <p className="text-2xl font-bold num">{fmt(novzaProfit)}</p>
-          <p className="text-xs text-muted-foreground mt-2">Batafsil ko'rish →</p>
+        <div className="rounded-2xl p-5 shadow-soft border border-blue-100 bg-gradient-to-br from-blue-50 to-white cursor-pointer hover:border-blue-300 transition" onClick={() => setModalFilial("Novza")}>
+          <p className="text-sm text-blue-700 font-medium mb-2">Novza — Sof foyda</p>
+          <p className="text-2xl font-bold text-blue-900 num">{fmt(novzaProfit)}</p>
+          <p className="text-xs text-blue-600 mt-2">Batafsil ko'rish →</p>
         </div>
-        <div className="rounded-2xl p-5 shadow-soft border border-border bg-card cursor-pointer hover:bg-secondary/40 transition" onClick={() => setModalFilial("Yunusobod")}>
-          <p className="text-sm text-muted-foreground font-medium mb-2">Yunusobod — Sof foyda</p>
-          <p className="text-2xl font-bold num">{fmt(yunusobodProfit)}</p>
-          <p className="text-xs text-muted-foreground mt-2">Batafsil ko'rish →</p>
+        <div className="rounded-2xl p-5 shadow-soft border border-blue-100 bg-gradient-to-br from-blue-50 to-white cursor-pointer hover:border-blue-300 transition" onClick={() => setModalFilial("Yunusobod")}>
+          <p className="text-sm text-blue-700 font-medium mb-2">Yunusobod — Sof foyda</p>
+          <p className="text-2xl font-bold text-blue-900 num">{fmt(yunusobodProfit)}</p>
+          <p className="text-xs text-blue-600 mt-2">Batafsil ko'rish →</p>
         </div>
       </div>
 
-      {/* Rejadagi xarajatlar */}
+      {/* Rejadagi xarajatlar — таблица */}
       <div className="bg-card rounded-2xl border border-border p-5 shadow-soft mb-6">
         <div className="flex items-center justify-between mb-4">
           <div>
             <h3 className="font-semibold">Rejadagi xarajatlar</h3>
-            <p className="text-xs text-muted-foreground mt-0.5">Sof foyda: <span className="font-semibold">{fmt(totalProfit)}</span></p>
+            <p className="text-xs text-muted-foreground mt-0.5">Joriy sof foyda: <span className="font-semibold">{fmt(totalProfit)}</span></p>
           </div>
-          <button onClick={() => { setShowRejadagiForm(!showRejadagiForm); setRejResult(null); }}
-            className={cn("px-3 py-1.5 rounded-lg text-xs font-medium transition inline-flex items-center gap-1.5 border border-border",
-              showRejadagiForm ? "bg-secondary" : "bg-background hover:bg-secondary")}>
-            {showRejadagiForm ? <X className="h-3.5 w-3.5" /> : <Plus className="h-3.5 w-3.5" />}
-            {showRejadagiForm ? "Yopish" : "Xarajat qo'shish"}
-          </button>
         </div>
-
-        {/* Форма добавления планируемого расхода */}
-        {showRejadagiForm && (
-          <div className="bg-secondary/40 rounded-xl p-4 border border-border mb-4">
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 mb-3">
-              <div><label className="text-xs text-muted-foreground mb-1 block">Xarajat nomi</label><input type="text" placeholder="Ijara, Maosh..." value={rejNomi} onChange={e => setRejNomi(e.target.value)} className="w-full px-3 py-2 rounded-lg border border-border bg-background text-sm" /></div>
-              <div><label className="text-xs text-muted-foreground mb-1 block">Sana / Oy</label><input type="date" value={rejSana} onChange={e => setRejSana(e.target.value)} className="w-full px-3 py-2 rounded-lg border border-border bg-background text-sm" /></div>
-              <div><label className="text-xs text-muted-foreground mb-1 block">Summa (so'm)</label><input type="text" value={rejSumma} onChange={e => setRejSumma(formatSummaInput(e.target.value))} className="w-full px-3 py-2 rounded-lg border border-border bg-background text-sm num" /></div>
-              <div><label className="text-xs text-muted-foreground mb-1 block">Izoh</label><input type="text" value={rejIzoh} onChange={e => setRejIzoh(e.target.value)} className="w-full px-3 py-2 rounded-lg border border-border bg-background text-sm" /></div>
-            </div>
-            <button onClick={submitRejadagi} disabled={rejLoading} className="px-4 py-2 bg-primary text-primary-foreground rounded-lg text-sm font-medium hover:opacity-90 transition disabled:opacity-50 inline-flex items-center gap-2">
-              {rejLoading ? <><Loader2 className="h-3.5 w-3.5 animate-spin" />Saqlanmoqda…</> : "Saqlash"}
-            </button>
-            {rejResult && <span className="ml-3 text-sm font-medium text-emerald-700">{rejResult}</span>}
-          </div>
-        )}
-
-        {/* Список планируемых расходов */}
         {rejadagiLoading ? (
-          <div className="flex items-center gap-2 text-muted-foreground text-sm"><Loader2 className="h-4 w-4 animate-spin" /><span>Yuklanmoqda…</span></div>
+          <div className="flex items-center gap-2 text-muted-foreground text-sm py-4"><Loader2 className="h-4 w-4 animate-spin" /><span>Yuklanmoqda…</span></div>
         ) : rejadagi.length === 0 ? (
           <p className="text-sm text-muted-foreground text-center py-6">Rejadagi xarajatlar yo'q</p>
         ) : (
@@ -368,9 +374,9 @@ export function Moliya() {
                     <p className={cn("num font-bold text-sm", covered ? "text-emerald-700" : "text-red-600")}>{fmt(item.summa)}</p>
                     {covered && (
                       <button onClick={() => tolovQilindi(item, i)} disabled={tolovLoading === i}
-                        className="px-3 py-1.5 bg-emerald-600 text-white rounded-lg text-xs font-medium hover:bg-emerald-700 transition disabled:opacity-50 inline-flex items-center gap-1.5">
+                        className="px-3 py-1.5 bg-emerald-600 text-white rounded-lg text-xs font-medium hover:bg-emerald-700 transition disabled:opacity-50 inline-flex items-center gap-1.5 whitespace-nowrap">
                         {tolovLoading === i ? <Loader2 className="h-3 w-3 animate-spin" /> : <CheckCircle2 className="h-3 w-3" />}
-                        To'lov qilindi
+                        To'landi
                       </button>
                     )}
                   </div>
@@ -400,22 +406,22 @@ export function Moliya() {
               <button onClick={() => setModalFilial(null)} className="h-8 w-8 rounded-lg hover:bg-secondary flex items-center justify-center"><X className="h-4 w-4" /></button>
             </div>
             <div className="p-5 space-y-3">
-              <div className="rounded-xl p-4 border border-border bg-secondary/40">
-                <p className="text-xs text-muted-foreground font-medium mb-1">Jami daromad</p>
-                <p className="text-xl font-bold num text-emerald-600">{fmt(modalData.revenue)}</p>
+              <div className="rounded-xl p-4 border border-emerald-100 bg-emerald-50">
+                <p className="text-xs text-emerald-700 font-medium mb-1">Jami daromad</p>
+                <p className="text-xl font-bold text-emerald-900 num">{fmt(modalData.revenue)}</p>
               </div>
-              <div className="rounded-xl p-4 border border-border bg-secondary/40">
-                <p className="text-xs text-muted-foreground font-medium mb-1">Jami xarajat</p>
-                <p className="text-xl font-bold num text-red-500">{fmt(modalData.expenses)}</p>
+              <div className="rounded-xl p-4 border border-red-100 bg-red-50">
+                <p className="text-xs text-red-700 font-medium mb-1">Jami xarajat</p>
+                <p className="text-xl font-bold text-red-900 num">{fmt(modalData.expenses)}</p>
               </div>
-              <div className="rounded-xl p-4 border border-border bg-secondary/40">
-                <p className="text-xs text-muted-foreground font-medium mb-1">Sof foyda</p>
-                <p className="text-xl font-bold num">{fmt(modalData.profit)}</p>
+              <div className="rounded-xl p-4 border border-blue-100 bg-blue-50">
+                <p className="text-xs text-blue-700 font-medium mb-1">Sof foyda</p>
+                <p className="text-xl font-bold text-blue-900 num">{fmt(modalData.profit)}</p>
               </div>
-              <div className="rounded-xl p-4 border border-border bg-secondary/40">
-                <p className="text-xs text-muted-foreground font-medium mb-1">Umumiy sof foyda (2 filial)</p>
-                <p className="text-xl font-bold num">{fmt(totalProfit)}</p>
-                <p className="text-xs text-muted-foreground mt-1">Novza: {fmt(novzaProfit)}  +  Yunusobod: {fmt(yunusobodProfit)}</p>
+              <div className="rounded-xl p-4 border border-purple-100 bg-purple-50">
+                <p className="text-xs text-purple-700 font-medium mb-1">Umumiy sof foyda (2 filial)</p>
+                <p className="text-xl font-bold text-purple-900 num">{fmt(totalProfit)}</p>
+                <p className="text-xs text-purple-600 mt-1">Novza: {fmt(novzaProfit)}  +  Yunusobod: {fmt(yunusobodProfit)}</p>
               </div>
             </div>
           </div>
