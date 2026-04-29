@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { Header } from "@/components/dashboard/Header";
-import { TrendingUp, TrendingDown, Loader2, AlertCircle, Plus, X, CheckCircle2, Clock, CalendarClock } from "lucide-react";
+import { TrendingUp, Loader2, AlertCircle, Plus, X, CheckCircle2, Clock, CalendarClock, Globe } from "lucide-react";
 import { Area, AreaChart, CartesianGrid, Cell, Pie, PieChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
 import { cn } from "@/lib/utils";
 
@@ -10,6 +10,7 @@ const API_KEY = "AIzaSyB4kyYep05877BBpI9Rfv0SNcFhHVGBF5E";
 const WEBHOOK_URL = "https://n8n.srv1215497.hstgr.cloud/webhook/moliya";
 const REJADAGI_SHEET_ID = "1pgMDVt57G6TFkHfSZDCLY8bH1R-39a1rVhQb_Be9-Kc";
 const REJADAGI_WEBHOOK = "https://n8n.srv1215497.hstgr.cloud/webhook/rasxodqoshish";
+const ONLINE_WEBHOOK = "https://n8n.srv1215497.hstgr.cloud/webhook/add";
 const UZ_MONTHS = ["Yan","Fev","Mar","Apr","May","Iyn","Iyl","Avg","Sen","Okt","Noy","Dek"];
 const EXPENSE_COLORS = ["hsl(222 47% 11%)","hsl(220 9% 46%)","hsl(230 70% 55%)","hsl(38 92% 50%)","hsl(220 13% 78%)"];
 
@@ -73,6 +74,7 @@ export function Moliya() {
   const [rejadagi, setRejadagi] = useState<RejadagiRow[]>([]);
   const [rejadagiLoading, setRejadagiLoading] = useState(true);
 
+  // Форма kirim/chiqim
   const [showForm, setShowForm] = useState(false);
   const [formSana, setFormSana] = useState(todayInputFormat());
   const [formIsm, setFormIsm] = useState("");
@@ -86,6 +88,7 @@ export function Moliya() {
   const [formLoading, setFormLoading] = useState(false);
   const [formResult, setFormResult] = useState<string | null>(null);
 
+  // Форма rejadagi
   const [showRejadagiForm, setShowRejadagiForm] = useState(false);
   const [rejNomi, setRejNomi] = useState("");
   const [rejSana, setRejSana] = useState(todayInputFormat());
@@ -93,6 +96,15 @@ export function Moliya() {
   const [rejIzoh, setRejIzoh] = useState("");
   const [rejLoading, setRejLoading] = useState(false);
   const [rejResult, setRejResult] = useState<string | null>(null);
+
+  // Форма online (website)
+  const [showOnlineForm, setShowOnlineForm] = useState(false);
+  const [onlineIsm, setOnlineIsm] = useState("");
+  const [onlineTelefon, setOnlineTelefon] = useState("");
+  const [onlineSumma, setOnlineSumma] = useState("");
+  const [onlineSana, setOnlineSana] = useState(todayInputFormat());
+  const [onlineLoading, setOnlineLoading] = useState(false);
+  const [onlineResult, setOnlineResult] = useState<string | null>(null);
 
   const [modalFilial, setModalFilial] = useState<"Novza" | "Yunusobod" | null>(null);
   const [filterKirim, setFilterKirim] = useState("Barchasi");
@@ -146,7 +158,7 @@ export function Moliya() {
     try {
       await fetch(WEBHOOK_URL, {
         method: "POST", headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ sana: inputToSheetDate(formSana), ism: formIsm, filial: formFilial, online_offline: formOnline, telefon: formOnline === "Online" ? formTelefon : "", turi: formTuri, summa: finalSumma, kirim_chiqim: formKirim, izoh: formIzoh }),
+        body: JSON.stringify({ sana: inputToSheetDate(formSana), ism: formIsm, filial: formFilial, online_offline: formOnline, telefon: formTelefon, turi: formTuri, summa: finalSumma, kirim_chiqim: formKirim, izoh: formIzoh }),
       });
       setFormResult("✅ Muvaffaqiyatli saqlandi!");
       setFormIsm(""); setFormSumma(""); setFormIzoh(""); setFormTelefon(""); setFormSana(todayInputFormat());
@@ -168,6 +180,21 @@ export function Moliya() {
       setTimeout(() => fetchRejadagi(), 2000);
     } catch { setRejResult("❌ Xatolik"); }
     finally { setRejLoading(false); }
+  }
+
+  async function submitOnline() {
+    if (!onlineIsm || !onlineSumma || !onlineTelefon) { setOnlineResult("❌ Barcha maydonlarni to'ldiring"); return; }
+    setOnlineLoading(true); setOnlineResult(null);
+    try {
+      await fetch(ONLINE_WEBHOOK, {
+        method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ ism: onlineIsm, telefon: onlineTelefon, summa: parseInt(onlineSumma.replace(/\s/g, "")), sana: inputToSheetDate(onlineSana) }),
+      });
+      setOnlineResult("✅ Saqlandi!");
+      setOnlineIsm(""); setOnlineTelefon(""); setOnlineSumma(""); setOnlineSana(todayInputFormat());
+      setTimeout(() => fetchData(), 2000);
+    } catch { setOnlineResult("❌ Xatolik yuz berdi"); }
+    finally { setOnlineLoading(false); }
   }
 
   async function tolovQilindi(item: RejadagiRow, index: number) {
@@ -249,6 +276,7 @@ export function Moliya() {
     <div>
       <Header title="Moliya" subtitle="Daromad, xarajat va foyda tahlili" />
 
+      {/* Период + кнопки */}
       <div className="flex flex-wrap gap-2 mb-6">
         {periods.map(p => (
           <button key={p.id} onClick={() => setPeriod(p.id)}
@@ -257,13 +285,19 @@ export function Moliya() {
           </button>
         ))}
         <div className="ml-auto flex gap-2">
-          <button onClick={() => { setShowRejadagiForm(!showRejadagiForm); setRejResult(null); if (showForm) setShowForm(false); }}
+          <button onClick={() => { setShowOnlineForm(!showOnlineForm); setOnlineResult(null); if (showForm) setShowForm(false); if (showRejadagiForm) setShowRejadagiForm(false); }}
+            className={cn("px-4 py-1.5 rounded-lg text-sm font-medium transition inline-flex items-center gap-2",
+              showOnlineForm ? "bg-primary text-primary-foreground" : "bg-secondary text-muted-foreground hover:text-foreground")}>
+            {showOnlineForm ? <X className="h-4 w-4" /> : <Globe className="h-4 w-4" />}
+            {showOnlineForm ? "Yopish" : "Online to'lov"}
+          </button>
+          <button onClick={() => { setShowRejadagiForm(!showRejadagiForm); setRejResult(null); if (showForm) setShowForm(false); if (showOnlineForm) setShowOnlineForm(false); }}
             className={cn("px-4 py-1.5 rounded-lg text-sm font-medium transition inline-flex items-center gap-2",
               showRejadagiForm ? "bg-primary text-primary-foreground" : "bg-secondary text-muted-foreground hover:text-foreground")}>
             {showRejadagiForm ? <X className="h-4 w-4" /> : <CalendarClock className="h-4 w-4" />}
             {showRejadagiForm ? "Yopish" : "Rejadagi xarajat"}
           </button>
-          <button onClick={() => { setShowForm(!showForm); setFormResult(null); if (showRejadagiForm) setShowRejadagiForm(false); }}
+          <button onClick={() => { setShowForm(!showForm); setFormResult(null); if (showRejadagiForm) setShowRejadagiForm(false); if (showOnlineForm) setShowOnlineForm(false); }}
             className={cn("px-4 py-1.5 rounded-lg text-sm font-medium transition inline-flex items-center gap-2",
               showForm ? "bg-primary text-primary-foreground" : "bg-emerald-600 text-white hover:bg-emerald-700")}>
             {showForm ? <X className="h-4 w-4" /> : <Plus className="h-4 w-4" />}
@@ -272,17 +306,35 @@ export function Moliya() {
         </div>
       </div>
 
+      {/* Форма online to'lov */}
+      {showOnlineForm && (
+        <div className="bg-card rounded-2xl border border-border p-5 shadow-soft mb-6">
+          <h3 className="font-semibold mb-4 flex items-center gap-2"><Globe className="h-4 w-4" />Online to'lov qo'shish</h3>
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-4">
+            <div><label className="text-xs text-muted-foreground mb-1 block">Ism Familya</label><input type="text" value={onlineIsm} onChange={e => setOnlineIsm(e.target.value)} className="w-full px-3 py-2 rounded-lg border border-border bg-background text-sm" /></div>
+            <div><label className="text-xs text-muted-foreground mb-1 block">Telefon raqami</label><input type="tel" placeholder="+998 90 000 00 00" value={onlineTelefon} onChange={e => setOnlineTelefon(e.target.value)} className="w-full px-3 py-2 rounded-lg border border-border bg-background text-sm" /></div>
+            <div><label className="text-xs text-muted-foreground mb-1 block">Summa (so'm)</label><input type="text" value={onlineSumma} onChange={e => setOnlineSumma(formatSummaInput(e.target.value))} className="w-full px-3 py-2 rounded-lg border border-border bg-background text-sm num" /></div>
+            <div><label className="text-xs text-muted-foreground mb-1 block">Sana</label><input type="date" value={onlineSana} onChange={e => setOnlineSana(e.target.value)} className="w-full px-3 py-2 rounded-lg border border-border bg-background text-sm" /></div>
+          </div>
+          <button onClick={submitOnline} disabled={onlineLoading} className="px-6 py-2 bg-secondary text-foreground rounded-lg text-sm font-medium hover:bg-secondary/80 transition disabled:opacity-50 inline-flex items-center gap-2">
+            {onlineLoading ? <><Loader2 className="h-4 w-4 animate-spin" />Saqlanmoqda…</> : "Saqlash"}
+          </button>
+          {onlineResult && <div className={cn("mt-4 p-3 rounded-xl text-sm font-medium inline-block ml-3", onlineResult.startsWith("✅") ? "text-emerald-700" : "text-red-600")}>{onlineResult}</div>}
+        </div>
+      )}
+
+      {/* Форма kirim/chiqim */}
       {showForm && (
         <div className="bg-card rounded-2xl border border-border p-5 shadow-soft mb-6">
           <h3 className="font-semibold mb-4 flex items-center gap-2"><Plus className="h-4 w-4" />Yangi kirim / chiqim</h3>
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 mb-4">
             <div><label className="text-xs text-muted-foreground mb-1 block">Sana</label><input type="date" value={formSana} onChange={e => setFormSana(e.target.value)} className="w-full px-3 py-2 rounded-lg border border-border bg-background text-sm" /></div>
             <div><label className="text-xs text-muted-foreground mb-1 block">Ism Familya</label><input type="text" value={formIsm} onChange={e => setFormIsm(e.target.value)} className="w-full px-3 py-2 rounded-lg border border-border bg-background text-sm" /></div>
+            <div><label className="text-xs text-muted-foreground mb-1 block">Telefon raqami</label><input type="tel" placeholder="+998 90 000 00 00" value={formTelefon} onChange={e => setFormTelefon(e.target.value)} className="w-full px-3 py-2 rounded-lg border border-border bg-background text-sm" /></div>
             <div><label className="text-xs text-muted-foreground mb-1 block">Summa (so'm)</label><input type="text" value={formSumma} onChange={e => setFormSumma(formatSummaInput(e.target.value))} className="w-full px-3 py-2 rounded-lg border border-border bg-background text-sm num" /></div>
             <div><label className="text-xs text-muted-foreground mb-1 block">Filial</label><Toggle left="Novza" right="Yunusobod" value={formFilial} onChange={setFormFilial} /></div>
             <div><label className="text-xs text-muted-foreground mb-1 block">Turi</label><Toggle left="Naqd" right="Karta" value={formTuri} onChange={setFormTuri} /></div>
             <div><label className="text-xs text-muted-foreground mb-1 block">Online / Offline</label><Toggle left="Offline" right="Online" value={formOnline} onChange={setFormOnline} /></div>
-            {formOnline === "Online" && (<div><label className="text-xs text-muted-foreground mb-1 block">Telefon raqami</label><input type="tel" placeholder="+998 90 000 00 00" value={formTelefon} onChange={e => setFormTelefon(e.target.value)} className="w-full px-3 py-2 rounded-lg border border-border bg-background text-sm" /></div>)}
             <div><label className="text-xs text-muted-foreground mb-1 block">Kirim / Chiqim</label><Toggle left="Kirim" right="Chiqim" value={formKirim} onChange={setFormKirim} leftColor="bg-emerald-600 text-white" rightColor="bg-red-500 text-white" /></div>
             <div className="sm:col-span-2"><label className="text-xs text-muted-foreground mb-1 block">Izoh (ixtiyoriy)</label><input type="text" value={formIzoh} onChange={e => setFormIzoh(e.target.value)} className="w-full px-3 py-2 rounded-lg border border-border bg-background text-sm" /></div>
           </div>
@@ -293,6 +345,7 @@ export function Moliya() {
         </div>
       )}
 
+      {/* Форма rejadagi xarajat */}
       {showRejadagiForm && (
         <div className="bg-card rounded-2xl border border-border p-5 shadow-soft mb-6">
           <h3 className="font-semibold mb-4 flex items-center gap-2"><CalendarClock className="h-4 w-4" />Rejadagi xarajat qo'shish</h3>
@@ -309,6 +362,7 @@ export function Moliya() {
         </div>
       )}
 
+      {/* Строка 1 — Marja с цветом */}
       <div className="rounded-2xl p-5 shadow-soft border border-purple-100 bg-gradient-to-br from-purple-50 to-white mb-4">
         <div className="flex items-center justify-between">
           <div>
@@ -320,6 +374,7 @@ export function Moliya() {
         </div>
       </div>
 
+      {/* Строка 2 — Novza и Yunusobod */}
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-6">
         <div className="rounded-2xl p-5 shadow-soft border border-blue-100 bg-gradient-to-br from-blue-50 to-white cursor-pointer hover:border-blue-300 transition" onClick={() => setModalFilial("Novza")}>
           <p className="text-sm text-blue-700 font-medium mb-2">Novza — Sof foyda</p>
@@ -333,6 +388,7 @@ export function Moliya() {
         </div>
       </div>
 
+      {/* Rejadagi xarajatlar */}
       <div className="bg-card rounded-2xl border border-border p-5 shadow-soft mb-6">
         <div className="flex items-center justify-between mb-4">
           <div>
@@ -352,14 +408,10 @@ export function Moliya() {
                 <div key={i} className={cn("flex items-center justify-between p-4 rounded-xl border transition",
                   covered ? "border-emerald-200 bg-emerald-50" : "border-red-200 bg-red-50")}>
                   <div className="flex items-center gap-3">
-                    {covered
-                      ? <CheckCircle2 className="h-5 w-5 text-emerald-500 shrink-0" />
-                      : <Clock className="h-5 w-5 text-red-400 shrink-0" />}
+                    {covered ? <CheckCircle2 className="h-5 w-5 text-emerald-500 shrink-0" /> : <Clock className="h-5 w-5 text-red-400 shrink-0" />}
                     <div>
                       <p className={cn("font-semibold text-sm", covered ? "text-emerald-900" : "text-red-900")}>{item.nomi}</p>
-                      <p className={cn("text-xs mt-0.5", covered ? "text-emerald-600" : "text-red-500")}>
-                        {item.sana}{item.izoh ? ` · ${item.izoh}` : ""}
-                      </p>
+                      <p className={cn("text-xs mt-0.5", covered ? "text-emerald-600" : "text-red-500")}>{item.sana}{item.izoh ? ` · ${item.izoh}` : ""}</p>
                     </div>
                   </div>
                   <div className="flex items-center gap-3">
@@ -389,6 +441,7 @@ export function Moliya() {
         )}
       </div>
 
+      {/* Модальное окно */}
       {modalFilial && modalData && (
         <div className="fixed inset-0 bg-foreground/30 backdrop-blur-sm z-50 flex items-center justify-center p-4">
           <div className="bg-card rounded-2xl border border-border shadow-elevated w-full max-w-md">
@@ -419,6 +472,7 @@ export function Moliya() {
         </div>
       )}
 
+      {/* График */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 mb-6">
         <div className="lg:col-span-2 bg-card rounded-2xl border border-border p-5 shadow-soft">
           <div className="flex items-start justify-between mb-4">
@@ -457,6 +511,7 @@ export function Moliya() {
         </div>
       </div>
 
+      {/* Фильтр */}
       <div className="bg-card rounded-2xl border border-border p-5 shadow-soft mb-4">
         <h3 className="font-semibold mb-4">Filtr</h3>
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
@@ -489,6 +544,7 @@ export function Moliya() {
         </div>
       </div>
 
+      {/* Таблица */}
       <div className="bg-card rounded-2xl border border-border p-5 shadow-soft">
         <div className="flex items-center justify-between mb-4">
           <h3 className="font-semibold">Tranzaksiyalar ({tableFiltered.length})</h3>
