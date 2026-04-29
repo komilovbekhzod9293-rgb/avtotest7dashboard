@@ -9,7 +9,7 @@ const SHEET_NAME = "moliya";
 const API_KEY = "AIzaSyB4kyYep05877BBpI9Rfv0SNcFhHVGBF5E";
 const WEBHOOK_URL = "https://n8n.srv1215497.hstgr.cloud/webhook/moliya";
 const REJADAGI_SHEET_ID = "1pgMDVt57G6TFkHfSZDCLY8bH1R-39a1rVhQb_Be9-Kc";
-const REJADAGI_WEBHOOK = "https://n8n.srv1215497.hstgr.cloud/webhook/rasxod";
+const REJADAGI_WEBHOOK = "https://n8n.srv1215497.hstgr.cloud/webhook/rasxodqoshish";
 const UZ_MONTHS = ["Yan","Fev","Mar","Apr","May","Iyn","Iyl","Avg","Sen","Okt","Noy","Dek"];
 const EXPENSE_COLORS = ["hsl(222 47% 11%)","hsl(220 9% 46%)","hsl(230 70% 55%)","hsl(38 92% 50%)","hsl(220 13% 78%)"];
 
@@ -73,7 +73,6 @@ export function Moliya() {
   const [rejadagi, setRejadagi] = useState<RejadagiRow[]>([]);
   const [rejadagiLoading, setRejadagiLoading] = useState(true);
 
-  // Форма kirim/chiqim
   const [showForm, setShowForm] = useState(false);
   const [formSana, setFormSana] = useState(todayInputFormat());
   const [formIsm, setFormIsm] = useState("");
@@ -87,7 +86,6 @@ export function Moliya() {
   const [formLoading, setFormLoading] = useState(false);
   const [formResult, setFormResult] = useState<string | null>(null);
 
-  // Форма rejadagi
   const [showRejadagiForm, setShowRejadagiForm] = useState(false);
   const [rejNomi, setRejNomi] = useState("");
   const [rejSana, setRejSana] = useState(todayInputFormat());
@@ -251,7 +249,6 @@ export function Moliya() {
     <div>
       <Header title="Moliya" subtitle="Daromad, xarajat va foyda tahlili" />
 
-      {/* Период + кнопки */}
       <div className="flex flex-wrap gap-2 mb-6">
         {periods.map(p => (
           <button key={p.id} onClick={() => setPeriod(p.id)}
@@ -275,7 +272,6 @@ export function Moliya() {
         </div>
       </div>
 
-      {/* Форма kirim/chiqim */}
       {showForm && (
         <div className="bg-card rounded-2xl border border-border p-5 shadow-soft mb-6">
           <h3 className="font-semibold mb-4 flex items-center gap-2"><Plus className="h-4 w-4" />Yangi kirim / chiqim</h3>
@@ -297,7 +293,6 @@ export function Moliya() {
         </div>
       )}
 
-      {/* Форма rejadagi xarajat */}
       {showRejadagiForm && (
         <div className="bg-card rounded-2xl border border-border p-5 shadow-soft mb-6">
           <h3 className="font-semibold mb-4 flex items-center gap-2"><CalendarClock className="h-4 w-4" />Rejadagi xarajat qo'shish</h3>
@@ -314,7 +309,6 @@ export function Moliya() {
         </div>
       )}
 
-      {/* Строка 1 — Marja с цветом */}
       <div className="rounded-2xl p-5 shadow-soft border border-purple-100 bg-gradient-to-br from-purple-50 to-white mb-4">
         <div className="flex items-center justify-between">
           <div>
@@ -326,7 +320,6 @@ export function Moliya() {
         </div>
       </div>
 
-      {/* Строка 2 — Novza и Yunusobod с цветом */}
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-6">
         <div className="rounded-2xl p-5 shadow-soft border border-blue-100 bg-gradient-to-br from-blue-50 to-white cursor-pointer hover:border-blue-300 transition" onClick={() => setModalFilial("Novza")}>
           <p className="text-sm text-blue-700 font-medium mb-2">Novza — Sof foyda</p>
@@ -340,7 +333,6 @@ export function Moliya() {
         </div>
       </div>
 
-      {/* Rejadagi xarajatlar — таблица */}
       <div className="bg-card rounded-2xl border border-border p-5 shadow-soft mb-6">
         <div className="flex items-center justify-between mb-4">
           <div>
@@ -397,7 +389,6 @@ export function Moliya() {
         )}
       </div>
 
-      {/* Модальное окно */}
       {modalFilial && modalData && (
         <div className="fixed inset-0 bg-foreground/30 backdrop-blur-sm z-50 flex items-center justify-center p-4">
           <div className="bg-card rounded-2xl border border-border shadow-elevated w-full max-w-md">
@@ -428,7 +419,6 @@ export function Moliya() {
         </div>
       )}
 
-      {/* График */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 mb-6">
         <div className="lg:col-span-2 bg-card rounded-2xl border border-border p-5 shadow-soft">
           <div className="flex items-start justify-between mb-4">
@@ -467,7 +457,6 @@ export function Moliya() {
         </div>
       </div>
 
-      {/* Фильтр */}
       <div className="bg-card rounded-2xl border border-border p-5 shadow-soft mb-4">
         <h3 className="font-semibold mb-4">Filtr</h3>
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
@@ -500,7 +489,6 @@ export function Moliya() {
         </div>
       </div>
 
-      {/* Таблица */}
       <div className="bg-card rounded-2xl border border-border p-5 shadow-soft">
         <div className="flex items-center justify-between mb-4">
           <h3 className="font-semibold">Tranzaksiyalar ({tableFiltered.length})</h3>
