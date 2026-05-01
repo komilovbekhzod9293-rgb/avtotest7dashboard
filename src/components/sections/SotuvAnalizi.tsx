@@ -16,7 +16,7 @@ import { StatCard } from "@/components/dashboard/StatCard";
 // ─── Google Sheets config ───────────────────────────────────────────────────
 const SHEET_ID = "1StqPMbH2IWX_722F9MVp92gKOGitlTuUBVYrtZ7GUvI";
 const API_KEY  = "AIzaSyB4kyYep05877BBpI9Rfv0SNcFhHVGBF5E";
-const RANGE    = "Sheet1!A:P";
+const RANGE    = "Лист1!A:P";
 
 // ─── Types ──────────────────────────────────────────────────────────────────
 type Period = "bugun" | "hafta" | "oy" | "barchasi";
