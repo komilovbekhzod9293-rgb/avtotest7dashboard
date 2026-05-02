@@ -4,14 +4,16 @@ import {
   Phone, ArrowLeft, Loader2, AlertCircle,
   Calendar, ThumbsUp, ThumbsDown,
   MessageSquare, ChevronRight,
-  Lightbulb, Activity, Zap, CheckCircle
+  Lightbulb, Activity, Zap, CheckCircle, ShoppingBag
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 // ─── CONFIG ────────────────────────────────────────────────
-const SHEET_ID = "1eG0H0QrV5QyoeHelycZvROOSkg580h2HFLzjksfGJJQ";
-const API_KEY  = "AIzaSyB4kyYep05877BBpI9Rfv0SNcFhHVGBF5E";
-const RANGE    = "%D0%9B%D0%B8%D1%81%D1%821!A:T";
+const SHEET_ID  = "1eG0H0QrV5QyoeHelycZvROOSkg580h2HFLzjksfGJJQ";
+const SHEET_ID2 = "1StqPMbH2IWX_722F9MVp92gKOGitlTuUBVYrtZ7GUvI";
+const API_KEY   = "AIzaSyB4kyYep05877BBpI9Rfv0SNcFhHVGBF5E";
+const RANGE1    = "%D0%9B%D0%B8%D1%81%D1%821!A:T";
+const RANGE2    = "%D0%9B%D0%B8%D1%81%D1%821!A:P";
 
 const MANAGER_MAP: Record<string, string> = {
   "1559": "Ziyoda",
@@ -49,14 +51,29 @@ interface CallRow {
   clientPhone: string;
 }
 
+type SalesMap = Record<string, number>;
 type Period = "bugun" | "hafta" | "oy" | "barchasi";
 type View   = "managers" | "calls" | "detail";
 
 // ─── DATE HELPERS ──────────────────────────────────────────
 function parseSheetDate(raw: string): Date | null {
   if (!raw) return null;
-  const d = new Date(raw); // формат уже нормальный: 2026-05-02T05:52:20Z
+  const d = new Date(raw); // ISO: 2026-05-02T05:52:20Z
   if (!isNaN(d.getTime())) return d;
+  return null;
+}
+
+function parseSaleDate(raw: string): Date | null {
+  if (!raw) return null;
+  const cleaned = raw.trim().replace(/,/g, ".");
+  const parts = cleaned.split(".");
+  if (parts.length === 3) {
+    const day   = parseInt(parts[0]);
+    const month = parseInt(parts[1]) - 1;
+    const year  = parseInt(parts[2]);
+    const d = new Date(year, month, day);
+    if (!isNaN(d.getTime())) return d;
+  }
   return null;
 }
 
@@ -74,10 +91,30 @@ function filterByPeriod(rows: CallRow[], period: Period): CallRow[] {
   const now = new Date();
   const startOfDay = (d: Date) => new Date(d.getFullYear(), d.getMonth(), d.getDate());
   const todayStart = startOfDay(now).getTime();
-
   return rows.filter((r) => {
     const d = parseSheetDate(r.date);
     if (!d) return false;
+    if (period === "bugun") return startOfDay(d).getTime() === todayStart;
+    if (period === "hafta") {
+      const diff = (now.getTime() - d.getTime()) / (1000 * 60 * 60 * 24);
+      return diff >= 0 && diff < 7;
+    }
+    if (period === "oy") {
+      return d.getMonth() === now.getMonth() && d.getFullYear() === now.getFullYear();
+    }
+    return true;
+  });
+}
+
+function filterSalesByPeriod(
+  salesRows: { name: string; date: Date }[],
+  period: Period
+): { name: string; date: Date }[] {
+  if (period === "barchasi") return salesRows;
+  const now = new Date();
+  const startOfDay = (d: Date) => new Date(d.getFullYear(), d.getMonth(), d.getDate());
+  const todayStart = startOfDay(now).getTime();
+  return salesRows.filter(({ date: d }) => {
     if (period === "bugun") return startOfDay(d).getTime() === todayStart;
     if (period === "hafta") {
       const diff = (now.getTime() - d.getTime()) / (1000 * 60 * 60 * 24);
@@ -173,24 +210,29 @@ function InfoCard({
 // MAIN COMPONENT
 // ══════════════════════════════════════════════════════════
 export function SotuvAnalizi() {
-  const [rows,    setRows]    = useState<CallRow[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [error,   setError]   = useState<string | null>(null);
-  const [period,  setPeriod]  = useState<Period>("barchasi");
-  const [view,    setView]    = useState<View>("managers");
-  const [selMgr,  setSelMgr]  = useState<string | null>(null);
-  const [selCall, setSelCall] = useState<CallRow | null>(null);
+  const [rows,     setRows]     = useState<CallRow[]>([]);
+  const [allSales, setAllSales] = useState<{ name: string; date: Date }[]>([]);
+  const [loading,  setLoading]  = useState(true);
+  const [error,    setError]    = useState<string | null>(null);
+  const [period,   setPeriod]   = useState<Period>("barchasi");
+  const [view,     setView]     = useState<View>("managers");
+  const [selMgr,   setSelMgr]   = useState<string | null>(null);
+  const [selCall,  setSelCall]  = useState<CallRow | null>(null);
 
-  // ── fetch data ─────────────────────────────────────────
+  // ── fetch both sheets ──────────────────────────────────
   useEffect(() => {
-    const url = `https://sheets.googleapis.com/v4/spreadsheets/${SHEET_ID}/values/${RANGE}?key=${API_KEY}`;
-    fetch(url)
-      .then((r) => {
-        if (!r.ok) throw new Error(`API xatosi: ${r.status}`);
-        return r.json();
+    const url1 = `https://sheets.googleapis.com/v4/spreadsheets/${SHEET_ID}/values/${RANGE1}?key=${API_KEY}`;
+    const url2 = `https://sheets.googleapis.com/v4/spreadsheets/${SHEET_ID2}/values/${RANGE2}?key=${API_KEY}`;
+
+    Promise.all([fetch(url1), fetch(url2)])
+      .then(async ([r1, r2]) => {
+        if (!r1.ok) throw new Error(`API xatosi (1): ${r1.status}`);
+        if (!r2.ok) throw new Error(`API xatosi (2): ${r2.status}`);
+        return Promise.all([r1.json(), r2.json()]);
       })
-      .then((data) => {
-        const all: string[][] = data.values ?? [];
+      .then(([data1, data2]) => {
+        // ── Sheet 1: calls (only done) ─────────────────
+        const all: string[][] = data1.values ?? [];
         const parsed: CallRow[] = all
           .slice(1)
           .filter((row) => row[1])
@@ -214,12 +256,34 @@ export function SotuvAnalizi() {
             dinamika:    (row[18] ?? "").trim(),
             kritik:      (row[19] ?? "").trim(),
           }))
-          .filter((r) => r.managerName !== "");
+          .filter((r) => r.managerName !== "" && r.status === "done");
+
         setRows(parsed);
+
+        // ── Sheet 2: sales ─────────────────────────────
+        const all2: string[][] = data2.values ?? [];
+        const sales: { name: string; date: Date }[] = [];
+        all2.slice(1).forEach((row) => {
+          const hodim   = (row[15] ?? "").trim();
+          const dateRaw = (row[5]  ?? "").trim();
+          if (!hodim || hodim === "y") return;
+          if (!dateRaw || dateRaw.toLowerCase().includes("avto")) return;
+          const date = parseSaleDate(dateRaw);
+          if (!date) return;
+          sales.push({ name: hodim, date });
+        });
+        setAllSales(sales);
       })
       .catch((e) => setError(e.message))
       .finally(() => setLoading(false));
   }, []);
+
+  // ── sales map filtered by period ───────────────────────
+  const salesMap: SalesMap = {};
+  filterSalesByPeriod(allSales, period).forEach(({ name }) => {
+    const key = name.trim();
+    salesMap[key] = (salesMap[key] ?? 0) + 1;
+  });
 
   // ── navigation ─────────────────────────────────────────
   function openManager(name: string) {
@@ -227,18 +291,15 @@ export function SotuvAnalizi() {
     setSelCall(null);
     setView("calls");
   }
-
   function openCall(call: CallRow) {
     setSelCall(call);
     setView("detail");
   }
-
   function backToManagers() {
     setView("managers");
     setSelMgr(null);
     setSelCall(null);
   }
-
   function backToCalls() {
     setView("calls");
     setSelCall(null);
@@ -288,7 +349,6 @@ export function SotuvAnalizi() {
     const c = selCall;
     return (
       <div>
-        {/* breadcrumb */}
         <div className="flex items-center gap-2 text-sm text-muted-foreground mb-4 flex-wrap">
           <button onClick={backToManagers} className="hover:text-foreground transition">
             Barcha menejerlar
@@ -306,7 +366,6 @@ export function SotuvAnalizi() {
           subtitle={formatDate(c.date)}
         />
 
-        {/* top stats */}
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-6">
           <div className={cn("rounded-2xl border p-4 text-center", scoreBg(c.score))}>
             <div className={cn("text-3xl font-bold", scoreColor(c.score))}>{c.score || "—"}</div>
@@ -334,7 +393,6 @@ export function SotuvAnalizi() {
           </div>
         </div>
 
-        {/* info cards grid */}
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 mb-4">
           {c.ehtiyoj && (
             <InfoCard icon={<svg className="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="6"/><circle cx="12" cy="12" r="2"/></svg>} title="Ehtiyoj Aniqlash" color="blue">
@@ -368,7 +426,6 @@ export function SotuvAnalizi() {
           )}
         </div>
 
-        {/* kritik signal */}
         {c.kritik && (
           <div className="mb-4 rounded-2xl border border-red-500/30 bg-red-500/5 p-4 flex gap-3">
             <Zap className="h-4 w-4 text-red-500 shrink-0 mt-0.5" />
@@ -379,7 +436,6 @@ export function SotuvAnalizi() {
           </div>
         )}
 
-        {/* transcript */}
         {c.transcript && (
           <div className="rounded-2xl border border-border bg-card p-5">
             <div className="flex items-center gap-2 mb-3">
@@ -408,11 +464,11 @@ export function SotuvAnalizi() {
       return db - da;
     });
 
-    const avgScore = mgrCalls.length
+    const avgScore   = mgrCalls.length
       ? Math.round(mgrCalls.reduce((s, c) => s + c.score, 0) / mgrCalls.length)
       : 0;
-
-    const hotLeads = mgrCalls.filter((c) => c.lidSifati?.toLowerCase() === "issiq").length;
+    const hotLeads   = mgrCalls.filter((c) => c.lidSifati?.toLowerCase() === "issiq").length;
+    const salesCount = salesMap[selMgr] ?? 0;
 
     return (
       <div>
@@ -424,11 +480,9 @@ export function SotuvAnalizi() {
         </button>
 
         <Header title={selMgr} subtitle={`${mgrCalls.length} ta zvonok`} />
-
         <PeriodTabs />
 
-        {/* quick stats */}
-        <div className="grid grid-cols-3 gap-3 mb-6">
+        <div className="grid grid-cols-4 gap-3 mb-6">
           <div className="rounded-2xl border border-border bg-card p-4 text-center">
             <div className="text-2xl font-bold">{mgrCalls.length}</div>
             <div className="text-xs text-muted-foreground mt-1">Zvonoklar</div>
@@ -440,6 +494,10 @@ export function SotuvAnalizi() {
           <div className="rounded-2xl border border-emerald-500/30 bg-emerald-500/10 p-4 text-center">
             <div className="text-2xl font-bold text-emerald-500">{hotLeads}</div>
             <div className="text-xs text-muted-foreground mt-1">Issiq lidlar</div>
+          </div>
+          <div className="rounded-2xl border border-blue-500/30 bg-blue-500/10 p-4 text-center">
+            <div className="text-2xl font-bold text-blue-500">{salesCount}</div>
+            <div className="text-xs text-muted-foreground mt-1">Sotuvlar</div>
           </div>
         </div>
 
@@ -463,7 +521,6 @@ export function SotuvAnalizi() {
                   <div className="h-10 w-10 rounded-full bg-secondary flex items-center justify-center shrink-0">
                     <Phone className="h-4 w-4 text-muted-foreground" />
                   </div>
-
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-2 flex-wrap">
                       <span className="font-medium">{c.clientPhone || `#${c.callId}`}</span>
@@ -483,14 +540,12 @@ export function SotuvAnalizi() {
                       {formatDate(c.date)}
                     </div>
                   </div>
-
                   <div className="text-right shrink-0">
                     <div className={cn("text-xl font-bold", scoreColor(c.score))}>
                       {c.score || "—"}
                     </div>
                     <div className="text-xs text-muted-foreground">ball</div>
                   </div>
-
                   <ChevronRight className="h-4 w-4 text-muted-foreground shrink-0" />
                 </button>
               ))}
@@ -517,6 +572,7 @@ export function SotuvAnalizi() {
       avgScore: calls.length
         ? Math.round(calls.reduce((s, c) => s + c.score, 0) / calls.length)
         : 0,
+      sales: salesMap[name] ?? 0,
     }))
     .sort((a, b) => b.calls.length - a.calls.length);
 
@@ -560,6 +616,14 @@ export function SotuvAnalizi() {
                   <div className="text-xs text-muted-foreground mt-0.5">
                     {m.calls.length} ta zvonok
                   </div>
+                </div>
+
+                <div className="text-right shrink-0 mr-4">
+                  <div className="flex items-center gap-1 justify-end text-blue-500">
+                    <ShoppingBag className="h-3.5 w-3.5" />
+                    <span className="text-lg font-bold">{m.sales}</span>
+                  </div>
+                  <div className="text-xs text-muted-foreground">sotuv</div>
                 </div>
 
                 <div className="text-right shrink-0">
