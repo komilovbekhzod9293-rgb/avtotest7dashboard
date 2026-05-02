@@ -11,7 +11,7 @@ import { cn } from "@/lib/utils";
 // ─── CONFIG ────────────────────────────────────────────────
 const SHEET_ID = "1eG0H0QrV5QyoeHelycZvROOSkg580h2HFLzjksfGJJQ";
 const API_KEY  = "AIzaSyB4kyYep05877BBpI9Rfv0SNcFhHVGBF5E";
-const RANGE    = "Sheet1!A:T";
+const RANGE    = "%D0%9B%D0%B8%D1%81%D1%821!A:T";
 
 const MANAGER_MAP: Record<string, string> = {
   "1559": "Ziyoda",
@@ -53,16 +53,10 @@ type Period = "bugun" | "hafta" | "oy" | "barchasi";
 type View   = "managers" | "calls" | "detail";
 
 // ─── DATE HELPERS ──────────────────────────────────────────
-// Format from sheet: "26-05-02T05:52:16" = YY-MM-DD
 function parseSheetDate(raw: string): Date | null {
   if (!raw) return null;
-  // Convert YY-MM-DD → 20YY-MM-DD
-  const fixed = raw.replace(/^(\d{2})-(\d{2})-(\d{2})T/, "20$1-$2-$3T");
-  const d = new Date(fixed);
+  const d = new Date(raw); // формат уже нормальный: 2026-05-02T05:52:20Z
   if (!isNaN(d.getTime())) return d;
-  // Fallback DD.MM.YYYY
-  const parts = raw.trim().split(".");
-  if (parts.length === 3) return new Date(+parts[2], +parts[1] - 1, +parts[0]);
   return null;
 }
 
