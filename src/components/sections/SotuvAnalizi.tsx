@@ -8,7 +8,6 @@ import {
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
-// ─── CONFIG ────────────────────────────────────────────────
 const SHEET_ID  = "1eG0H0QrV5QyoeHelycZvROOSkg580h2HFLzjksfGJJQ";
 const SHEET_ID2 = "1StqPMbH2IWX_722F9MVp92gKOGitlTuUBVYrtZ7GUvI";
 const API_KEY   = "AIzaSyB4kyYep05877BBpI9Rfv0SNcFhHVGBF5E";
@@ -29,7 +28,6 @@ function resolveManager(raw: string): string {
   return MANAGER_MAP[t] ?? t;
 }
 
-// ─── TYPES ─────────────────────────────────────────────────
 interface CallRow {
   callId:      string;
   managerId:   string;
@@ -55,10 +53,9 @@ type SalesMap = Record<string, number>;
 type Period = "bugun" | "hafta" | "oy" | "barchasi";
 type View   = "managers" | "calls" | "detail";
 
-// ─── DATE HELPERS ──────────────────────────────────────────
 function parseSheetDate(raw: string): Date | null {
   if (!raw) return null;
-  const d = new Date(raw); // ISO: 2026-05-02T05:52:20Z
+  const d = new Date(raw);
   if (!isNaN(d.getTime())) return d;
   return null;
 }
@@ -127,7 +124,6 @@ function filterSalesByPeriod(
   });
 }
 
-// ─── STYLING HELPERS ───────────────────────────────────────
 function scoreColor(score: number) {
   if (score >= 70) return "text-emerald-500";
   if (score >= 50) return "text-amber-500";
@@ -142,9 +138,9 @@ function scoreBg(score: number) {
 
 function lidColor(lid: string) {
   const l = lid?.toLowerCase();
-  if (l === "issiq") return "bg-emerald-500/15 text-emerald-600 border-emerald-500/30";
-  if (l === "iliq")  return "bg-amber-500/15  text-amber-600  border-amber-500/30";
-  if (l === "sovuq") return "bg-blue-500/15   text-blue-600   border-blue-500/30";
+  if (l === "issiq") return "bg-emerald-500/15 text-emerald-700 border-emerald-500/30";
+  if (l === "iliq")  return "bg-amber-500/15  text-amber-700  border-amber-500/30";
+  if (l === "sovuq") return "bg-blue-500/15   text-blue-700   border-blue-500/30";
   return "bg-secondary text-muted-foreground border-border";
 }
 
@@ -168,7 +164,6 @@ const PERIODS: { id: Period; label: string }[] = [
   { id: "barchasi", label: "Barchasi" },
 ];
 
-// ─── INFO CARD ─────────────────────────────────────────────
 type CardColor = "blue" | "emerald" | "red" | "amber" | "purple";
 
 const cardStyles: Record<CardColor, string> = {
@@ -187,13 +182,8 @@ const cardIconStyles: Record<CardColor, string> = {
   purple:  "text-purple-500",
 };
 
-function InfoCard({
-  icon, title, color, children,
-}: {
-  icon: React.ReactNode;
-  title: string;
-  color: CardColor;
-  children: React.ReactNode;
+function InfoCard({ icon, title, color, children }: {
+  icon: React.ReactNode; title: string; color: CardColor; children: React.ReactNode;
 }) {
   return (
     <div className={cn("rounded-2xl border p-4", cardStyles[color])}>
@@ -206,9 +196,19 @@ function InfoCard({
   );
 }
 
-// ══════════════════════════════════════════════════════════
-// MAIN COMPONENT
-// ══════════════════════════════════════════════════════════
+// ── Back button component ──────────────────────────────────
+function BackButton({ onClick, label }: { onClick: () => void; label: string }) {
+  return (
+    <button
+      onClick={onClick}
+      className="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-secondary hover:bg-secondary/80 text-sm font-medium text-foreground transition mb-5 border border-border"
+    >
+      <ArrowLeft className="h-4 w-4" />
+      {label}
+    </button>
+  );
+}
+
 export function SotuvAnalizi() {
   const [rows,     setRows]     = useState<CallRow[]>([]);
   const [allSales, setAllSales] = useState<{ name: string; date: Date }[]>([]);
@@ -219,7 +219,6 @@ export function SotuvAnalizi() {
   const [selMgr,   setSelMgr]   = useState<string | null>(null);
   const [selCall,  setSelCall]  = useState<CallRow | null>(null);
 
-  // ── fetch both sheets ──────────────────────────────────
   useEffect(() => {
     const url1 = `https://sheets.googleapis.com/v4/spreadsheets/${SHEET_ID}/values/${RANGE1}?key=${API_KEY}`;
     const url2 = `https://sheets.googleapis.com/v4/spreadsheets/${SHEET_ID2}/values/${RANGE2}?key=${API_KEY}`;
@@ -231,7 +230,6 @@ export function SotuvAnalizi() {
         return Promise.all([r1.json(), r2.json()]);
       })
       .then(([data1, data2]) => {
-        // ── Sheet 1: calls (only done) ─────────────────
         const all: string[][] = data1.values ?? [];
         const parsed: CallRow[] = all
           .slice(1)
@@ -243,6 +241,7 @@ export function SotuvAnalizi() {
             status:      (row[3]  ?? "").trim(),
             date:        (row[4]  ?? "").trim(),
             transcript:  (row[5]  ?? "").trim(),
+            // clientPhone: row[7] — номер клиента из колонки H
             clientPhone: (row[7]  ?? "").trim(),
             score:       parseInt(row[9]  ?? "0") || 0,
             managerPct:  (row[10] ?? "").trim(),
@@ -260,7 +259,6 @@ export function SotuvAnalizi() {
 
         setRows(parsed);
 
-        // ── Sheet 2: sales ─────────────────────────────
         const all2: string[][] = data2.values ?? [];
         const sales: { name: string; date: Date }[] = [];
         all2.slice(1).forEach((row) => {
@@ -278,34 +276,17 @@ export function SotuvAnalizi() {
       .finally(() => setLoading(false));
   }, []);
 
-  // ── sales map filtered by period ───────────────────────
   const salesMap: SalesMap = {};
   filterSalesByPeriod(allSales, period).forEach(({ name }) => {
     const key = name.trim();
     salesMap[key] = (salesMap[key] ?? 0) + 1;
   });
 
-  // ── navigation ─────────────────────────────────────────
-  function openManager(name: string) {
-    setSelMgr(name);
-    setSelCall(null);
-    setView("calls");
-  }
-  function openCall(call: CallRow) {
-    setSelCall(call);
-    setView("detail");
-  }
-  function backToManagers() {
-    setView("managers");
-    setSelMgr(null);
-    setSelCall(null);
-  }
-  function backToCalls() {
-    setView("calls");
-    setSelCall(null);
-  }
+  function openManager(name: string) { setSelMgr(name); setSelCall(null); setView("calls"); }
+  function openCall(call: CallRow)   { setSelCall(call); setView("detail"); }
+  function backToManagers()          { setView("managers"); setSelMgr(null); setSelCall(null); }
+  function backToCalls()             { setView("calls"); setSelCall(null); }
 
-  // ── period tabs ────────────────────────────────────────
   const PeriodTabs = () => (
     <div className="flex flex-wrap gap-2 mb-6">
       {PERIODS.map((p) => (
@@ -325,18 +306,15 @@ export function SotuvAnalizi() {
     </div>
   );
 
-  // ── loading / error ────────────────────────────────────
   if (loading) return (
     <div className="flex items-center justify-center gap-3 py-32 text-muted-foreground">
-      <Loader2 className="h-5 w-5 animate-spin" />
-      <span>Yuklanmoqda…</span>
+      <Loader2 className="h-5 w-5 animate-spin" /><span>Yuklanmoqda…</span>
     </div>
   );
 
   if (error) return (
     <div className="flex items-center justify-center gap-3 py-32 text-red-500">
-      <AlertCircle className="h-5 w-5" />
-      <span>Xatolik: {error}</span>
+      <AlertCircle className="h-5 w-5" /><span>Xatolik: {error}</span>
     </div>
   );
 
@@ -347,48 +325,45 @@ export function SotuvAnalizi() {
   // ══════════════════════════════════════════════════════
   if (view === "detail" && selCall) {
     const c = selCall;
+    // Показываем номер телефона если есть, иначе callId
+    const displayPhone = c.clientPhone || `#${c.callId}`;
     return (
       <div>
-        <div className="flex items-center gap-2 text-sm text-muted-foreground mb-4 flex-wrap">
-          <button onClick={backToManagers} className="hover:text-foreground transition">
-            Barcha menejerlar
-          </button>
+        {/* Breadcrumb */}
+        <div className="flex items-center gap-2 text-sm text-muted-foreground mb-5 flex-wrap">
+          <button onClick={backToManagers} className="hover:text-foreground transition">Barcha menejerlar</button>
           <ChevronRight className="h-3.5 w-3.5 shrink-0" />
-          <button onClick={backToCalls} className="hover:text-foreground transition">
-            {c.managerName}
-          </button>
+          <button onClick={backToCalls} className="hover:text-foreground transition">{c.managerName}</button>
           <ChevronRight className="h-3.5 w-3.5 shrink-0" />
-          <span className="text-foreground font-medium">{c.clientPhone || `#${c.callId}`}</span>
+          <span className="text-foreground font-medium">{displayPhone}</span>
         </div>
 
-        <Header
-          title={c.clientPhone || `Zvonok #${c.callId}`}
-          subtitle={formatDate(c.date)}
-        />
+        <BackButton onClick={backToCalls} label={c.managerName} />
 
+        <Header title={displayPhone} subtitle={formatDate(c.date)} />
+
+        {/* Stats row — с заголовками */}
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-6">
           <div className={cn("rounded-2xl border p-4 text-center", scoreBg(c.score))}>
+            <div className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-2">Umumiy ball</div>
             <div className={cn("text-3xl font-bold", scoreColor(c.score))}>{c.score || "—"}</div>
-            <div className="text-xs text-muted-foreground mt-1">Umumiy ball</div>
           </div>
           <div className="rounded-2xl border border-border bg-card p-4 text-center">
+            <div className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-2">Menejer gapirdi</div>
             <div className="text-2xl font-bold">{c.managerPct || "—"}</div>
-            <div className="text-xs text-muted-foreground mt-1">Menedjer gapirdi</div>
           </div>
           <div className="rounded-2xl border border-border bg-card p-4 text-center">
+            <div className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-2">Mijoz gapirdi</div>
             <div className="text-2xl font-bold">{c.clientPct || "—"}</div>
-            <div className="text-xs text-muted-foreground mt-1">Mijoz gapirdi</div>
           </div>
           <div className="rounded-2xl border border-border bg-card p-4 text-center flex flex-col items-center justify-center">
+            <div className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-2">Lid sifati</div>
             {c.lidSifati ? (
-              <>
-                <span className={cn("px-2 py-0.5 rounded-full text-sm font-semibold border", lidColor(c.lidSifati))}>
-                  {c.lidSifati}
-                </span>
-                <div className="text-xs text-muted-foreground mt-1">Lid sifati</div>
-              </>
+              <span className={cn("px-3 py-1 rounded-full text-sm font-semibold border", lidColor(c.lidSifati))}>
+                {c.lidSifati}
+              </span>
             ) : (
-              <div className="text-xs text-muted-foreground">—</div>
+              <div className="text-muted-foreground">—</div>
             )}
           </div>
         </div>
@@ -400,29 +375,19 @@ export function SotuvAnalizi() {
             </InfoCard>
           )}
           {c.yakun && (
-            <InfoCard icon={<CheckCircle className="h-4 w-4" />} title="Yakun" color="emerald">
-              {c.yakun}
-            </InfoCard>
+            <InfoCard icon={<CheckCircle className="h-4 w-4" />} title="Yakun" color="emerald">{c.yakun}</InfoCard>
           )}
           {c.yaxshi && (
-            <InfoCard icon={<ThumbsUp className="h-4 w-4" />} title="Yaxshi Narsalar" color="emerald">
-              {c.yaxshi}
-            </InfoCard>
+            <InfoCard icon={<ThumbsUp className="h-4 w-4" />} title="Yaxshi Narsalar" color="emerald">{c.yaxshi}</InfoCard>
           )}
           {c.xatolar && (
-            <InfoCard icon={<ThumbsDown className="h-4 w-4" />} title="Xatolar" color="red">
-              {c.xatolar}
-            </InfoCard>
+            <InfoCard icon={<ThumbsDown className="h-4 w-4" />} title="Xatolar" color="red">{c.xatolar}</InfoCard>
           )}
           {c.tavsiya && (
-            <InfoCard icon={<Lightbulb className="h-4 w-4" />} title="Tavsiya" color="amber">
-              {c.tavsiya}
-            </InfoCard>
+            <InfoCard icon={<Lightbulb className="h-4 w-4" />} title="Tavsiya" color="amber">{c.tavsiya}</InfoCard>
           )}
           {c.dinamika && (
-            <InfoCard icon={<Activity className="h-4 w-4" />} title="Suhbat Dinamikasi" color="purple">
-              {c.dinamika}
-            </InfoCard>
+            <InfoCard icon={<Activity className="h-4 w-4" />} title="Suhbat Dinamikasi" color="purple">{c.dinamika}</InfoCard>
           )}
         </div>
 
@@ -442,9 +407,7 @@ export function SotuvAnalizi() {
               <MessageSquare className="h-4 w-4 text-muted-foreground" />
               <h3 className="font-semibold">Transkript</h3>
             </div>
-            <p className="text-sm text-muted-foreground leading-relaxed whitespace-pre-wrap">
-              {c.transcript}
-            </p>
+            <p className="text-sm text-muted-foreground leading-relaxed whitespace-pre-wrap">{c.transcript}</p>
           </div>
         )}
       </div>
@@ -452,7 +415,7 @@ export function SotuvAnalizi() {
   }
 
   // ══════════════════════════════════════════════════════
-  // VIEW: MANAGER CALLS
+  // VIEW: MANAGER CALLS — таблица с заголовками
   // ══════════════════════════════════════════════════════
   if (view === "calls" && selMgr) {
     const mgrCalls = filterByPeriod(
@@ -464,91 +427,104 @@ export function SotuvAnalizi() {
       return db - da;
     });
 
-    const avgScore   = mgrCalls.length
-      ? Math.round(mgrCalls.reduce((s, c) => s + c.score, 0) / mgrCalls.length)
-      : 0;
+    const avgScore   = mgrCalls.length ? Math.round(mgrCalls.reduce((s, c) => s + c.score, 0) / mgrCalls.length) : 0;
     const hotLeads   = mgrCalls.filter((c) => c.lidSifati?.toLowerCase() === "issiq").length;
     const salesCount = salesMap[selMgr] ?? 0;
 
     return (
       <div>
-        <button
-          onClick={backToManagers}
-          className="inline-flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground mb-4 transition"
-        >
-          <ArrowLeft className="h-4 w-4" /> Barcha menejerlar
-        </button>
+        <BackButton onClick={backToManagers} label="Barcha menejerlar" />
 
-        <Header title={selMgr} subtitle={`${mgrCalls.length} ta zvonok`} />
+        <Header title={selMgr} subtitle={`${mgrCalls.length} ta zvonok tahlil qilindi`} />
         <PeriodTabs />
 
+        {/* Summary stats */}
         <div className="grid grid-cols-4 gap-3 mb-6">
           <div className="rounded-2xl border border-border bg-card p-4 text-center">
+            <div className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-2">Zvonoklar</div>
             <div className="text-2xl font-bold">{mgrCalls.length}</div>
-            <div className="text-xs text-muted-foreground mt-1">Zvonoklar</div>
           </div>
           <div className={cn("rounded-2xl border p-4 text-center", scoreBg(avgScore))}>
+            <div className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-2">O'rtacha ball</div>
             <div className={cn("text-2xl font-bold", scoreColor(avgScore))}>{avgScore || "—"}</div>
-            <div className="text-xs text-muted-foreground mt-1">O'rtacha ball</div>
           </div>
           <div className="rounded-2xl border border-emerald-500/30 bg-emerald-500/10 p-4 text-center">
+            <div className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-2">Issiq lidlar</div>
             <div className="text-2xl font-bold text-emerald-500">{hotLeads}</div>
-            <div className="text-xs text-muted-foreground mt-1">Issiq lidlar</div>
           </div>
           <div className="rounded-2xl border border-blue-500/30 bg-blue-500/10 p-4 text-center">
+            <div className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-2">Sotuvlar</div>
             <div className="text-2xl font-bold text-blue-500">{salesCount}</div>
-            <div className="text-xs text-muted-foreground mt-1">Sotuvlar</div>
           </div>
         </div>
 
         {mgrCalls.length === 0 ? (
-          <p className="text-center py-16 text-sm text-muted-foreground">
-            Bu davr uchun zvonoklar yo'q
-          </p>
+          <p className="text-center py-16 text-sm text-muted-foreground">Bu davr uchun zvonoklar yo'q</p>
         ) : (
           <div className="bg-card rounded-2xl border border-border shadow-soft overflow-hidden">
             <div className="px-5 py-4 border-b border-border">
               <h3 className="font-semibold">Zvonoklar</h3>
-              <p className="text-xs text-muted-foreground mt-0.5">Batafsil ko'rish uchun bosing</p>
+              <p className="text-xs text-muted-foreground mt-0.5">Batafsil ko'rish uchun qatorga bosing</p>
+            </div>
+            {/* Заголовки таблицы */}
+            <div className="hidden sm:grid grid-cols-[1fr_120px_110px_90px_36px] gap-4 px-5 py-2.5 bg-secondary/50 border-b border-border text-xs font-semibold text-muted-foreground uppercase tracking-wide">
+              <div>Telefon / Sana</div>
+              <div>Lid sifati</div>
+              <div>Ehtiyoj</div>
+              <div className="text-right">Ball</div>
+              <div></div>
             </div>
             <div className="divide-y divide-border">
-              {mgrCalls.map((c) => (
-                <button
-                  key={c.callId}
-                  onClick={() => openCall(c)}
-                  className="w-full text-left px-5 py-4 hover:bg-secondary/60 transition flex items-center gap-4"
-                >
-                  <div className="h-10 w-10 rounded-full bg-secondary flex items-center justify-center shrink-0">
-                    <Phone className="h-4 w-4 text-muted-foreground" />
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-center gap-2 flex-wrap">
-                      <span className="font-medium">{c.clientPhone || `#${c.callId}`}</span>
-                      {c.lidSifati && (
-                        <span className={cn("text-xs px-2 py-0.5 rounded-full border font-medium", lidColor(c.lidSifati))}>
+              {mgrCalls.map((c) => {
+                const displayPhone = c.clientPhone || `#${c.callId}`;
+                return (
+                  <button
+                    key={c.callId}
+                    onClick={() => openCall(c)}
+                    className="w-full text-left px-5 py-4 hover:bg-secondary/60 transition grid grid-cols-[1fr_120px_110px_90px_36px] gap-4 items-center"
+                  >
+                    {/* Телефон + дата */}
+                    <div className="flex items-center gap-3 min-w-0">
+                      <div className="h-9 w-9 rounded-full bg-secondary flex items-center justify-center shrink-0">
+                        <Phone className="h-4 w-4 text-muted-foreground" />
+                      </div>
+                      <div className="min-w-0">
+                        <div className="font-medium truncate">{displayPhone}</div>
+                        <div className="flex items-center gap-1 mt-0.5 text-xs text-muted-foreground">
+                          <Calendar className="h-3 w-3 shrink-0" />
+                          <span>{formatDate(c.date)}</span>
+                        </div>
+                      </div>
+                    </div>
+                    {/* Lid sifati */}
+                    <div>
+                      {c.lidSifati ? (
+                        <span className={cn("text-xs px-2.5 py-1 rounded-full border font-semibold", lidColor(c.lidSifati))}>
                           {c.lidSifati}
                         </span>
+                      ) : (
+                        <span className="text-xs text-muted-foreground">—</span>
                       )}
-                      {c.ehtiyoj && (
-                        <span className="text-xs px-2 py-0.5 rounded-full border border-border bg-secondary text-muted-foreground">
+                    </div>
+                    {/* Ehtiyoj */}
+                    <div>
+                      {c.ehtiyoj ? (
+                        <span className="text-xs px-2.5 py-1 rounded-full border border-border bg-secondary text-muted-foreground font-medium">
                           {c.ehtiyoj}
                         </span>
+                      ) : (
+                        <span className="text-xs text-muted-foreground">—</span>
                       )}
                     </div>
-                    <div className="flex items-center gap-1 mt-1 text-xs text-muted-foreground">
-                      <Calendar className="h-3 w-3" />
-                      {formatDate(c.date)}
+                    {/* Ball */}
+                    <div className="text-right">
+                      <div className={cn("text-xl font-bold", scoreColor(c.score))}>{c.score || "—"}</div>
+                      <div className="text-xs text-muted-foreground">ball</div>
                     </div>
-                  </div>
-                  <div className="text-right shrink-0">
-                    <div className={cn("text-xl font-bold", scoreColor(c.score))}>
-                      {c.score || "—"}
-                    </div>
-                    <div className="text-xs text-muted-foreground">ball</div>
-                  </div>
-                  <ChevronRight className="h-4 w-4 text-muted-foreground shrink-0" />
-                </button>
-              ))}
+                    <ChevronRight className="h-4 w-4 text-muted-foreground" />
+                  </button>
+                );
+              })}
             </div>
           </div>
         )}
@@ -557,7 +533,7 @@ export function SotuvAnalizi() {
   }
 
   // ══════════════════════════════════════════════════════
-  // VIEW: MANAGERS LIST
+  // VIEW: MANAGERS LIST — таблица с заголовками
   // ══════════════════════════════════════════════════════
   const byManager: Record<string, CallRow[]> = {};
   filtered.forEach((r) => {
@@ -569,71 +545,74 @@ export function SotuvAnalizi() {
     .map(([name, calls]) => ({
       name,
       calls,
-      avgScore: calls.length
-        ? Math.round(calls.reduce((s, c) => s + c.score, 0) / calls.length)
-        : 0,
+      avgScore: calls.length ? Math.round(calls.reduce((s, c) => s + c.score, 0) / calls.length) : 0,
       sales: salesMap[name] ?? 0,
     }))
     .sort((a, b) => b.calls.length - a.calls.length);
 
   return (
     <div>
-      <Header
-        title="Sotuv Analizi"
-        subtitle="Menejerlar va zvonoklar tahlili"
-      />
-
+      <Header title="Sotuv Analizi" subtitle="Menejerlar va zvonoklar tahlili" />
       <PeriodTabs />
 
       {managerList.length === 0 ? (
-        <p className="text-center py-16 text-sm text-muted-foreground">
-          Bu davr uchun ma'lumot yo'q
-        </p>
+        <p className="text-center py-16 text-sm text-muted-foreground">Bu davr uchun ma'lumot yo'q</p>
       ) : (
         <div className="bg-card rounded-2xl border border-border shadow-soft overflow-hidden">
           <div className="px-5 py-4 border-b border-border">
             <h3 className="font-semibold">Menejerlar</h3>
-            <p className="text-xs text-muted-foreground mt-0.5">
-              Batafsil ko'rish uchun bosing
-            </p>
+            <p className="text-xs text-muted-foreground mt-0.5">Batafsil ko'rish uchun qatorga bosing</p>
+          </div>
+          {/* Заголовки таблицы */}
+          <div className="hidden sm:grid grid-cols-[1fr_100px_120px_120px_36px] gap-4 px-5 py-2.5 bg-secondary/50 border-b border-border text-xs font-semibold text-muted-foreground uppercase tracking-wide">
+            <div>Menejer</div>
+            <div className="text-center">Zvonoklar</div>
+            <div className="text-center">Sotuvlar</div>
+            <div className="text-right">O'rtacha ball</div>
+            <div></div>
           </div>
           <div className="divide-y divide-border">
             {managerList.map((m) => (
               <button
                 key={m.name}
                 onClick={() => openManager(m.name)}
-                className="w-full text-left px-5 py-4 hover:bg-secondary/60 transition flex items-center gap-4"
+                className="w-full text-left px-5 py-4 hover:bg-secondary/60 transition grid grid-cols-[1fr_100px_120px_120px_36px] gap-4 items-center"
               >
-                <div className={cn(
-                  "h-11 w-11 rounded-full bg-gradient-to-br flex items-center justify-center font-bold text-white text-sm shrink-0",
-                  avatarColor(m.name)
-                )}>
-                  {m.name.charAt(0)}
-                </div>
-
-                <div className="flex-1 min-w-0">
-                  <div className="font-medium">{m.name}</div>
-                  <div className="text-xs text-muted-foreground mt-0.5">
-                    {m.calls.length} ta zvonok
+                {/* Мэнэджер */}
+                <div className="flex items-center gap-3 min-w-0">
+                  <div className={cn(
+                    "h-10 w-10 rounded-full bg-gradient-to-br flex items-center justify-center font-bold text-white text-sm shrink-0",
+                    avatarColor(m.name)
+                  )}>
+                    {m.name.charAt(0)}
+                  </div>
+                  <div className="min-w-0">
+                    <div className="font-semibold truncate">{m.name}</div>
                   </div>
                 </div>
 
-                <div className="text-right shrink-0 mr-4">
-                  <div className="flex items-center gap-1 justify-end text-blue-500">
+                {/* Звонки */}
+                <div className="text-center">
+                  <div className="text-lg font-bold">{m.calls.length}</div>
+                  <div className="text-xs text-muted-foreground">zvonok</div>
+                </div>
+
+                {/* Продажи */}
+                <div className="text-center">
+                  <div className="flex items-center gap-1 justify-center text-blue-500">
                     <ShoppingBag className="h-3.5 w-3.5" />
                     <span className="text-lg font-bold">{m.sales}</span>
                   </div>
                   <div className="text-xs text-muted-foreground">sotuv</div>
                 </div>
 
-                <div className="text-right shrink-0">
-                  <div className={cn("text-lg font-bold", scoreColor(m.avgScore))}>
-                    {m.avgScore || "—"}
-                  </div>
-                  <div className="text-xs text-muted-foreground">o'rtacha ball</div>
+                {/* Средний балл */}
+                <div className="text-right">
+                  <div className={cn("text-lg font-bold", scoreColor(m.avgScore))}>{m.avgScore || "—"}</div>
+                  <div className="text-xs text-muted-foreground">ball</div>
                 </div>
 
-                <ChevronRight className="h-4 w-4 text-muted-foreground shrink-0" />
+                <ChevronRight className="h-4 w-4 text-muted-foreground" />
               </button>
             ))}
           </div>
