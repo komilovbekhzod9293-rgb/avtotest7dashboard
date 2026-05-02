@@ -16,6 +16,25 @@ const SHEET_ID = "1StqPMbH2IWX_722F9MVp92gKOGitlTuUBVYrtZ7GUvI";
 const API_KEY  = "AIzaSyB4kyYep05877BBpI9Rfv0SNcFhHVGBF5E";
 const RANGE    = "Лист1!A:P";
 
+// Маппинг ID менеджера → имя
+const MANAGER_MAP: Record<string, string> = {
+  "1559": "Ziyoda",
+  "1615": "Rayhon",
+  "1627": "Omina",
+  "1625": "Muxlisa",
+  "1621": "Rais",
+  "1619": "Jamshid",
+};
+
+function resolveManagerName(raw: string): string {
+  if (!raw) return "";
+  const trimmed = raw.trim();
+  // Если значение — числовой ID, подставляем имя
+  if (MANAGER_MAP[trimmed]) return MANAGER_MAP[trimmed];
+  // Иначе возвращаем как есть (уже имя)
+  return trimmed;
+}
+
 type Period = "bugun" | "hafta" | "oy" | "barchasi";
 
 interface SaleRow {
@@ -71,7 +90,8 @@ export function SotuvAnalizi() {
         const parsed: SaleRow[] = all.slice(1)
           .filter((row) => row[15])
           .map((row) => ({
-            hodim:     (row[15] ?? "").trim(),
+            // Применяем resolveManagerName — ID автоматически заменяется на имя
+            hodim:     resolveManagerName(row[15] ?? ""),
             tolovKuni: (row[5]  ?? "").trim(),
           }))
           .filter((r) => r.hodim !== "");
