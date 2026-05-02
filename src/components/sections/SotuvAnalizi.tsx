@@ -3,8 +3,7 @@ import { Header } from "@/components/dashboard/Header";
 import { managers as mockManagers } from "@/data/mock";
 import {
   Phone, TrendingUp, Target, Wallet,
-  ArrowUpRight, ArrowDownRight, ArrowLeft,
-  MessageSquare, Loader2, AlertCircle
+  ArrowLeft, MessageSquare, Loader2, AlertCircle
 } from "lucide-react";
 import {
   Bar, BarChart, CartesianGrid, Line, LineChart,
@@ -13,23 +12,21 @@ import {
 import { cn } from "@/lib/utils";
 import { StatCard } from "@/components/dashboard/StatCard";
 
-// ─── Google Sheets config ───────────────────────────────────────────────────
 const SHEET_ID = "1StqPMbH2IWX_722F9MVp92gKOGitlTuUBVYrtZ7GUvI";
 const API_KEY  = "AIzaSyB4kyYep05877BBpI9Rfv0SNcFhHVGBF5E";
 const RANGE    = "Лист1!A:P";
 
-// ─── Types ──────────────────────────────────────────────────────────────────
 type Period = "bugun" | "hafta" | "oy" | "barchasi";
 
 interface SaleRow {
-  hodim: string;      // колонка P (индекс 15)
-  tolovKuni: string;  // колонка F (индекс 5)
+  hodim: string;
+  tolovKuni: string;
 }
 
-// ─── Helpers ────────────────────────────────────────────────────────────────
 function parseDate(raw: string): Date | null {
   if (!raw) return null;
-  // формат "20.04.2026"
+  const iso = new Date(raw);
+  if (!isNaN(iso.getTime())) return iso;
   const parts = raw.trim().split(".");
   if (parts.length === 3) {
     return new Date(+parts[2], +parts[1] - 1, +parts[0]);
@@ -58,27 +55,24 @@ function filterByPeriod(rows: SaleRow[], period: Period): SaleRow[] {
 const fmtMoney = (n: number) =>
   new Intl.NumberFormat("uz-UZ").format(n) + " so'm";
 
-// ─── Component ──────────────────────────────────────────────────────────────
 export function SotuvAnalizi() {
-  const [rows, setRows]       = useState<SaleRow[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError]     = useState<string | null>(null);
-  const [period, setPeriod]   = useState<Period>("barchasi");
+  const [rows, setRows]         = useState<SaleRow[]>([]);
+  const [loading, setLoading]   = useState(true);
+  const [error, setError]       = useState<string | null>(null);
+  const [period, setPeriod]     = useState<Period>("barchasi");
   const [selected, setSelected] = useState<string | null>(null);
 
-  // Загрузка из Google Sheets
   useEffect(() => {
     const url = `https://sheets.googleapis.com/v4/spreadsheets/${SHEET_ID}/values/${RANGE}?key=${API_KEY}`;
     fetch(url)
       .then((r) => { if (!r.ok) throw new Error(`API xatosi: ${r.status}`); return r.json(); })
       .then((data) => {
         const all: string[][] = data.values || [];
-        // первая строка — заголовки
         const parsed: SaleRow[] = all.slice(1)
-          .filter((row) => row[15]) // должна быть колонка P (Hodim)
+          .filter((row) => row[15])
           .map((row) => ({
             hodim:     (row[15] ?? "").trim(),
-            tolovKuni: (row[5]  ?? "").trim(), // колонка F
+            tolovKuni: (row[5]  ?? "").trim(),
           }))
           .filter((r) => r.hodim !== "");
         setRows(parsed);
@@ -87,16 +81,13 @@ export function SotuvAnalizi() {
       .finally(() => setLoading(false));
   }, []);
 
-  // Фильтруем по периоду
   const filtered = filterByPeriod(rows, period);
 
-  // Считаем продажи по каждому менеджеру
   const salesByManager: Record<string, number> = {};
   filtered.forEach((r) => {
     salesByManager[r.hodim] = (salesByManager[r.hodim] ?? 0) + 1;
   });
 
-  // Список менеджеров из реальных данных, сортировка по продажам
   const managerList = Object.entries(salesByManager)
     .map(([name, sales]) => ({ name, sales }))
     .sort((a, b) => b.sales - a.sales);
@@ -111,7 +102,6 @@ export function SotuvAnalizi() {
     { id: "barchasi", label: "Barchasi" },
   ];
 
-  // ── Детальный вид менеджера (из mock — оставляем как есть) ───────────────
   const mockManager = mockManagers.find((m) => m.name === selected);
   if (selected && mockManager) {
     return (
@@ -167,7 +157,6 @@ export function SotuvAnalizi() {
     );
   }
 
-  // ── Главный экран ────────────────────────────────────────────────────────
   return (
     <div>
       <Header
@@ -175,7 +164,6 @@ export function SotuvAnalizi() {
         subtitle="Menejerlar samaradorligi va qo'ng'iroqlar tahlili"
       />
 
-      {/* Фильтр периода — точно как в Moliya */}
       <div className="flex flex-wrap gap-2 mb-6">
         {periods.map((p) => (
           <button
@@ -193,7 +181,6 @@ export function SotuvAnalizi() {
         ))}
       </div>
 
-      {/* Stat cards */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 mb-6">
         <StatCard
           label="Jami sotuvlar"
@@ -215,7 +202,6 @@ export function SotuvAnalizi() {
         />
       </div>
 
-      {/* Список менеджеров */}
       <div className="bg-card rounded-2xl border border-border shadow-soft overflow-hidden">
         <div className="px-5 py-4 border-b border-border flex items-center justify-between">
           <div>
@@ -279,17 +265,6 @@ export function SotuvAnalizi() {
                       <div className="text-xs text-muted-foreground">Sotuv</div>
                       <div className="font-semibold">{m.sales}</div>
                     </div>
-                    {mock && (
-                      <div className="text-right w-20">
-                        <div className="text-xs text-muted-foreground">O'zgarish</div>
-                        <div className={cn("font-semibold inline-flex items-center gap-0.5", mock.trend === "up" ? "text-success" : "text-danger")}>
-                          {mock.trend === "up"
-                            ? <ArrowUpRight className="h-3.5 w-3.5" />
-                            : <ArrowDownRight className="h-3.5 w-3.5" />}
-                          {Math.abs(mock.delta)}%
-                        </div>
-                      </div>
-                    )}
                   </div>
                 </button>
               );
@@ -298,7 +273,6 @@ export function SotuvAnalizi() {
         )}
       </div>
 
-      {/* Недельный график (из mock) */}
       <div className="mt-6 bg-card rounded-2xl border border-border p-5 shadow-soft">
         <h3 className="font-semibold mb-1">Haftalik sotuv dinamikasi</h3>
         <p className="text-xs text-muted-foreground mb-4">Barcha menejerlar bo'yicha umumiy</p>
