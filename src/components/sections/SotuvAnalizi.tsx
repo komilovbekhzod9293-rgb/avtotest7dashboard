@@ -26,7 +26,8 @@ const MANAGER_MAP: Record<string, string> = {
 
 function resolveManager(raw: string): string {
   const t = (raw ?? "").trim();
-  return MANAGER_MAP[t] ?? t;
+  const mapped = MANAGER_MAP[t] ?? t;
+  return mapped.trim();
 }
 
 interface CallRow {
