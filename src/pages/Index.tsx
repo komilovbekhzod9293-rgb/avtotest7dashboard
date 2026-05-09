@@ -1,149 +1,147 @@
-import { useState, useEffect } from "react";
-import { Sidebar, type SectionId } from "@/components/dashboard/Sidebar";
-import { SotuvAnalizi } from "@/components/sections/SotuvAnalizi";
-import { Moliya } from "@/components/sections/Moliya";
-import { Oquvchilar } from "@/components/sections/Oquvchilar";
-import { Hodimlar } from "@/components/sections/Hodimlar";
-import { Login } from "@/components/Login";
-import logo from "@/assets/logo.webp";
-import { AssistantChat } from "@/components/dashboard/AssistantChat";
-import { Phone, Wallet, GraduationCap, Users, LogOut } from "lucide-react";
+import { useState } from "react";
+import { Lock, LogIn } from "lucide-react";
 import { cn } from "@/lib/utils";
 
-type Role = "boshliq" | "admin" | "ustoz";
+export function Login() {
+  const [selectedRole, setSelectedRole] = useState<"boshliq" | "admin" | "ustoz" | null>(null);
+  const [password, setPassword] = useState("");
+  const [error, setError] = useState("");
 
-const Index = () => {
-  const [role, setRole] = useState<Role | null>(null);
-  const [active, setActive] = useState<SectionId>("sotuv");
-  const [loading, setLoading] = useState(true);
-
-  useEffect(() => {
-    const savedRole = localStorage.getItem("role") as Role | null;
-    setRole(savedRole);
-    setLoading(false);
-  }, []);
-
-  const handleLogout = () => {
-    localStorage.removeItem("role");
-    setRole(null);
+  const handleRoleSelect = (role: "boshliq" | "admin" | "ustoz") => {
+    if (role === "boshliq") {
+      setSelectedRole(role);
+      setPassword("");
+      setError("");
+    } else {
+      localStorage.setItem("role", role);
+      window.location.href = "/";
+    }
   };
 
-  if (loading) {
+  const handlePasswordSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (password === "4455") {
+      localStorage.setItem("role", "boshliq");
+      window.location.href = "/";
+    } else {
+      setError("Parol noto'g'ri");
+      setPassword("");
+    }
+  };
+
+  if (selectedRole === "boshliq") {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-background">
-        <div className="text-muted-foreground">Yuklanmoqda...</div>
-      </div>
-    );
-  }
+      <div className="min-h-screen bg-background flex items-center justify-center p-4">
+        <div className="w-full max-w-sm">
+          <div className="bg-card border border-border rounded-2xl p-8">
+            <h1 className="text-2xl font-bold text-foreground mb-1">Boshliq Kirish</h1>
+            <p className="text-sm text-muted-foreground mb-6">Parolni kiriting</p>
 
-  // Agar rol yo'q bo'lsa - Login ko'rsatish
-  if (!role) {
-    return <Login />;
-  }
+            <form onSubmit={handlePasswordSubmit} className="space-y-4">
+              <div>
+                <input
+                  type="password"
+                  placeholder="Parol"
+                  value={password}
+                  onChange={(e) => {
+                    setPassword(e.target.value);
+                    setError("");
+                  }}
+                  className="w-full px-4 py-2.5 rounded-lg border border-border bg-secondary text-foreground placeholder-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary"
+                  autoFocus
+                />
+              </div>
 
-  // Boshliq dashboard
-  if (role === "boshliq") {
-    const mobileItems: { id: SectionId; icon: typeof Phone; label: string }[] = [
-      { id: "sotuv", icon: Phone, label: "Sotuv" },
-      { id: "moliya", icon: Wallet, label: "Moliya" },
-      { id: "oquvchilar", icon: GraduationCap, label: "O'quvchi" },
-      { id: "hodimlar", icon: Users, label: "Hodim" },
-    ];
+              {error && (
+                <div className="text-sm text-red-500">{error}</div>
+              )}
 
-    const contextLabel: Record<SectionId, string> = {
-      sotuv: "Sotuv Analizi",
-      moliya: "Moliya",
-      oquvchilar: "O'quvchilar",
-      hodimlar: "Hodimlar",
-    };
+              <button
+                type="submit"
+                className="w-full bg-foreground text-background py-2.5 rounded-lg font-medium hover:opacity-90 transition"
+              >
+                Kirish
+              </button>
 
-    return (
-      <div className="min-h-screen flex bg-background">
-        <Sidebar active={active} onChange={setActive} />
-        <div className="flex-1 min-w-0 flex flex-col">
-          <div className="lg:hidden flex items-center justify-between px-5 h-14 border-b border-border bg-card">
-            <img src={logo} alt="AVTOTEST7" className="h-7" />
+              <button
+                type="button"
+                onClick={() => {
+                  setSelectedRole(null);
+                  setPassword("");
+                  setError("");
+                }}
+                className="w-full bg-secondary text-foreground py-2.5 rounded-lg font-medium hover:bg-secondary/80 transition"
+              >
+                Orqaga
+              </button>
+            </form>
           </div>
-          <main className="flex-1 px-5 md:px-8 py-8 pb-24 lg:pb-12 max-w-[1400px] w-full mx-auto">
-            {active === "sotuv" && <SotuvAnalizi />}
-            {active === "moliya" && <Moliya />}
-            {active === "oquvchilar" && <Oquvchilar />}
-            {active === "hodimlar" && <Hodimlar />}
-          </main>
-          <AssistantChat key={active} context={contextLabel[active]} />
-          <nav className="lg:hidden fixed bottom-0 inset-x-0 bg-card border-t border-border flex">
-            {mobileItems.map((it) => {
-              const Icon = it.icon;
-              const isActive = active === it.id;
-              return (
-                <button
-                  key={it.id}
-                  onClick={() => setActive(it.id)}
-                  className={cn(
-                    "flex-1 flex flex-col items-center gap-1 py-2.5 text-[11px] font-medium transition",
-                    isActive ? "text-primary" : "text-muted-foreground"
-                  )}
-                >
-                  <Icon className="h-5 w-5" />
-                  {it.label}
-                </button>
-              );
-            })}
-          </nav>
         </div>
       </div>
     );
   }
 
-  // Admin dashboard (pusta)
-  if (role === "admin") {
-    return (
-      <div className="min-h-screen flex flex-col bg-background">
-        <div className="h-14 border-b border-border bg-card flex items-center justify-between px-5">
-          <img src={logo} alt="AVTOTEST7" className="h-7" />
+  return (
+    <div className="min-h-screen bg-background flex items-center justify-center p-4">
+      <div className="w-full max-w-md">
+        <div className="mb-8">
+          <h1 className="text-3xl font-bold text-foreground mb-1">AVTOTEST</h1>
+          <p className="text-sm text-muted-foreground">Rol tanlang</p>
+        </div>
+
+        <div className="space-y-3">
+          {/* Boshliq */}
           <button
-            onClick={handleLogout}
-            className="flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium bg-secondary hover:bg-secondary/80 transition"
+            onClick={() => handleRoleSelect("boshliq")}
+            className={cn(
+              "w-full flex items-center gap-3 p-4 rounded-xl border border-border bg-card hover:bg-secondary transition",
+              "text-left"
+            )}
           >
-            <LogOut className="h-4 w-4" />
-            Chiqish
+            <div className="h-10 w-10 rounded-lg bg-secondary flex items-center justify-center flex-shrink-0">
+              <Lock className="h-5 w-5 text-foreground" />
+            </div>
+            <div className="flex-1 min-w-0">
+              <h2 className="text-sm font-semibold text-foreground">Boshliq</h2>
+              <p className="text-xs text-muted-foreground">Parol bilan kirish</p>
+            </div>
+          </button>
+
+          {/* Admin */}
+          <button
+            onClick={() => handleRoleSelect("admin")}
+            className={cn(
+              "w-full flex items-center gap-3 p-4 rounded-xl border border-border bg-card hover:bg-secondary transition",
+              "text-left"
+            )}
+          >
+            <div className="h-10 w-10 rounded-lg bg-secondary flex items-center justify-center flex-shrink-0">
+              <LogIn className="h-5 w-5 text-foreground" />
+            </div>
+            <div className="flex-1 min-w-0">
+              <h2 className="text-sm font-semibold text-foreground">Admin</h2>
+              <p className="text-xs text-muted-foreground">Bepul kirish</p>
+            </div>
+          </button>
+
+          {/* Ustoz */}
+          <button
+            onClick={() => handleRoleSelect("ustoz")}
+            className={cn(
+              "w-full flex items-center gap-3 p-4 rounded-xl border border-border bg-card hover:bg-secondary transition",
+              "text-left"
+            )}
+          >
+            <div className="h-10 w-10 rounded-lg bg-secondary flex items-center justify-center flex-shrink-0">
+              <LogIn className="h-5 w-5 text-foreground" />
+            </div>
+            <div className="flex-1 min-w-0">
+              <h2 className="text-sm font-semibold text-foreground">Ustoz</h2>
+              <p className="text-xs text-muted-foreground">Bepul kirish</p>
+            </div>
           </button>
         </div>
-        <main className="flex-1 flex items-center justify-center px-5">
-          <div className="text-center text-muted-foreground">
-            <h1 className="text-3xl font-bold mb-2">Admin Panel</h1>
-            <p className="text-lg">Tez orada...</p>
-          </div>
-        </main>
       </div>
-    );
-  }
-
-  // Ustoz dashboard (pusta)
-  if (role === "ustoz") {
-    return (
-      <div className="min-h-screen flex flex-col bg-background">
-        <div className="h-14 border-b border-border bg-card flex items-center justify-between px-5">
-          <img src={logo} alt="AVTOTEST7" className="h-7" />
-          <button
-            onClick={handleLogout}
-            className="flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium bg-secondary hover:bg-secondary/80 transition"
-          >
-            <LogOut className="h-4 w-4" />
-            Chiqish
-          </button>
-        </div>
-        <main className="flex-1 flex items-center justify-center px-5">
-          <div className="text-center text-muted-foreground">
-            <h1 className="text-3xl font-bold mb-2">Ustoz Panel</h1>
-            <p className="text-lg">Tez orada...</p>
-          </div>
-        </main>
-      </div>
-    );
-  }
-
-  return null;
-};
-
-export default Index;
+    </div>
+  );
+}
