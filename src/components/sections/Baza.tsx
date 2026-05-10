@@ -1,8 +1,8 @@
 import { useEffect, useState } from "react";
 import { Header } from "@/components/dashboard/Header";
 import {
-  Loader2, AlertCircle, Plus, X, ChevronRight,
-  Search, Filter, Pencil, Trash2
+  Loader2, AlertCircle, Plus, X,
+  Search, Database
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -21,7 +21,7 @@ const VAQTLAR = ["10:00","13:00","15:00","19:00","21:00"];
 type Period = "bugun" | "hafta" | "oy" | "barchasi";
 
 interface Client {
-  rowIndex: number;
+  rowIndex:    number;
   nomer:       string;
   ism:         string;
   telefon:     string;
@@ -105,11 +105,11 @@ function Toggle({ left, right, value, onChange }: {
 }
 
 export function Baza() {
-  const [clients, setClients]   = useState<Client[]>([]);
-  const [loading, setLoading]   = useState(true);
-  const [error,   setError]     = useState<string | null>(null);
-  const [period,  setPeriod]    = useState<Period>("barchasi");
-  const [search,  setSearch]    = useState("");
+  const [clients, setClients] = useState<Client[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error,   setError]   = useState<string | null>(null);
+  const [period,  setPeriod]  = useState<Period>("barchasi");
+  const [search,  setSearch]  = useState("");
   const [filterFilial, setFilterFilial] = useState("Barchasi");
   const [hodimlar, setHodimlar] = useState<string[]>(() => {
     const saved = localStorage.getItem("hodimlar");
@@ -132,24 +132,24 @@ export function Baza() {
   const [addHodim,     setAddHodim]     = useState("Rayhon");
 
   // Управление hodimlar
-  const [showHodimMgr,  setShowHodimMgr]  = useState(false);
-  const [newHodimName,  setNewHodimName]  = useState("");
+  const [showHodimMgr, setShowHodimMgr] = useState(false);
+  const [newHodimName, setNewHodimName] = useState("");
 
   // Форма редактирования
-  const [editClient,    setEditClient]    = useState<Client | null>(null);
-  const [editLoading,   setEditLoading]   = useState(false);
-  const [editResult,    setEditResult]    = useState<string | null>(null);
-  const [editIsm,       setEditIsm]       = useState("");
-  const [editTelefon,   setEditTelefon]   = useState("");
-  const [editFilial,    setEditFilial]    = useState("Novza");
-  const [editDarsKuni,  setEditDarsKuni]  = useState("");
-  const [editTolovKuni, setEditTolovKuni] = useState("");
-  const [editDarsVaqti, setEditDarsVaqti] = useState("");
-  const [editTolov,     setEditTolov]     = useState("");
-  const [editTolandi,   setEditTolandi]   = useState("");
-  const [editQarzi,     setEditQarzi]     = useState("");
-  const [editHodim,     setEditHodim]     = useState("");
-  const [editTolovBekor,setEditTolovBekor]= useState(false);
+  const [editClient,     setEditClient]     = useState<Client | null>(null);
+  const [editLoading,    setEditLoading]    = useState(false);
+  const [editResult,     setEditResult]     = useState<string | null>(null);
+  const [editIsm,        setEditIsm]        = useState("");
+  const [editTelefon,    setEditTelefon]    = useState("");
+  const [editFilial,     setEditFilial]     = useState("Novza");
+  const [editDarsKuni,   setEditDarsKuni]   = useState("");
+  const [editTolovKuni,  setEditTolovKuni]  = useState("");
+  const [editDarsVaqti,  setEditDarsVaqti]  = useState("");
+  const [editTolov,      setEditTolov]      = useState("");
+  const [editTolandi,    setEditTolandi]    = useState("");
+  const [editQarzi,      setEditQarzi]      = useState("");
+  const [editHodim,      setEditHodim]      = useState("");
+  const [editTolovBekor, setEditTolovBekor] = useState(false);
 
   const fetchData = () => {
     setLoading(true);
@@ -224,7 +224,8 @@ export function Baza() {
         }),
       });
       setAddResult("✅ Muvaffaqiyatli saqlandi!");
-      setAddIsm(""); setAddTelefon(""); setAddTolov(""); setAddTolandi(""); setAddQarzi("");
+      setAddIsm(""); setAddTelefon(""); setAddTolov("");
+      setAddTolandi(""); setAddQarzi("");
       setAddDarsKuni(todayInput()); setAddTolovKuni(todayInput());
       setTimeout(() => fetchData(), 2000);
     } catch { setAddResult("❌ Xatolik yuz berdi"); }
@@ -234,30 +235,28 @@ export function Baza() {
   async function submitEdit() {
     if (!editClient) return;
     setEditLoading(true); setEditResult(null);
-
     const changes: Record<string, { old: string; new: string }> = {};
-    if (editIsm       !== editClient.ism)        changes.ism        = { old: editClient.ism,        new: editIsm };
-    if (editTelefon   !== editClient.telefon)    changes.telefon    = { old: editClient.telefon,    new: editTelefon };
-    if (editFilial    !== editClient.filial)     changes.filial     = { old: editClient.filial,     new: editFilial };
-    if (toSheetDate(editDarsKuni)  !== editClient.darsKuni)  changes.dars_kuni  = { old: editClient.darsKuni,  new: toSheetDate(editDarsKuni) };
+    if (editIsm !== editClient.ism) changes.ism = { old: editClient.ism, new: editIsm };
+    if (editTelefon !== editClient.telefon) changes.telefon = { old: editClient.telefon, new: editTelefon };
+    if (editFilial !== editClient.filial) changes.filial = { old: editClient.filial, new: editFilial };
+    if (toSheetDate(editDarsKuni) !== editClient.darsKuni) changes.dars_kuni = { old: editClient.darsKuni, new: toSheetDate(editDarsKuni) };
     if (toSheetDate(editTolovKuni) !== editClient.tolovKuni) changes.tolov_kuni = { old: editClient.tolovKuni, new: toSheetDate(editTolovKuni) };
-    if (editDarsVaqti !== editClient.darsVaqti)  changes.dars_vaqti = { old: editClient.darsVaqti,  new: editDarsVaqti };
+    if (editDarsVaqti !== editClient.darsVaqti) changes.dars_vaqti = { old: editClient.darsVaqti, new: editDarsVaqti };
     if (editTolov.replace(/\s/g,"") !== editClient.tolov.replace(/[^\d]/g,"")) changes.tolov = { old: editClient.tolov, new: editTolov.replace(/\s/g,"") };
     if (editTolandi.replace(/\s/g,"") !== editClient.tolandi.replace(/[^\d]/g,"")) changes.tolandi = { old: editClient.tolandi, new: editTolandi.replace(/\s/g,"") };
     if (editQarzi.replace(/\s/g,"") !== editClient.qarzi.replace(/[^\d]/g,"")) changes.qarzi = { old: editClient.qarzi, new: editQarzi.replace(/\s/g,"") };
     if (editHodim !== editClient.hodim) changes.hodim = { old: editClient.hodim, new: editHodim };
     const newBekor = editTolovBekor ? "Bekor" : "";
     if (newBekor !== editClient.tolovBekor) changes.tolov_bekor = { old: editClient.tolovBekor, new: newBekor };
-
     try {
       await fetch(WEBHOOK, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          action:   "change",
-          ism:      editClient.ism,
-          telefon:  editClient.telefon,
-          row:      editClient.rowIndex,
+          action:  "change",
+          ism:     editClient.ism,
+          telefon: editClient.telefon,
+          row:     editClient.rowIndex,
           changes,
         }),
       });
@@ -268,7 +267,7 @@ export function Baza() {
     finally { setEditLoading(false); }
   }
 
-  function addHodim() {
+  function saveNewHodim() {
     if (!newHodimName.trim()) return;
     const updated = [...hodimlar, newHodimName.trim()];
     setHodimlar(updated);
@@ -283,9 +282,9 @@ export function Baza() {
   }
 
   const PERIODS: { id: Period; label: string }[] = [
-    { id: "bugun", label: "Bugun" },
-    { id: "hafta", label: "Hafta" },
-    { id: "oy",    label: "Oy" },
+    { id: "bugun",    label: "Bugun"    },
+    { id: "hafta",    label: "Hafta"    },
+    { id: "oy",       label: "Oy"       },
     { id: "barchasi", label: "Barchasi" },
   ];
 
@@ -322,7 +321,7 @@ export function Baza() {
             {p.label}
           </button>
         ))}
-        <div className="ml-auto flex gap-2">
+        <div className="ml-auto">
           <button onClick={() => { setShowAdd(!showAdd); setAddResult(null); }}
             className={cn("px-4 py-1.5 rounded-lg text-sm font-medium transition inline-flex items-center gap-2",
               showAdd ? "bg-primary text-primary-foreground" : "bg-emerald-600 text-white hover:bg-emerald-700")}>
@@ -408,7 +407,7 @@ export function Baza() {
                 <input type="text" placeholder="Yangi hodim ismi" value={newHodimName}
                   onChange={e => setNewHodimName(e.target.value)}
                   className="flex-1 px-3 py-2 rounded-lg border border-border bg-background text-sm" />
-                <button onClick={addHodim}
+                <button onClick={saveNewHodim}
                   className="px-4 py-2 bg-primary text-primary-foreground rounded-lg text-sm font-medium">
                   Qo'shish
                 </button>
@@ -460,11 +459,9 @@ export function Baza() {
 
       {/* Таблица */}
       <div className="bg-card rounded-2xl border border-border shadow-soft overflow-hidden">
-        <div className="px-5 py-4 border-b border-border flex items-center justify-between">
-          <div>
-            <h3 className="font-semibold">Mijozlar</h3>
-            <p className="text-xs text-muted-foreground mt-0.5">{displayed.length} ta mijoz</p>
-          </div>
+        <div className="px-5 py-4 border-b border-border">
+          <h3 className="font-semibold">Mijozlar</h3>
+          <p className="text-xs text-muted-foreground mt-0.5">{displayed.length} ta mijoz</p>
         </div>
         <div className="overflow-x-auto">
           <table className="w-full text-sm">
@@ -488,16 +485,15 @@ export function Baza() {
               {displayed.length === 0 ? (
                 <tr><td colSpan={12} className="px-4 py-16 text-center text-muted-foreground text-sm">Ma'lumot topilmadi</td></tr>
               ) : displayed.map((c, i) => (
-                <tr key={i} className="hover:bg-secondary/40 transition cursor-pointer"
-                  onClick={() => openEdit(c)}>
+                <tr key={i} className="hover:bg-secondary/40 transition cursor-pointer" onClick={() => openEdit(c)}>
                   <td className="px-4 py-3 text-muted-foreground">{c.nomer}</td>
-                  <td className="px-4 py-3">
-                    <div className="font-medium text-primary hover:underline">{c.ism}</div>
-                  </td>
+                  <td className="px-4 py-3 font-medium text-primary hover:underline">{c.ism}</td>
                   <td className="px-4 py-3 text-muted-foreground">{c.telefon}</td>
                   <td className="px-4 py-3">
                     <span className={cn("px-2 py-0.5 rounded-full text-xs font-medium border",
-                      c.filial === "Novza" ? "bg-blue-500/10 text-blue-700 border-blue-500/20" : "bg-purple-500/10 text-purple-700 border-purple-500/20")}>
+                      c.filial === "Novza"
+                        ? "bg-blue-500/10 text-blue-700 border-blue-500/20"
+                        : "bg-purple-500/10 text-purple-700 border-purple-500/20")}>
                       {c.filial}
                     </span>
                   </td>
@@ -595,7 +591,7 @@ export function Baza() {
               <div className="sm:col-span-2">
                 <label className="flex items-center gap-3 cursor-pointer">
                   <div onClick={() => setEditTolovBekor(!editTolovBekor)}
-                    className={cn("w-10 h-6 rounded-full transition relative",
+                    className={cn("w-10 h-6 rounded-full transition relative cursor-pointer",
                       editTolovBekor ? "bg-red-500" : "bg-secondary border border-border")}>
                     <div className={cn("absolute top-1 w-4 h-4 rounded-full bg-white transition-all",
                       editTolovBekor ? "left-5" : "left-1")} />
