@@ -52,6 +52,7 @@ export function OnlineDostup() {
 
   // Форма добавления
   const [showAdd,    setShowAdd]    = useState(false);
+  const [addIsm,     setAddIsm]     = useState("");
   const [addPhone,   setAddPhone]   = useState("");
   const [addSumma,   setAddSumma]   = useState("");
   const [addSana,    setAddSana]    = useState(todayInput());
@@ -61,10 +62,10 @@ export function OnlineDostup() {
   const [addResult,  setAddResult]  = useState<string | null>(null);
 
   // Редактирование
-  const [editPhone,   setEditPhone]   = useState<Phone | null>(null);
-  const [editNewPhone,setEditNewPhone]= useState("");
-  const [editLoading, setEditLoading] = useState(false);
-  const [editResult,  setEditResult]  = useState<string | null>(null);
+  const [editPhone,    setEditPhone]    = useState<Phone | null>(null);
+  const [editNewPhone, setEditNewPhone] = useState("");
+  const [editLoading,  setEditLoading]  = useState(false);
+  const [editResult,   setEditResult]   = useState<string | null>(null);
 
   // Удаление
   const [deleteId,      setDeleteId]      = useState<number | null>(null);
@@ -94,16 +95,17 @@ export function OnlineDostup() {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          action:   "give_access",
-          telefon:  addPhone,
-          summa:    addSumma.replace(/\s/g, ""),
-          sana:     addSana,
-          turi:     addTuri,
-          filial:   addFilial,
+          action:  "give_access",
+          ism:     addIsm,
+          telefon: addPhone,
+          summa:   addSumma.replace(/\s/g, ""),
+          sana:    addSana,
+          turi:    addTuri,
+          filial:  addFilial,
         }),
       });
       setAddResult("✅ Saqlandi!");
-      setAddPhone(""); setAddSumma(""); setAddSana(todayInput());
+      setAddIsm(""); setAddPhone(""); setAddSumma(""); setAddSana(todayInput());
       setTimeout(() => fetchPhones(), 2000);
     } catch { setAddResult("❌ Xatolik yuz berdi"); }
     finally { setAddLoading(false); }
@@ -184,6 +186,12 @@ export function OnlineDostup() {
             <Plus className="h-4 w-4" />Yangi raqam qo'shish
           </h3>
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 mb-4">
+            <div>
+              <label className="text-xs text-muted-foreground mb-1 block">Ism Familiya</label>
+              <input type="text" value={addIsm} onChange={e => setAddIsm(e.target.value)}
+                placeholder="Abdullayev Jasur"
+                className="w-full px-3 py-2 rounded-lg border border-border bg-background text-sm" />
+            </div>
             <div>
               <label className="text-xs text-muted-foreground mb-1 block">Telefon raqami</label>
               <input type="tel" value={addPhone} onChange={e => setAddPhone(e.target.value)}
