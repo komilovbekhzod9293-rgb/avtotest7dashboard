@@ -12,7 +12,7 @@ const SHEET_ID  = "1eG0H0QrV5QyoeHelycZvROOSkg580h2HFLzjksfGJJQ";
 const SHEET_ID2 = "1StqPMbH2IWX_722F9MVp92gKOGitlTuUBVYrtZ7GUvI";
 const API_KEY   = "AIzaSyB4kyYep05877BBpI9Rfv0SNcFhHVGBF5E";
 const RANGE1    = "%D0%9B%D0%B8%D1%81%D1%821!A:T";
-const RANGE2    = "%D0%9B%D0%B8%D1%81%D1%821!A:P";
+const RANGE2    = "%D0%9B%D0%B8%D1%81%D1%821!A:Q";
 
 const MANAGER_MAP: Record<string, string> = {
   "1559": "Ziyoda",
@@ -231,6 +231,7 @@ export function SotuvAnalizi() {
         return Promise.all([r1.json(), r2.json()]);
       })
       .then(([data1, data2]) => {
+        // ── Таблица 1: звонки ──
         const all: string[][] = data1.values ?? [];
         const parsed: CallRow[] = all
           .slice(1)
@@ -259,17 +260,28 @@ export function SotuvAnalizi() {
 
         setRows(parsed);
 
+        // ── Таблица 2: клиенты — колонка Q (индекс 16) = Hodim ──
         const all2: string[][] = data2.values ?? [];
         const sales: { name: string; date: Date }[] = [];
+
         all2.slice(1).forEach((row) => {
-          const hodim   = resolveManager(row[15] ?? "");
-          const dateRaw = (row[5]  ?? "").trim();
-          if (!hodim || hodim === "y") return;
+          if (!row[1]) return; // пустая строка
+
+          const hodimRaw = (row[16] ?? "").trim(); // Q = Hodim
+          const hodim    = resolveManager(hodimRaw); // Shamsiddin → Rais
+          const bekor    = (row[10] ?? "").trim().toLowerCase(); // K = Tolov Bekor
+          const dateRaw  = (row[4]  ?? "").trim();  // E = Dars kuni
+
+          if (!hodim) return;
+          if (bekor === "bekor") return; // возврат — не считаем
           if (!dateRaw || dateRaw.toLowerCase().includes("avto")) return;
+
           const date = parseSaleDate(dateRaw);
           if (!date) return;
+
           sales.push({ name: hodim, date });
         });
+
         setAllSales(sales);
       })
       .catch((e) => setError(e.message))
@@ -334,7 +346,6 @@ export function SotuvAnalizi() {
         </div>
 
         <BackButton onClick={backToCalls} label={c.managerName} />
-
         <Header title={displayPhone} subtitle={formatDate(c.date)} />
 
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-6">
@@ -368,21 +379,11 @@ export function SotuvAnalizi() {
               {c.ehtiyoj}
             </InfoCard>
           )}
-          {c.yakun && (
-            <InfoCard icon={<CheckCircle className="h-4 w-4" />} title="Yakun" color="emerald">{c.yakun}</InfoCard>
-          )}
-          {c.yaxshi && (
-            <InfoCard icon={<ThumbsUp className="h-4 w-4" />} title="Yaxshi Narsalar" color="emerald">{c.yaxshi}</InfoCard>
-          )}
-          {c.xatolar && (
-            <InfoCard icon={<ThumbsDown className="h-4 w-4" />} title="Xatolar" color="red">{c.xatolar}</InfoCard>
-          )}
-          {c.tavsiya && (
-            <InfoCard icon={<Lightbulb className="h-4 w-4" />} title="Tavsiya" color="amber">{c.tavsiya}</InfoCard>
-          )}
-          {c.dinamika && (
-            <InfoCard icon={<Activity className="h-4 w-4" />} title="Suhbat Dinamikasi" color="purple">{c.dinamika}</InfoCard>
-          )}
+          {c.yakun && <InfoCard icon={<CheckCircle className="h-4 w-4" />} title="Yakun" color="emerald">{c.yakun}</InfoCard>}
+          {c.yaxshi && <InfoCard icon={<ThumbsUp className="h-4 w-4" />} title="Yaxshi Narsalar" color="emerald">{c.yaxshi}</InfoCard>}
+          {c.xatolar && <InfoCard icon={<ThumbsDown className="h-4 w-4" />} title="Xatolar" color="red">{c.xatolar}</InfoCard>}
+          {c.tavsiya && <InfoCard icon={<Lightbulb className="h-4 w-4" />} title="Tavsiya" color="amber">{c.tavsiya}</InfoCard>}
+          {c.dinamika && <InfoCard icon={<Activity className="h-4 w-4" />} title="Suhbat Dinamikasi" color="purple">{c.dinamika}</InfoCard>}
         </div>
 
         {c.kritik && (
@@ -425,7 +426,6 @@ export function SotuvAnalizi() {
     return (
       <div>
         <BackButton onClick={backToManagers} label="Barcha menejerlar" />
-
         <Header title={selMgr} subtitle={`${mgrCalls.length} ta zvonok tahlil qilindi`} />
         <PeriodTabs />
 
