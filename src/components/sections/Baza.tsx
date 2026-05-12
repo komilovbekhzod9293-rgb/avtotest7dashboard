@@ -45,9 +45,11 @@ function formatSumma(val: string): string {
 }
 
 function parseSummaForEdit(raw: string): string {
-  const digits = raw.replace(/[^\d]/g, "");
-  if (!digits || digits === "0" || digits === "000") return "";
-  return formatSumma(digits);
+  if (!raw) return "";
+  const cleaned = raw.replace(/[^\d,]/g, "");
+  const intPart = cleaned.split(",")[0];
+  if (!intPart || intPart === "0") return "";
+  return formatSumma(intPart);
 }
 
 function parseClientDate(raw: string): Date | null {
