@@ -1,17 +1,12 @@
 import { useEffect, useState } from "react";
 import { Header } from "@/components/dashboard/Header";
-import {
-  Loader2, AlertCircle, Search, Plus, X,
-  ChevronDown, ChevronUp, Check, UserMinus
-} from "lucide-react";
+import { Loader2, AlertCircle, Search, Plus, X, Check, UserMinus } from "lucide-react";
 import { cn } from "@/lib/utils";
 
-const SHEET_ID2   = "1StqPMbH2IWX_722F9MVp92gKOGitlTuUBVYrtZ7GUvI";
-const SHEET_DAVO  = "14nKtubJjuMJhQ9NQO8ORIfFGYAbBVKYrKDZpB96vc6Q";
-const API_KEY     = "AIzaSyB4kyYep05877BBpI9Rfv0SNcFhHVGBF5E";
-const RANGE2      = "%D0%9B%D0%B8%D1%81%D1%821!A:Q";
-const RANGE_DAVO  = "%D0%9B%D0%B8%D1%81%D1%821!A:F";
-const WEBHOOK     = "https://n8n.srv1215497.hstgr.cloud/webhook/davomat";
+const SHEET_DAVO = "14nKtubJjuMJhQ9NQO8ORIfFGYAbBVKYrKDZpB96vc6Q";
+const API_KEY    = "AIzaSyB4kyYep05877BBpI9Rfv0SNcFhHVGBF5E";
+const RANGE_DAVO = "%D0%9B%D0%B8%D1%81%D1%821!A:H";
+const WEBHOOK    = "https://n8n.srv1215497.hstgr.cloud/webhook/davomat";
 
 const VAQTLAR = ["10:00","13:00","15:00","19:00","21:00"];
 
@@ -31,22 +26,40 @@ function toSheetDate(input: string): string {
   return `${p[2]}.${p[1]}.${p[0]}`;
 }
 
-interface Student {
-  rowIndex: number;
-  ism:      string;
-  telefon:  string;
-  filial:   string;
-  smena:    string;
+function toInputDate(sheet: string): string {
+  if (!sheet) return "";
+  const cleaned = sheet.trim().replace(/,/g, ".");
+  const parts = cleaned.split(".");
+  if (parts.length === 3) return `${parts[2]}-${parts[1].padStart(2,"0")}-${parts[0].padStart(2,"0")}`;
+  return "";
+}
+
+function sameDay(a: Date, b: Date) {
+  return a.getDate() === b.getDate() &&
+         a.getMonth() === b.getMonth() &&
+         a.getFullYear() === b.getFullYear();
+}
+
+interface DavRow {
+  rowIndex:  number;
+  ism:       string;
+  telefon:   string;
+  filial:    string;
+  smena:     string;
+  sana:      string;
+  holat:     string;
+  imtihon:   string;
   pravaOldi: string;
 }
 
-interface DavomatRow {
-  ism:    string;
-  telefon:string;
-  filial: string;
-  smena:  string;
-  sana:   string;
-  holat:  string;
+interface Student {
+  ism:       string;
+  telefon:   string;
+  filial:    string;
+  smena:     string;
+  pravaOldi: string;
+  imtihon:   string;
+  rows:      DavRow[];
 }
 
 type Tab = "davomat" | "jadval";
@@ -63,16 +76,14 @@ function Toggle({ left, right, value, onChange }: {
 }
 
 export function Ustoz() {
-  const [students,  setStudents]  = useState<Student[]>([]);
-  const [davomat,   setDavomat]   = useState<DavomatRow[]>([]);
-  const [loading,   setLoading]   = useState(true);
-  const [error,     setError]     = useState<string | null>(null);
-  const [tab,       setTab]       = useState<Tab>("davomat");
-  const [search,    setSearch]    = useState("");
+  const [allRows,  setAllRows]  = useState<DavRow[]>([]);
+  const [loading,  setLoading]  = useState(true);
+  const [error,    setError]    = useState<string | null>(null);
+  const [tab,      setTab]      = useState<Tab>("davomat");
+  const [search,   setSearch]   = useState("");
   const [filterSmena,  setFilterSmena]  = useState("Barchasi");
   const [filterFilial, setFilterFilial] = useState("Barchasi");
 
-  // Форма добавления
   const [showAdd,    setShowAdd]    = useState(false);
   const [addIsm,     setAddIsm]     = useState("");
   const [addTel,     setAddTel]     = useState("");
@@ -82,46 +93,36 @@ export function Ustoz() {
   const [addLoading, setAddLoading] = useState(false);
   const [addResult,  setAddResult]  = useState<string | null>(null);
 
-  // Отметка
-  const [marking, setMarking] = useState<Record<string, boolean>>({});
+  const [editStudent,  setEditStudent]  = useState<Student | null>(null);
+  const [editImtihon,  setEditImtihon]  = useState("");
+  const [editPrava,    setEditPrava]    = useState(false);
+  const [editLoading,  setEditLoading]  = useState(false);
+  const [editResult,   setEditResult]   = useState<string | null>(null);
+
+  const [marking,       setMarking]       = useState<Record<string, boolean>>({});
+  const [showImtihon,   setShowImtihon]   = useState(false);
+  const [imtihonFilter, setImtihonFilter] = useState("Ertaga");
 
   const fetchAll = () => {
     setLoading(true);
-    const u1 = `https://sheets.googleapis.com/v4/spreadsheets/${SHEET_ID2}/values/${RANGE2}?key=${API_KEY}`;
-    const u2 = `https://sheets.googleapis.com/v4/spreadsheets/${SHEET_DAVO}/values/${RANGE_DAVO}?key=${API_KEY}`;
-    Promise.all([fetch(u1), fetch(u2)])
-      .then(async ([r1, r2]) => {
-        if (!r1.ok) throw new Error(`Baza xatosi: ${r1.status}`);
-        if (!r2.ok) throw new Error(`Davomat xatosi: ${r2.status}`);
-        return Promise.all([r1.json(), r2.json()]);
-      })
-      .then(([d1, d2]) => {
-        const rows1: string[][] = d1.values ?? [];
-        const parsed: Student[] = rows1.slice(1)
-          .filter(r => r[1])
+    fetch(`https://sheets.googleapis.com/v4/spreadsheets/${SHEET_DAVO}/values/${RANGE_DAVO}?key=${API_KEY}`)
+      .then(r => { if (!r.ok) throw new Error(`Xatolik: ${r.status}`); return r.json(); })
+      .then(data => {
+        const rows: string[][] = data.values ?? [];
+        const parsed: DavRow[] = rows.slice(1)
+          .filter(r => r[0])
           .map((r, i) => ({
             rowIndex:  i + 2,
-            ism:       r[1]  ?? "",
-            telefon:   r[2]  ?? "",
-            filial:    r[3]  ?? "",
-            smena:     r[6]  ?? "",
-            pravaOldi: r[15] ?? "",
-          }))
-          .filter(s => !s.pravaOldi || s.pravaOldi.trim() === "");
-        setStudents(parsed);
-
-        const rows2: string[][] = d2.values ?? [];
-        const dav: DavomatRow[] = rows2.slice(1)
-          .filter(r => r[0])
-          .map(r => ({
-            ism:    r[0] ?? "",
-            telefon:r[1] ?? "",
-            filial: r[2] ?? "",
-            smena:  r[3] ?? "",
-            sana:   r[4] ?? "",
-            holat:  r[5] ?? "",
+            ism:       r[0] ?? "",
+            telefon:   r[1] ?? "",
+            filial:    r[2] ?? "",
+            smena:     r[3] ?? "",
+            sana:      r[4] ?? "",
+            holat:     r[5] ?? "",
+            imtihon:   r[6] ?? "",
+            pravaOldi: r[7] ?? "",
           }));
-        setDavomat(dav);
+        setAllRows(parsed);
       })
       .catch(e => setError(e.message))
       .finally(() => setLoading(false));
@@ -129,48 +130,90 @@ export function Ustoz() {
 
   useEffect(() => { fetchAll(); }, []);
 
-  // Получить записи посещаемости по телефону
-  function getStudentDavomat(telefon: string): DavomatRow[] {
-    return davomat
-      .filter(d => d.telefon === telefon)
-      .sort((a, b) => {
-        const pa = a.sana.split(".").reverse().join("");
-        const pb = b.sana.split(".").reverse().join("");
-        return pa.localeCompare(pb);
-      });
+  function buildStudents(rows: DavRow[]): Student[] {
+    const map: Record<string, Student> = {};
+    rows.forEach(r => {
+      if (!map[r.telefon]) {
+        map[r.telefon] = {
+          ism:       r.ism,
+          telefon:   r.telefon,
+          filial:    r.filial,
+          smena:     r.smena,
+          pravaOldi: r.pravaOldi,
+          imtihon:   r.imtihon,
+          rows:      [],
+        };
+      }
+      if (r.pravaOldi) map[r.telefon].pravaOldi = r.pravaOldi;
+      if (r.imtihon)   map[r.telefon].imtihon   = r.imtihon;
+      if (r.sana)      map[r.telefon].rows.push(r);
+    });
+    return Object.values(map);
   }
 
-  // Отмечена ли сегодня
+  const allStudents    = buildStudents(allRows);
+  const activeStudents = allStudents.filter(s =>
+    !s.pravaOldi || s.pravaOldi.trim().toLowerCase() !== "oldi"
+  );
+
   function isMarkedToday(telefon: string): string | null {
     const today = todayStr();
-    const rec = davomat.find(d => d.telefon === telefon && d.sana === today);
+    const rec = allRows.find(r => r.telefon === telefon && r.sana === today);
     return rec ? rec.holat : null;
   }
 
   async function markDavomat(student: Student, holat: "Bor" | "Yo'q") {
     const key = student.telefon;
     setMarking(m => ({ ...m, [key]: true }));
-    const today = todayStr();
-    const davRows = getStudentDavomat(student.telefon);
-    const kunRaqami = davRows.length + 1;
+    const today    = todayStr();
+    const kunRaqami = student.rows.filter(r => r.sana).length + 1;
     try {
       await fetch(WEBHOOK, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          action:      "mark",
-          ism:         student.ism,
-          telefon:     student.telefon,
-          filial:      student.filial,
-          smena:       student.smena,
-          sana:        today,
+          action:     "mark",
+          ism:        student.ism,
+          telefon:    student.telefon,
+          filial:     student.filial,
+          smena:      student.smena,
+          sana:       today,
           holat,
-          kun_raqami:  kunRaqami,
+          kun_raqami: kunRaqami,
         }),
       });
       setTimeout(() => fetchAll(), 1500);
     } catch {}
     finally { setMarking(m => ({ ...m, [key]: false })); }
+  }
+
+  function openEdit(student: Student) {
+    setEditStudent(student);
+    setEditImtihon(toInputDate(student.imtihon));
+    setEditPrava(student.pravaOldi?.toLowerCase() === "oldi");
+    setEditResult(null);
+  }
+
+  async function submitEdit() {
+    if (!editStudent) return;
+    setEditLoading(true); setEditResult(null);
+    try {
+      await fetch(WEBHOOK, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          action:     "edit_student",
+          ism:        editStudent.ism,
+          telefon:    editStudent.telefon,
+          imtihon:    toSheetDate(editImtihon),
+          prava_oldi: editPrava ? "Oldi" : "",
+        }),
+      });
+      setEditResult("✅ Saqlandi!");
+      setEditStudent(null);
+      setTimeout(() => fetchAll(), 2000);
+    } catch { setEditResult("❌ Xatolik"); }
+    finally { setEditLoading(false); }
   }
 
   async function removeStudent(student: Student) {
@@ -183,7 +226,6 @@ export function Ustoz() {
           action:  "remove_student",
           ism:     student.ism,
           telefon: student.telefon,
-          row:     student.rowIndex,
         }),
       });
       setTimeout(() => fetchAll(), 1500);
@@ -225,20 +267,8 @@ export function Ustoz() {
     </div>
   );
 
-  const today = todayStr();
-
-  // Фильтр для Jadval
-  const filteredStudents = students.filter(s => {
-    const q = search.toLowerCase();
-    if (q && !s.ism.toLowerCase().includes(q) && !s.telefon.includes(q)) return false;
-    if (filterSmena !== "Barchasi" && s.smena !== filterSmena) return false;
-    if (filterFilial !== "Barchasi" && s.filial !== filterFilial) return false;
-    return true;
-  });
-
-  // Группировка по сменам для Davomat
   const bySmena: Record<string, Student[]> = {};
-  students.forEach(s => {
+  activeStudents.forEach(s => {
     const key = s.smena || "Noma'lum";
     if (!bySmena[key]) bySmena[key] = [];
     bySmena[key].push(s);
@@ -247,11 +277,88 @@ export function Ustoz() {
     Object.keys(bySmena).filter(k => !VAQTLAR.includes(k))
   );
 
-  const totalToday = students.filter(s => isMarkedToday(s.telefon)).length;
+  const totalToday = activeStudents.filter(s => isMarkedToday(s.telefon)).length;
+
+  const filteredStudents = allStudents.filter(s => {
+    const q = search.toLowerCase();
+    if (q && !s.ism.toLowerCase().includes(q) && !s.telefon.includes(q)) return false;
+    if (filterSmena  !== "Barchasi" && s.smena  !== filterSmena)  return false;
+    if (filterFilial !== "Barchasi" && s.filial !== filterFilial) return false;
+    return true;
+  });
+
+  const now      = new Date();
+  const tomorrow = new Date(now); tomorrow.setDate(now.getDate() + 1);
+  const dayAfter = new Date(now); dayAfter.setDate(now.getDate() + 2);
+  const targetDay = imtihonFilter === "Ertaga" ? tomorrow : dayAfter;
+  const upcomingImtihon = activeStudents.filter(s => {
+    if (!s.imtihon) return false;
+    const parts = s.imtihon.split(".");
+    if (parts.length < 3) return false;
+    const d = new Date(parseInt(parts[2]), parseInt(parts[1]) - 1, parseInt(parts[0]));
+    return sameDay(d, targetDay);
+  });
 
   return (
     <div>
-      <Header title="Ustoz Panel" subtitle={`Bugun: ${today}`} />
+      <Header title="Ustoz Panel" subtitle={`Bugun: ${todayStr()}`} />
+
+      {/* Yaqin imtihonlar */}
+      <div className="mb-6">
+        <div className="flex items-center gap-3 mb-3">
+          <button onClick={() => setShowImtihon(!showImtihon)}
+            className={cn("px-4 py-1.5 rounded-lg text-sm font-medium transition inline-flex items-center gap-2",
+              showImtihon ? "bg-amber-500 text-white" : "bg-amber-500/10 text-amber-600 hover:bg-amber-500/20")}>
+            Yaqin imtihonlar
+            {upcomingImtihon.length > 0 && (
+              <span className={cn("text-xs px-1.5 py-0.5 rounded-full font-semibold",
+                showImtihon ? "bg-white/30 text-white" : "bg-amber-500 text-white")}>
+                {upcomingImtihon.length}
+              </span>
+            )}
+          </button>
+          {showImtihon && (
+            <div className="flex rounded-lg border border-border overflow-hidden text-xs font-medium">
+              <button onClick={() => setImtihonFilter("Ertaga")}
+                className={cn("px-3 py-1.5 transition",
+                  imtihonFilter === "Ertaga" ? "bg-primary text-primary-foreground" : "bg-background text-muted-foreground hover:text-foreground")}>
+                Ertaga
+              </button>
+              <button onClick={() => setImtihonFilter("Indinga")}
+                className={cn("px-3 py-1.5 transition border-l border-border",
+                  imtihonFilter === "Indinga" ? "bg-primary text-primary-foreground" : "bg-background text-muted-foreground hover:text-foreground")}>
+                Indinga
+              </button>
+            </div>
+          )}
+        </div>
+        {showImtihon && (
+          upcomingImtihon.length === 0 ? (
+            <p className="text-sm text-muted-foreground px-1">
+              {imtihonFilter === "Ertaga" ? "Ertaga" : "Indinga"} imtihon yo'q
+            </p>
+          ) : (
+            <div className="bg-card rounded-2xl border border-amber-500/20 overflow-hidden">
+              {upcomingImtihon.map((s, i) => (
+                <div key={s.telefon}
+                  className={cn("flex items-center gap-3 px-4 py-3",
+                    i !== upcomingImtihon.length - 1 && "border-b border-border")}>
+                  <div className="h-8 w-8 rounded-full bg-amber-500/10 flex items-center justify-center font-semibold text-sm shrink-0 text-amber-600">
+                    {s.ism.charAt(0)}
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <div className="font-medium text-sm">{s.ism}</div>
+                    <div className="text-xs text-muted-foreground mt-0.5">{s.smena} · {s.filial} · {s.imtihon}</div>
+                  </div>
+                  <span className="text-xs px-2 py-0.5 rounded-full bg-amber-500/10 text-amber-600 font-medium border border-amber-500/20">
+                    {imtihonFilter === "Ertaga" ? "Ertaga" : "Indinga"}
+                  </span>
+                </div>
+              ))}
+            </div>
+          )
+        )}
+      </div>
 
       {/* Tabs */}
       <div className="flex gap-2 mb-6">
@@ -320,51 +427,42 @@ export function Ustoz() {
         </div>
       )}
 
-      {/* DAVOMAT TAB */}
+      {/* DAVOMAT */}
       {tab === "davomat" && (
         <div>
           <div className="flex items-center justify-between mb-4">
             <p className="text-sm text-muted-foreground">
-              Bugun belgilandi: <span className="font-semibold text-foreground">{totalToday}</span> / {students.length}
+              Bugun belgilandi: <span className="font-semibold text-foreground">{totalToday}</span> / {activeStudents.length}
             </p>
           </div>
-
-          {sortedSmenas.map(smena => {
+          {sortedSmenas.length === 0 ? (
+            <p className="text-center py-16 text-sm text-muted-foreground">O'quvchilar yo'q</p>
+          ) : sortedSmenas.map(smena => {
             const list = bySmena[smena] ?? [];
             return (
               <div key={smena} className="mb-6">
                 <div className="flex items-center gap-2 mb-3 px-1">
                   <div className="h-2 w-2 rounded-full bg-primary" />
                   <span className="font-semibold text-sm">{smena} smena</span>
-                  <span className="text-xs text-muted-foreground px-2 py-0.5 bg-secondary rounded-full">
-                    {list.length} ta
-                  </span>
+                  <span className="text-xs text-muted-foreground px-2 py-0.5 bg-secondary rounded-full">{list.length} ta</span>
                 </div>
-
                 <div className="bg-card rounded-2xl border border-border overflow-hidden">
                   {list.map((s, i) => {
-                    const davRows  = getStudentDavomat(s.telefon);
-                    const kunSoni  = davRows.length;
                     const markedToday = isMarkedToday(s.telefon);
-                    const isLoading = marking[s.telefon];
-
+                    const isLoading   = marking[s.telefon];
+                    const davRows     = s.rows.filter(r => r.sana);
                     return (
                       <div key={s.telefon}
                         className={cn("flex items-center gap-3 px-4 py-3 transition",
                           i !== list.length - 1 && "border-b border-border",
-                          markedToday === "Bor" ? "bg-emerald-500/5" :
+                          markedToday === "Bor"  ? "bg-emerald-500/5" :
                           markedToday === "Yo'q" ? "bg-red-500/5" : "")}>
-
-                        {/* Аватар */}
                         <div className="h-9 w-9 rounded-full bg-secondary flex items-center justify-center font-semibold text-sm shrink-0 text-foreground">
                           {s.ism.charAt(0)}
                         </div>
-
-                        {/* Инфо */}
-                        <div className="flex-1 min-w-0">
-                          <div className="font-medium text-sm truncate">{s.ism}</div>
+                        <div className="flex-1 min-w-0 cursor-pointer" onClick={() => openEdit(s)}>
+                          <div className="font-medium text-sm truncate hover:text-primary transition">{s.ism}</div>
                           <div className="flex items-center gap-2 mt-0.5 flex-wrap">
-                            {/* Точки посещаемости */}
                             <div className="flex gap-1">
                               {davRows.map((d, idx) => (
                                 <div key={idx}
@@ -374,33 +472,28 @@ export function Ustoz() {
                                 />
                               ))}
                             </div>
-                            <span className="text-xs text-muted-foreground">
-                              {kunSoni} kun · {s.filial}
-                            </span>
+                            <span className="text-xs text-muted-foreground">{davRows.length} kun · {s.filial}</span>
+                            {s.imtihon && (
+                              <span className="text-xs px-2 py-0.5 rounded-full bg-amber-500/10 text-amber-600 font-medium">
+                                Imtihon: {s.imtihon}
+                              </span>
+                            )}
                             {markedToday && (
                               <span className={cn("text-xs px-2 py-0.5 rounded-full font-medium",
-                                markedToday === "Bor"
-                                  ? "bg-emerald-500/10 text-emerald-600"
-                                  : "bg-red-500/10 text-red-500")}>
+                                markedToday === "Bor" ? "bg-emerald-500/10 text-emerald-600" : "bg-red-500/10 text-red-500")}>
                                 Bugun: {markedToday}
                               </span>
                             )}
                           </div>
                         </div>
-
-                        {/* Кнопки */}
                         {!markedToday ? (
                           <div className="flex gap-2 shrink-0">
-                            <button
-                              onClick={() => markDavomat(s, "Bor")}
-                              disabled={isLoading}
+                            <button onClick={() => markDavomat(s, "Bor")} disabled={isLoading}
                               className="px-3 py-1.5 bg-emerald-600 text-white rounded-lg text-xs font-medium hover:bg-emerald-700 transition disabled:opacity-50 inline-flex items-center gap-1">
                               {isLoading ? <Loader2 className="h-3 w-3 animate-spin" /> : <Check className="h-3 w-3" />}
                               Bor
                             </button>
-                            <button
-                              onClick={() => markDavomat(s, "Yo'q")}
-                              disabled={isLoading}
+                            <button onClick={() => markDavomat(s, "Yo'q")} disabled={isLoading}
                               className="px-3 py-1.5 bg-red-500 text-white rounded-lg text-xs font-medium hover:bg-red-600 transition disabled:opacity-50 inline-flex items-center gap-1">
                               {isLoading ? <Loader2 className="h-3 w-3 animate-spin" /> : <X className="h-3 w-3" />}
                               Yo'q
@@ -409,15 +502,11 @@ export function Ustoz() {
                         ) : (
                           <div className="shrink-0">
                             <span className={cn("text-xs px-3 py-1.5 rounded-lg font-medium",
-                              markedToday === "Bor"
-                                ? "bg-emerald-600 text-white"
-                                : "bg-red-500 text-white")}>
+                              markedToday === "Bor" ? "bg-emerald-600 text-white" : "bg-red-500 text-white")}>
                               ✓ {markedToday}
                             </span>
                           </div>
                         )}
-
-                        {/* Удалить */}
                         <button onClick={() => removeStudent(s)}
                           className="h-8 w-8 rounded-lg hover:bg-red-500/10 flex items-center justify-center text-muted-foreground hover:text-red-500 transition shrink-0">
                           <UserMinus className="h-3.5 w-3.5" />
@@ -432,7 +521,7 @@ export function Ustoz() {
         </div>
       )}
 
-      {/* JADVAL TAB */}
+      {/* JADVAL */}
       {tab === "jadval" && (
         <div>
           <div className="relative mb-4">
@@ -441,34 +530,27 @@ export function Ustoz() {
               onChange={e => setSearch(e.target.value)}
               className="w-full pl-9 pr-4 py-2 rounded-lg border border-border bg-card text-sm" />
           </div>
-
           <div className="flex flex-wrap gap-2 mb-3">
             {["Barchasi", ...VAQTLAR].map(v => (
               <button key={v} onClick={() => setFilterSmena(v)}
                 className={cn("px-3 py-1 rounded-full text-xs font-medium transition border",
-                  filterSmena === v
-                    ? "bg-primary text-primary-foreground border-primary"
-                    : "border-border text-muted-foreground hover:text-foreground")}>
+                  filterSmena === v ? "bg-primary text-primary-foreground border-primary" : "border-border text-muted-foreground hover:text-foreground")}>
                 {v}
               </button>
             ))}
           </div>
-
           <div className="flex gap-2 mb-4">
             {["Barchasi", "Novza", "Yunusobod"].map(f => (
               <button key={f} onClick={() => setFilterFilial(f)}
                 className={cn("px-3 py-1 rounded-full text-xs font-medium transition border",
-                  filterFilial === f
-                    ? "bg-primary text-primary-foreground border-primary"
-                    : "border-border text-muted-foreground hover:text-foreground")}>
+                  filterFilial === f ? "bg-primary text-primary-foreground border-primary" : "border-border text-muted-foreground hover:text-foreground")}>
                 {f}
               </button>
             ))}
           </div>
-
           <div className="bg-card rounded-2xl border border-border shadow-soft overflow-hidden">
             <div className="px-5 py-4 border-b border-border">
-              <h3 className="font-semibold">O'quvchilar</h3>
+              <h3 className="font-semibold">Barcha o'quvchilar</h3>
               <p className="text-xs text-muted-foreground mt-0.5">{filteredStudents.length} ta</p>
             </div>
             <div className="overflow-x-auto">
@@ -481,17 +563,19 @@ export function Ustoz() {
                     <th className="px-4 py-3 font-medium">Smena</th>
                     <th className="px-4 py-3 font-medium">Davomat</th>
                     <th className="px-4 py-3 font-medium">Kun</th>
+                    <th className="px-4 py-3 font-medium">Imtihon</th>
+                    <th className="px-4 py-3 font-medium">Status</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-border">
                   {filteredStudents.length === 0 ? (
-                    <tr><td colSpan={6} className="px-4 py-16 text-center text-muted-foreground">Topilmadi</td></tr>
+                    <tr><td colSpan={8} className="px-4 py-16 text-center text-muted-foreground">Topilmadi</td></tr>
                   ) : filteredStudents.map((s, i) => {
-                    const davRows = getStudentDavomat(s.telefon);
+                    const davRows = s.rows.filter(r => r.sana);
                     const borSoni = davRows.filter(d => d.holat === "Bor").length;
                     return (
-                      <tr key={i} className="hover:bg-secondary/40 transition">
-                        <td className="px-4 py-3 font-medium">{s.ism}</td>
+                      <tr key={i} className="hover:bg-secondary/40 transition cursor-pointer" onClick={() => openEdit(s)}>
+                        <td className="px-4 py-3 font-medium text-primary hover:underline">{s.ism}</td>
                         <td className="px-4 py-3 text-muted-foreground">{s.telefon}</td>
                         <td className="px-4 py-3">
                           <span className={cn("px-2 py-0.5 rounded-full text-xs font-medium border",
@@ -516,8 +600,14 @@ export function Ustoz() {
                         <td className="px-4 py-3">
                           <span className="font-medium">{davRows.length}</span>
                           <span className="text-muted-foreground text-xs"> kun</span>
-                          {borSoni > 0 && (
-                            <span className="ml-1 text-xs text-emerald-600">({borSoni} bor)</span>
+                          {borSoni > 0 && <span className="ml-1 text-xs text-emerald-600">({borSoni} bor)</span>}
+                        </td>
+                        <td className="px-4 py-3 text-muted-foreground text-xs">{s.imtihon || "—"}</td>
+                        <td className="px-4 py-3">
+                          {s.pravaOldi?.toLowerCase() === "oldi" ? (
+                            <span className="px-2 py-0.5 rounded-full text-xs font-medium bg-emerald-500/10 text-emerald-600 border border-emerald-500/20">Prava oldi</span>
+                          ) : (
+                            <span className="px-2 py-0.5 rounded-full text-xs font-medium bg-secondary text-muted-foreground border border-border">O'qiyapti</span>
                           )}
                         </td>
                       </tr>
@@ -525,6 +615,58 @@ export function Ustoz() {
                   })}
                 </tbody>
               </table>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Модалка редактирования */}
+      {editStudent && (
+        <div className="fixed inset-0 bg-foreground/30 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+          <div className="bg-card rounded-2xl border border-border w-full max-w-sm">
+            <div className="flex items-center justify-between px-5 py-4 border-b border-border">
+              <div>
+                <h3 className="font-semibold">{editStudent.ism}</h3>
+                <p className="text-xs text-muted-foreground mt-0.5">{editStudent.telefon} · {editStudent.smena}</p>
+              </div>
+              <button onClick={() => setEditStudent(null)}
+                className="h-8 w-8 rounded-lg hover:bg-secondary flex items-center justify-center">
+                <X className="h-4 w-4" />
+              </button>
+            </div>
+            <div className="p-5 space-y-4">
+              <div>
+                <label className="text-xs text-muted-foreground mb-1 block">Imtihon kuni</label>
+                <input type="date" value={editImtihon} onChange={e => setEditImtihon(e.target.value)}
+                  className="w-full px-3 py-2 rounded-lg border border-border bg-background text-sm" />
+              </div>
+              <div>
+                <label className="flex items-center gap-3 cursor-pointer">
+                  <div onClick={() => setEditPrava(!editPrava)}
+                    className={cn("w-10 h-6 rounded-full transition relative cursor-pointer",
+                      editPrava ? "bg-emerald-500" : "bg-secondary border border-border")}>
+                    <div className={cn("absolute top-1 w-4 h-4 rounded-full bg-white transition-all",
+                      editPrava ? "left-5" : "left-1")} />
+                  </div>
+                  <span className="text-sm font-medium">Prava oldi</span>
+                </label>
+              </div>
+              <div className="flex items-center gap-3 pt-2">
+                <button onClick={submitEdit} disabled={editLoading}
+                  className="px-6 py-2 bg-primary text-primary-foreground rounded-lg text-sm font-medium hover:opacity-90 transition disabled:opacity-50 inline-flex items-center gap-2">
+                  {editLoading ? <><Loader2 className="h-4 w-4 animate-spin" />Saqlanmoqda…</> : "Saqlash"}
+                </button>
+                <button onClick={() => setEditStudent(null)}
+                  className="px-6 py-2 bg-secondary text-foreground rounded-lg text-sm font-medium hover:bg-secondary/80 transition">
+                  Bekor
+                </button>
+              </div>
+              {editResult && (
+                <p className={cn("text-sm font-medium",
+                  editResult.startsWith("✅") ? "text-emerald-600" : "text-red-500")}>
+                  {editResult}
+                </p>
+              )}
             </div>
           </div>
         </div>
