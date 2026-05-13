@@ -12,7 +12,7 @@ const SHEET_ID  = "1eG0H0QrV5QyoeHelycZvROOSkg580h2HFLzjksfGJJQ";
 const SHEET_ID2 = "1StqPMbH2IWX_722F9MVp92gKOGitlTuUBVYrtZ7GUvI";
 const API_KEY   = "AIzaSyB4kyYep05877BBpI9Rfv0SNcFhHVGBF5E";
 const RANGE1    = "%D0%9B%D0%B8%D1%81%D1%821!A:T";
-const RANGE2    = "%D0%9B%D0%B8%D1%81%D1%821!A:Q";
+const RANGE2    = "%D0%9B%D0%B8%D1%81%D1%821!A:R";
 
 const MANAGER_MAP: Record<string, string> = {
   "1559": "Ziyoda",
@@ -265,7 +265,7 @@ export function SotuvAnalizi() {
         all2.slice(1).forEach((row) => {
           if (!row[1]) return; // пустая строка
 
-          const hodimRaw = (row[16] ?? "").trim(); // Q = Hodim
+          const hodimRaw = (row[17] ?? "").trim(); // Q = Hodim
           const hodim    = resolveManager(hodimRaw); // Shamsiddin → Rais
           const bekor    = (row[10] ?? "").trim().toLowerCase(); // K = Tolov Bekor
           const dateRaw  = (row[4]  ?? "").trim();  // E = Dars kuni
