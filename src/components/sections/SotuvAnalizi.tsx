@@ -17,8 +17,6 @@ const RANGE2    = "%D0%9B%D0%B8%D1%81%D1%821!A:Q";
 const MANAGER_MAP: Record<string, string> = {
   "1559": "Ziyoda",
   "1615": "Rayhon",
-  "1627": "Omina",
-  "1625": "Muxlisa",
   "1621": "Rais",
   "1619": "Jamshid",
   "Shamsiddin": "Rais",
