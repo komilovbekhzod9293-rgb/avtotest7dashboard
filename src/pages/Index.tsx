@@ -7,10 +7,11 @@ import { Hodimlar } from "@/components/sections/Hodimlar";
 import { Baza } from "@/components/sections/Baza";
 import { OnlineDostup } from "@/components/sections/OnlineDostup";
 import { Ustoz } from "@/components/sections/Ustoz";
+import { TaklifShikoyat } from "@/components/sections/TaklifShikoyat";
 import { Login } from "@/components/Login";
 import logo from "@/assets/logo.webp";
 import { AssistantChat } from "@/components/dashboard/AssistantChat";
-import { Phone, Wallet, GraduationCap, Users, LogOut, Database, Wifi } from "lucide-react";
+import { Phone, Wallet, GraduationCap, Users, LogOut, Database, Wifi, MessageSquare } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 type Role = "boshliq" | "admin" | "ustoz";
@@ -18,11 +19,11 @@ type AdminSection = "baza" | "online";
 type UstozSection = "davomat" | "online";
 
 const Index = () => {
-  const [role, setRole]                   = useState<Role | null>(null);
-  const [active, setActive]               = useState<SectionId>("sotuv");
-  const [adminSection, setAdminSection]   = useState<AdminSection>("baza");
-  const [ustozSection, setUstozSection]   = useState<UstozSection>("davomat");
-  const [loading, setLoading]             = useState(true);
+  const [role, setRole]                 = useState<Role | null>(null);
+  const [active, setActive]             = useState<SectionId>("sotuv");
+  const [adminSection, setAdminSection] = useState<AdminSection>("baza");
+  const [ustozSection, setUstozSection] = useState<UstozSection>("davomat");
+  const [loading, setLoading]           = useState(true);
 
   useEffect(() => {
     const savedRole = localStorage.getItem("role") as Role | null;
@@ -46,16 +47,18 @@ const Index = () => {
   // ── BOSHLIQ ──────────────────────────────────────────
   if (role === "boshliq") {
     const mobileItems: { id: SectionId; icon: typeof Phone; label: string }[] = [
-      { id: "sotuv",      icon: Phone,        label: "Sotuv"    },
-      { id: "moliya",     icon: Wallet,        label: "Moliya"   },
-      { id: "oquvchilar", icon: GraduationCap, label: "O'quvchi" },
-      { id: "hodimlar",   icon: Users,         label: "Hodim"    },
+      { id: "sotuv",      icon: Phone,         label: "Sotuv"    },
+      { id: "moliya",     icon: Wallet,         label: "Moliya"   },
+      { id: "oquvchilar", icon: GraduationCap,  label: "O'quvchi" },
+      { id: "hodimlar",   icon: Users,          label: "Hodim"    },
+      { id: "taklif",     icon: MessageSquare,  label: "Taklif"   },
     ];
     const contextLabel: Record<SectionId, string> = {
       sotuv:      "Sotuv Analizi",
       moliya:     "Moliya",
       oquvchilar: "O'quvchilar",
       hodimlar:   "Hodimlar",
+      taklif:     "Taklif va Shikoyatlar",
     };
     return (
       <div className="min-h-screen flex bg-background">
@@ -73,6 +76,7 @@ const Index = () => {
             {active === "moliya"     && <Moliya />}
             {active === "oquvchilar" && <Oquvchilar />}
             {active === "hodimlar"   && <Hodimlar />}
+            {active === "taklif"     && <TaklifShikoyat />}
           </main>
           <AssistantChat key={active} context={contextLabel[active]} />
           <nav className="lg:hidden fixed bottom-0 inset-x-0 bg-card border-t border-border flex">
@@ -123,7 +127,6 @@ const Index = () => {
             </button>
           </div>
         </div>
-
         <div className="flex-1 min-w-0 flex flex-col">
           <div className="flex items-center justify-between px-5 h-14 border-b border-border bg-card">
             <img src={logo} alt="AVTOTEST7" className="h-7" />
@@ -183,7 +186,6 @@ const Index = () => {
             </button>
           </div>
         </div>
-
         <div className="flex-1 min-w-0 flex flex-col">
           <div className="flex items-center justify-between px-5 h-14 border-b border-border bg-card">
             <img src={logo} alt="AVTOTEST7" className="h-7" />
