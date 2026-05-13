@@ -1,14 +1,15 @@
-import { Phone, Wallet, GraduationCap, Users, Search, Settings, LogOut } from "lucide-react";
+import { Phone, Wallet, GraduationCap, Users, Search, Settings, LogOut, MessageSquare } from "lucide-react";
 import logo from "@/assets/logo.webp";
 import { cn } from "@/lib/utils";
 
-export type SectionId = "sotuv" | "moliya" | "oquvchilar" | "hodimlar";
+export type SectionId = "sotuv" | "moliya" | "oquvchilar" | "hodimlar" | "taklif";
 
 const items: { id: SectionId; label: string; icon: typeof Phone; sub: string }[] = [
-  { id: "sotuv",      label: "Sotuv Analizi", icon: Phone,        sub: "Qo'ng'iroqlar va sotuvlar" },
-  { id: "moliya",     label: "Moliya",         icon: Wallet,        sub: "Daromad va xarajat" },
-  { id: "oquvchilar", label: "O'quvchilar",    icon: GraduationCap, sub: "Imtihon va davomat" },
-  { id: "hodimlar",   label: "Hodimlar",       icon: Users,         sub: "Davomat va samaradorlik" },
+  { id: "sotuv",      label: "Sotuv Analizi",        icon: Phone,          sub: "Qo'ng'iroqlar va sotuvlar" },
+  { id: "moliya",     label: "Moliya",                icon: Wallet,         sub: "Daromad va xarajat"        },
+  { id: "oquvchilar", label: "O'quvchilar",           icon: GraduationCap,  sub: "Imtihon va davomat"        },
+  { id: "hodimlar",   label: "Hodimlar",              icon: Users,          sub: "Davomat va samaradorlik"   },
+  { id: "taklif",     label: "Taklif va Shikoyatlar", icon: MessageSquare,  sub: "Mijozlardan kelgan fikrlar"},
 ];
 
 interface Props {
