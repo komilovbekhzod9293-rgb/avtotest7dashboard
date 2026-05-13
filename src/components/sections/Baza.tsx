@@ -182,7 +182,7 @@ export function Baza() {
             nazariy:    r[12] ?? "",
             amaliyS:    r[13] ?? "",
             amaliy:     r[14] ?? "",
-            hodim:      r[16] ?? "",
+            hodim:      r[17] ?? "",
           }));
         setClients(parsed);
       })
