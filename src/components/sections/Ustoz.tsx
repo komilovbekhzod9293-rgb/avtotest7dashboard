@@ -5,7 +5,7 @@ import { cn } from "@/lib/utils";
 
 const SHEET_DAVO = "14nKtubJjuMJhQ9NQO8ORIfFGYAbBVKYrKDZpB96vc6Q";
 const API_KEY    = "AIzaSyB4kyYep05877BBpI9Rfv0SNcFhHVGBF5E";
-const RANGE_DAVO = "%D0%9B%D0%B8%D1%81%D1%821!A:H";
+const RANGE_DAVO = "%D0%9B%D0%B8%D1%81%D1%821!A:I";
 const WEBHOOK    = "https://n8n.srv1215497.hstgr.cloud/webhook/davomat";
 
 const VAQTLAR = ["10:00","13:00","15:00","19:00","21:00"];
@@ -41,25 +41,27 @@ function sameDay(a: Date, b: Date) {
 }
 
 interface DavRow {
-  rowIndex:  number;
-  ism:       string;
-  telefon:   string;
-  filial:    string;
-  smena:     string;
-  sana:      string;
-  holat:     string;
-  imtihon:   string;
-  pravaOldi: string;
+  rowIndex:         number;
+  ism:              string;
+  telefon:          string;
+  filial:           string;
+  smena:            string;
+  sana:             string;
+  holat:            string;
+  imtihon:          string;
+  pravaOldi:        string;
+  darsBoshlanishSanasi: string;
 }
 
 interface Student {
-  ism:       string;
-  telefon:   string;
-  filial:    string;
-  smena:     string;
-  pravaOldi: string;
-  imtihon:   string;
-  rows:      DavRow[];
+  ism:              string;
+  telefon:          string;
+  filial:           string;
+  smena:            string;
+  pravaOldi:        string;
+  imtihon:          string;
+  darsBoshlanishSanasi: string;
+  rows:             DavRow[];
 }
 
 type Tab = "davomat" | "jadval";
@@ -99,6 +101,8 @@ export function Ustoz() {
   const [editLoading,  setEditLoading]  = useState(false);
   const [editResult,   setEditResult]   = useState<string | null>(null);
 
+  const [detailStudent, setDetailStudent] = useState<Student | null>(null);
+
   const [marking,       setMarking]       = useState<Record<string, boolean>>({});
   const [showImtihon,   setShowImtihon]   = useState(false);
   const [imtihonFilter, setImtihonFilter] = useState("Ertaga");
@@ -112,15 +116,16 @@ export function Ustoz() {
         const parsed: DavRow[] = rows.slice(1)
           .filter(r => r[0])
           .map((r, i) => ({
-            rowIndex:  i + 2,
-            ism:       r[0] ?? "",
-            telefon:   r[1] ?? "",
-            filial:    r[2] ?? "",
-            smena:     r[3] ?? "",
-            sana:      r[4] ?? "",
-            holat:     r[5] ?? "",
-            imtihon:   r[6] ?? "",
-            pravaOldi: r[7] ?? "",
+            rowIndex:             i + 2,
+            ism:                  r[0] ?? "",
+            telefon:              r[1] ?? "",
+            filial:               r[2] ?? "",
+            smena:                r[3] ?? "",
+            sana:                 r[4] ?? "",
+            holat:                r[5] ?? "",
+            imtihon:              r[6] ?? "",
+            pravaOldi:            r[7] ?? "",
+            darsBoshlanishSanasi: r[8] ?? "",
           }));
         setAllRows(parsed);
       })
@@ -135,18 +140,20 @@ export function Ustoz() {
     rows.forEach(r => {
       if (!map[r.telefon]) {
         map[r.telefon] = {
-          ism:       r.ism,
-          telefon:   r.telefon,
-          filial:    r.filial,
-          smena:     r.smena,
-          pravaOldi: r.pravaOldi,
-          imtihon:   r.imtihon,
-          rows:      [],
+          ism:                  r.ism,
+          telefon:              r.telefon,
+          filial:               r.filial,
+          smena:                r.smena,
+          pravaOldi:            r.pravaOldi,
+          imtihon:              r.imtihon,
+          darsBoshlanishSanasi: r.darsBoshlanishSanasi,
+          rows:                 [],
         };
       }
-      if (r.pravaOldi) map[r.telefon].pravaOldi = r.pravaOldi;
-      if (r.imtihon)   map[r.telefon].imtihon   = r.imtihon;
-      if (r.sana)      map[r.telefon].rows.push(r);
+      if (r.pravaOldi)            map[r.telefon].pravaOldi            = r.pravaOldi;
+      if (r.imtihon)              map[r.telefon].imtihon              = r.imtihon;
+      if (r.darsBoshlanishSanasi) map[r.telefon].darsBoshlanishSanasi = r.darsBoshlanishSanasi;
+      if (r.sana)                 map[r.telefon].rows.push(r);
     });
     return Object.values(map);
   }
@@ -165,7 +172,7 @@ export function Ustoz() {
   async function markDavomat(student: Student, holat: "Bor" | "Yo'q") {
     const key = student.telefon;
     setMarking(m => ({ ...m, [key]: true }));
-    const today    = todayStr();
+    const today     = todayStr();
     const kunRaqami = student.rows.filter(r => r.sana).length + 1;
     try {
       await fetch(WEBHOOK, {
@@ -240,12 +247,13 @@ export function Ustoz() {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          action:    "add_student",
-          ism:       addIsm,
-          telefon:   addTel,
-          filial:    addFilial,
-          smena:     addSmena,
-          dars_kuni: toSheetDate(addDars),
+          action:                "add_student",
+          ism:                   addIsm,
+          telefon:               addTel,
+          filial:                addFilial,
+          smena:                 addSmena,
+          dars_kuni:             toSheetDate(addDars),
+          dars_boshlanish_sanasi: toSheetDate(addDars),
         }),
       });
       setAddResult("✅ Saqlandi!");
@@ -463,7 +471,7 @@ export function Ustoz() {
                         <div className="flex-1 min-w-0 cursor-pointer" onClick={() => openEdit(s)}>
                           <div className="font-medium text-sm truncate hover:text-primary transition">{s.ism}</div>
                           <div className="flex items-center gap-2 mt-0.5 flex-wrap">
-                            <div className="flex gap-1">
+                            <div className="flex gap-1 cursor-pointer" onClick={(e) => { e.stopPropagation(); setDetailStudent(s); }}>
                               {davRows.map((d, idx) => (
                                 <div key={idx}
                                   className={cn("h-2 w-2 rounded-full",
@@ -561,6 +569,7 @@ export function Ustoz() {
                     <th className="px-4 py-3 font-medium">Telefon</th>
                     <th className="px-4 py-3 font-medium">Filial</th>
                     <th className="px-4 py-3 font-medium">Smena</th>
+                    <th className="px-4 py-3 font-medium">Dars boshlandi</th>
                     <th className="px-4 py-3 font-medium">Davomat</th>
                     <th className="px-4 py-3 font-medium">Kun</th>
                     <th className="px-4 py-3 font-medium">Imtihon</th>
@@ -569,7 +578,7 @@ export function Ustoz() {
                 </thead>
                 <tbody className="divide-y divide-border">
                   {filteredStudents.length === 0 ? (
-                    <tr><td colSpan={8} className="px-4 py-16 text-center text-muted-foreground">Topilmadi</td></tr>
+                    <tr><td colSpan={9} className="px-4 py-16 text-center text-muted-foreground">Topilmadi</td></tr>
                   ) : filteredStudents.map((s, i) => {
                     const davRows = s.rows.filter(r => r.sana);
                     const borSoni = davRows.filter(d => d.holat === "Bor").length;
@@ -586,15 +595,17 @@ export function Ustoz() {
                           </span>
                         </td>
                         <td className="px-4 py-3 text-muted-foreground">{s.smena}</td>
-                        <td className="px-4 py-3">
+                        <td className="px-4 py-3 text-muted-foreground text-xs">{s.darsBoshlanishSanasi || "—"}</td>
+                        <td className="px-4 py-3 cursor-pointer" onClick={(e) => { e.stopPropagation(); setDetailStudent(s); }}>
                           <div className="flex gap-1">
                             {davRows.map((d, idx) => (
                               <div key={idx}
-                                className={cn("h-2.5 w-2.5 rounded-full",
+                                className={cn("h-2.5 w-2.5 rounded-full hover:scale-125 transition-transform",
                                   d.holat === "Bor" ? "bg-emerald-500" : "bg-red-400")}
                                 title={`${idx+1}-kun: ${d.holat}`}
                               />
                             ))}
+                            {davRows.length === 0 && <span className="text-xs text-muted-foreground">—</span>}
                           </div>
                         </td>
                         <td className="px-4 py-3">
@@ -667,6 +678,58 @@ export function Ustoz() {
                   {editResult}
                 </p>
               )}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Модалка посещаемости */}
+      {detailStudent && (
+        <div className="fixed inset-0 bg-foreground/30 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+          <div className="bg-card rounded-2xl border border-border w-full max-w-sm max-h-[80vh] overflow-y-auto">
+            <div className="flex items-center justify-between px-5 py-4 border-b border-border sticky top-0 bg-card z-10">
+              <div>
+                <h3 className="font-semibold">{detailStudent.ism}</h3>
+                <p className="text-xs text-muted-foreground mt-0.5">
+                  {detailStudent.smena} · {detailStudent.filial}
+                </p>
+                {detailStudent.darsBoshlanishSanasi && (
+                  <p className="text-xs text-muted-foreground mt-0.5">
+                    Dars boshlanish sanasi: <span className="font-medium text-foreground">{detailStudent.darsBoshlanishSanasi}</span>
+                  </p>
+                )}
+              </div>
+              <button onClick={() => setDetailStudent(null)}
+                className="h-8 w-8 rounded-lg hover:bg-secondary flex items-center justify-center">
+                <X className="h-4 w-4" />
+              </button>
+            </div>
+            <div className="p-5 space-y-2">
+              {detailStudent.rows.filter(r => r.sana).length === 0 ? (
+                <p className="text-sm text-muted-foreground text-center py-4">Davomat yo'q</p>
+              ) : detailStudent.rows.filter(r => r.sana).map((d, idx) => (
+                <div key={idx} className={cn(
+                  "flex items-center justify-between px-4 py-2.5 rounded-xl border",
+                  d.holat === "Bor" ? "bg-emerald-500/5 border-emerald-500/20" : "bg-red-500/5 border-red-500/20"
+                )}>
+                  <div className="flex items-center gap-3">
+                    <span className="text-xs font-semibold text-muted-foreground w-10">{idx+1}-kun</span>
+                    <span className="text-sm font-medium">{d.sana}</span>
+                  </div>
+                  <span className={cn("text-xs font-semibold px-2 py-0.5 rounded-full",
+                    d.holat === "Bor"
+                      ? "bg-emerald-500/10 text-emerald-600"
+                      : "bg-red-500/10 text-red-500")}>
+                    {d.holat || "—"}
+                  </span>
+                </div>
+              ))}
+              <div className="pt-2 border-t border-border mt-2 flex justify-between text-xs text-muted-foreground">
+                <span>Jami: {detailStudent.rows.filter(r => r.sana).length} kun</span>
+                <span className="text-emerald-600 font-medium">
+                  Bor: {detailStudent.rows.filter(r => r.holat === "Bor").length} kun
+                </span>
+              </div>
             </div>
           </div>
         </div>
