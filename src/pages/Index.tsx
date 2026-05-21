@@ -54,6 +54,7 @@ const Index = () => {
       { id: "oquvchilar",   icon: GraduationCap,  label: "O'quvchi" },
       { id: "hodimlar",     icon: Users,          label: "Hodim"    },
       { id: "taklif",       icon: MessageSquare,  label: "Taklif"   },
+      { id: "online",       icon: Wifi,           label: "Online"   },
     ];
     const contextLabel: Record<SectionId, string> = {
       sotuv:        "Sotuv Analizi",
@@ -62,6 +63,7 @@ const Index = () => {
       oquvchilar:   "O'quvchilar",
       hodimlar:     "Hodimlar",
       taklif:       "Taklif va Shikoyatlar",
+      online:       "Online Dostup",
     };
     return (
       <div className="min-h-screen flex bg-background">
@@ -81,15 +83,16 @@ const Index = () => {
             {active === "oquvchilar"   && <Oquvchilar />}
             {active === "hodimlar"     && <Hodimlar />}
             {active === "taklif"       && <TaklifShikoyat />}
+            {active === "online"       && <OnlineDostup />}
           </main>
           <AssistantChat key={active} context={contextLabel[active]} />
-          <nav className="lg:hidden fixed bottom-0 inset-x-0 bg-card border-t border-border flex">
+          <nav className="lg:hidden fixed bottom-0 inset-x-0 bg-card border-t border-border flex overflow-x-auto">
             {mobileItems.map((it) => {
               const Icon = it.icon;
               const isActive = active === it.id;
               return (
                 <button key={it.id} onClick={() => setActive(it.id)}
-                  className={cn("flex-1 flex flex-col items-center gap-1 py-2.5 text-[11px] font-medium transition",
+                  className={cn("flex-shrink-0 flex flex-col items-center gap-1 py-2.5 px-3 text-[11px] font-medium transition",
                     isActive ? "text-primary" : "text-muted-foreground")}>
                   <Icon className="h-5 w-5" />
                   {it.label}
