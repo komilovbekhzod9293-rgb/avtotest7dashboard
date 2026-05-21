@@ -1,16 +1,17 @@
-import { Phone, Wallet, GraduationCap, Users, Search, Settings, LogOut, MessageSquare, TrendingDown } from "lucide-react";
+import { Phone, Wallet, GraduationCap, Users, Search, Settings, LogOut, MessageSquare, TrendingDown, Wifi } from "lucide-react";
 import logo from "@/assets/logo.webp";
 import { cn } from "@/lib/utils";
 
-export type SectionId = "sotuv" | "moliya" | "moliyachiqim" | "oquvchilar" | "hodimlar" | "taklif";
+export type SectionId = "sotuv" | "moliya" | "moliyachiqim" | "oquvchilar" | "hodimlar" | "taklif" | "online";
 
 const items: { id: SectionId; label: string; icon: typeof Phone; sub: string }[] = [
-  { id: "sotuv",        label: "Sotuv Analizi",        icon: Phone,         sub: "Qo'ng'iroqlar va sotuvlar"   },
-  { id: "moliya",       label: "Moliya",                icon: Wallet,        sub: "Daromad va xarajat"          },
-  { id: "moliyachiqim", label: "Moliya Chiqim Analizi", icon: TrendingDown,  sub: "Xarajatlar tahlili"          },
-  { id: "oquvchilar",   label: "O'quvchilar",           icon: GraduationCap, sub: "Imtihon va davomat"          },
-  { id: "hodimlar",     label: "Hodimlar",              icon: Users,         sub: "Davomat va samaradorlik"     },
-  { id: "taklif",       label: "Taklif va Shikoyatlar", icon: MessageSquare, sub: "Mijozlardan kelgan fikrlar"  },
+  { id: "sotuv",        label: "Sotuv Analizi",        icon: Phone,         sub: "Qo'ng'iroqlar va sotuvlar"  },
+  { id: "moliya",       label: "Moliya",                icon: Wallet,        sub: "Daromad va xarajat"         },
+  { id: "moliyachiqim", label: "Moliya Chiqim Analizi", icon: TrendingDown,  sub: "Xarajatlar tahlili"         },
+  { id: "oquvchilar",   label: "O'quvchilar",           icon: GraduationCap, sub: "Imtihon va davomat"         },
+  { id: "hodimlar",     label: "Hodimlar",              icon: Users,         sub: "Davomat va samaradorlik"    },
+  { id: "taklif",       label: "Taklif va Shikoyatlar", icon: MessageSquare, sub: "Mijozlardan kelgan fikrlar" },
+  { id: "online",       label: "Online Dostup",         icon: Wifi,          sub: "Ruxsat berilgan raqamlar"   },
 ];
 
 interface Props {
@@ -34,7 +35,7 @@ export function Sidebar({ active, onChange, onLogout }: Props) {
           />
         </div>
       </div>
-      <nav className="flex-1 px-3 pt-6 space-y-1">
+      <nav className="flex-1 px-3 pt-6 space-y-1 overflow-y-auto">
         <p className="px-3 pb-2 text-[11px] font-medium uppercase tracking-wider text-muted-foreground">Bo'limlar</p>
         {items.map((item) => {
           const Icon = item.icon;
@@ -73,8 +74,7 @@ export function Sidebar({ active, onChange, onLogout }: Props) {
           <button className="h-8 w-8 rounded-md hover:bg-secondary flex items-center justify-center text-muted-foreground">
             <Settings className="h-4 w-4" />
           </button>
-          <button
-            onClick={onLogout}
+          <button onClick={onLogout}
             className="h-8 w-8 rounded-md hover:bg-red-500/10 flex items-center justify-center text-muted-foreground hover:text-red-500 transition"
             title="Chiqish">
             <LogOut className="h-4 w-4" />
