@@ -108,8 +108,8 @@ export function Ustoz() {
   const [showImtihon,   setShowImtihon]   = useState(false);
   const [imtihonFilter, setImtihonFilter] = useState("Ertaga");
 
-  const fetchAll = () => {
-    setLoading(true);
+  const fetchAll = (silent = false) => {
+    if (!silent) setLoading(true);
     fetch(`https://sheets.googleapis.com/v4/spreadsheets/${SHEET_DAVO}/values/${RANGE_DAVO}?key=${API_KEY}`)
       .then(r => { if (!r.ok) throw new Error(`Xatolik: ${r.status}`); return r.json(); })
       .then(data => {
@@ -131,7 +131,7 @@ export function Ustoz() {
         setAllRows(parsed);
       })
       .catch(e => setError(e.message))
-      .finally(() => setLoading(false));
+      .finally(() => { if (!silent) setLoading(false); });
   };
 
   useEffect(() => { fetchAll(); }, []);
@@ -190,7 +190,11 @@ export function Ustoz() {
           kun_raqami: kunRaqami,
         }),
       });
-      setTimeout(() => fetchAll(), 1500);
+      const scrollY = window.scrollY;
+      setTimeout(() => {
+        fetchAll(true);
+        setTimeout(() => window.scrollTo(0, scrollY), 150);
+      }, 1500);
     } catch {}
     finally { setMarking(m => ({ ...m, [key]: false })); }
   }
