@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { Header } from "@/components/dashboard/Header";
-import { TrendingUp, Loader2, AlertCircle, Plus, X, CheckCircle2, Clock, CalendarClock, Globe, Wallet, AlertTriangle } from "lucide-react";
+import { TrendingUp, Loader2, AlertCircle, Plus, X, CheckCircle2, Clock, CalendarClock, Globe } from "lucide-react";
 import { Area, AreaChart, CartesianGrid, Cell, Pie, PieChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
 import { cn } from "@/lib/utils";
 
@@ -13,78 +13,6 @@ const REJADAGI_WEBHOOK = "https://n8n.srv1215497.hstgr.cloud/webhook/rasxodqoshi
 const ONLINE_WEBHOOK = "https://n8n.srv1215497.hstgr.cloud/webhook/add";
 const UZ_MONTHS = ["Yan","Fev","Mar","Apr","May","Iyn","Iyl","Avg","Sen","Okt","Noy","Dek"];
 const EXPENSE_COLORS = ["hsl(222 47% 11%)","hsl(220 9% 46%)","hsl(230 70% 55%)","hsl(38 92% 50%)","hsl(220 13% 78%)"];
-
-// ============ XARAJATLAR (faqat shu yerda o'zgartiriladi) ============
-interface Bucket { id: string; nomi: string; summa: number; kunlar: number[]; ustuvor: number; }
-const BUCKETS: Bucket[] = [
-  { id: "rahbar",    nomi: "Rahbarlar oyligi (Dilshod+Begzod+Diyor)", summa: 20_000_000, kunlar: [7,14,21,28], ustuvor: 1 },
-  { id: "oqit_op",   nomi: "O'qituvchilar + 2 operator oyligi",       summa: 38_000_000, kunlar: [4,5],        ustuvor: 1 },
-  { id: "ikrom",     nomi: "Ikrom Bekturdiyev (mavsumiy sherik)",     summa: 15_000_000, kunlar: [3],          ustuvor: 2 },
-  { id: "doniyor",   nomi: "Doniyor aka (mavsumiy sherik)",           summa: 20_000_000, kunlar: [10],         ustuvor: 2 },
-  { id: "ar_novza",  nomi: "Novza filial arendasi",                   summa: 18_000_000, kunlar: [7],          ustuvor: 1 },
-  { id: "ar_yunus",  nomi: "Yunusobod filial arendasi",               summa: 9_000_000,  kunlar: [9],          ustuvor: 1 },
-  { id: "rop",       nomi: "Rop oyligi",                              summa: 7_000_000,  kunlar: [15],         ustuvor: 1 },
-  { id: "operator2", nomi: "2 operator oyligi (20-kun)",              summa: 10_000_000, kunlar: [20],         ustuvor: 1 },
-  { id: "soliq",     nomi: "Soliq",                                   summa: 5_000_000,  kunlar: [],           ustuvor: 2 },
-  { id: "marketing", nomi: "Marketing",                               summa: 10_000_000, kunlar: [],           ustuvor: 3 },
-  { id: "ofis",      nomi: "Ofis xarajatlari",                        summa: 6_000_000,  kunlar: [],           ustuvor: 3 },
-  { id: "ai",        nomi: "AI xarajatlari",                          summa: 3_000_000,  kunlar: [],           ustuvor: 3 },
-  { id: "ehson",     nomi: "Ehson / Xayriya",                         summa: 1_000_000,  kunlar: [],           ustuvor: 2 },
-  { id: "podushka",  nomi: "Moliyaviy yostiq (zaxira)",               summa: 5_000_000,  kunlar: [],           ustuvor: 4 },
-];
-
-function keyingiSana(kun: number, bugun: Date): Date {
-  const d = new Date(bugun.getFullYear(), bugun.getMonth(), kun, 23, 59, 59);
-  if (d < bugun) d.setMonth(d.getMonth() + 1);
-  return d;
-}
-interface TaqsimNatija { id: string; nomi: string; kerak: number; toplangan: number; foiz: number; sana: Date | null; kunQoldi: number; yetarli: boolean; ustuvor: number; }
-function taqsimla(kassa: number, bugun: Date): { natija: TaqsimNatija[]; qolgan: number } {
-  const items = BUCKETS.map(b => {
-    let sana: Date | null = null;
-    let kunQoldi = 30;
-    if (b.kunlar.length > 0) {
-      const sanalar = b.kunlar.map(k => keyingiSana(k, bugun));
-      sana = sanalar.reduce((a, c) => (c < a ? c : a), sanalar[0]);
-      kunQoldi = Math.max(1, Math.ceil((sana.getTime() - bugun.getTime()) / 86400000));
-    }
-    return { ...b, sana, kunQoldi, toplangan: 0 };
-  });
-  let qolgan = kassa > 0 ? kassa : 0;
-  const ustuvorlar = [...new Set(items.map(i => i.ustuvor))].sort((a, b) => a - b);
-  for (const u of ustuvorlar) {
-    if (qolgan <= 0) break;
-    let guruh = items.filter(i => i.ustuvor === u && i.toplangan < i.summa - 1);
-    while (qolgan > 1 && guruh.length > 0) {
-      const vaznlar = guruh.map(i => (i.summa - i.toplangan) / i.kunQoldi);
-      const jami = vaznlar.reduce((a, b) => a + b, 0);
-      if (jami <= 0) break;
-      let ishlatildi = 0;
-      guruh.forEach((item, idx) => {
-        const ulush = qolgan * (vaznlar[idx] / jami);
-        const kerakYana = item.summa - item.toplangan;
-        const beriladi = Math.min(ulush, kerakYana);
-        item.toplangan += beriladi;
-        ishlatildi += beriladi;
-      });
-      qolgan -= ishlatildi;
-      guruh = guruh.filter(i => i.toplangan < i.summa - 1);
-      if (ishlatildi < 1) break;
-    }
-  }
-  const natija: TaqsimNatija[] = items.map(i => ({
-    id: i.id, nomi: i.nomi, kerak: i.summa, toplangan: i.toplangan,
-    foiz: Math.min(100, Math.round((i.toplangan / i.summa) * 100)),
-    sana: i.sana, kunQoldi: i.kunQoldi,
-    yetarli: i.toplangan >= i.summa - 1, ustuvor: i.ustuvor,
-  }));
-  return { natija, qolgan: Math.max(0, qolgan) };
-}
-function sanaFmt(d: Date | null): string {
-  if (!d) return "Oy davomida";
-  return `${String(d.getDate()).padStart(2,"0")}.${String(d.getMonth()+1).padStart(2,"0")}`;
-}
-// =====================================================================
 
 const fmt = (n: number) => Math.round(Math.abs(n)).toLocaleString("ru-RU") + " so'm";
 const fmtShort = (n: number) => {
@@ -304,16 +232,6 @@ export function Moliya() {
   const yunusobodExpenses = periodFiltered.filter(r => r.summa < 0 && r.filial === "Yunusobod").reduce((s, r) => s + Math.abs(r.summa), 0);
   const yunusobodProfit   = yunusobodRevenue - yunusobodExpenses;
 
-  // Taqsimlash — kassa = joriy oy sof foydasi
-  const oyRows = rows.filter(r => { const d = parseDate(r.sana); return d && d.getMonth() === now.getMonth() && d.getFullYear() === now.getFullYear(); });
-  const oyKirim = oyRows.filter(r => r.summa > 0).reduce((s, r) => s + r.summa, 0);
-  const oyChiqim = oyRows.filter(r => r.summa < 0).reduce((s, r) => s + Math.abs(r.summa), 0);
-  const kassa = oyKirim - oyChiqim;
-  const { natija: vedrolar, qolgan: erkinPul } = taqsimla(kassa, now);
-  const jamiKerak = BUCKETS.reduce((s, b) => s + b.summa, 0);
-  const jamiToplangan = vedrolar.reduce((s, v) => s + v.toplangan, 0);
-  const ogohlar = vedrolar.filter(v => v.sana && !v.yetarli).sort((a, b) => (a.sana!.getTime() - b.sana!.getTime()));
-
   const tableFiltered = periodFiltered.filter(r => {
     if (filterKirim === "Kirim" && r.summa < 0) return false;
     if (filterKirim === "Chiqim" && r.summa > 0) return false;
@@ -437,116 +355,58 @@ export function Moliya() {
         </div>
       )}
 
-      {/* Marja — ТРОНУТО НОЛЬ */}
+      {/* Marja карточка */}
       <div className={cn("rounded-2xl p-5 shadow-soft border mb-4",
-        totalProfit < 0 ? "border-red-200 bg-gradient-to-br from-red-50 to-white" : "border-purple-100 bg-gradient-to-br from-purple-50 to-white")}>
+        totalProfit < 0
+          ? "border-red-200 bg-gradient-to-br from-red-50 to-white"
+          : "border-purple-100 bg-gradient-to-br from-purple-50 to-white")}>
         <div className="flex items-center justify-between">
           <div>
             <p className={cn("text-sm font-medium mb-1", totalProfit < 0 ? "text-red-700" : "text-purple-700")}>Marja</p>
-            <p className={cn("text-3xl font-bold num", totalProfit < 0 ? "text-red-600" : "text-purple-900")}>{totalProfit < 0 ? "-" : ""}{margin}%</p>
+            <p className={cn("text-3xl font-bold num", totalProfit < 0 ? "text-red-600" : "text-purple-900")}>
+              {totalProfit < 0 ? "-" : ""}{margin}%
+            </p>
             <p className={cn("text-xs mt-1", totalProfit < 0 ? "text-red-600" : "text-purple-600")}>
               Daromad: {fmt(totalRevenue)} · Xarajat: {fmt(totalExpenses)} · Sof foyda:{" "}
-              <span className={cn("font-semibold", totalProfit < 0 ? "text-red-600" : "")}>{totalProfit < 0 ? "-" : ""}{fmt(totalProfit)}</span>
+              <span className={cn("font-semibold", totalProfit < 0 ? "text-red-600" : "")}>
+                {totalProfit < 0 ? "-" : ""}{fmt(totalProfit)}
+              </span>
             </p>
           </div>
-          <div className={cn("h-12 w-12 rounded-full flex items-center justify-center", totalProfit < 0 ? "bg-red-100" : "bg-purple-100")}>
+          <div className={cn("h-12 w-12 rounded-full flex items-center justify-center",
+            totalProfit < 0 ? "bg-red-100" : "bg-purple-100")}>
             <TrendingUp className={cn("h-6 w-6", totalProfit < 0 ? "text-red-600" : "text-purple-600")} />
           </div>
         </div>
       </div>
 
-      {/* Novza Yunusobod — ТРОНУТО НОЛЬ */}
+      {/* Novza и Yunusobod */}
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-6">
         <div className={cn("rounded-2xl p-5 shadow-soft border cursor-pointer transition",
-          novzaProfit < 0 ? "border-red-200 bg-gradient-to-br from-red-50 to-white hover:border-red-300" : "border-blue-100 bg-gradient-to-br from-blue-50 to-white hover:border-blue-300")}
+          novzaProfit < 0
+            ? "border-red-200 bg-gradient-to-br from-red-50 to-white hover:border-red-300"
+            : "border-blue-100 bg-gradient-to-br from-blue-50 to-white hover:border-blue-300")}
           onClick={() => setModalFilial("Novza")}>
           <p className={cn("text-sm font-medium mb-2", novzaProfit < 0 ? "text-red-700" : "text-blue-700")}>Novza — Sof foyda</p>
-          <p className={cn("text-2xl font-bold num", novzaProfit < 0 ? "text-red-600" : "text-blue-900")}>{novzaProfit < 0 ? "-" : ""}{fmt(novzaProfit)}</p>
+          <p className={cn("text-2xl font-bold num", novzaProfit < 0 ? "text-red-600" : "text-blue-900")}>
+            {novzaProfit < 0 ? "-" : ""}{fmt(novzaProfit)}
+          </p>
           <p className={cn("text-xs mt-2", novzaProfit < 0 ? "text-red-500" : "text-blue-600")}>Batafsil ko'rish →</p>
         </div>
         <div className={cn("rounded-2xl p-5 shadow-soft border cursor-pointer transition",
-          yunusobodProfit < 0 ? "border-red-200 bg-gradient-to-br from-red-50 to-white hover:border-red-300" : "border-blue-100 bg-gradient-to-br from-blue-50 to-white hover:border-blue-300")}
+          yunusobodProfit < 0
+            ? "border-red-200 bg-gradient-to-br from-red-50 to-white hover:border-red-300"
+            : "border-blue-100 bg-gradient-to-br from-blue-50 to-white hover:border-blue-300")}
           onClick={() => setModalFilial("Yunusobod")}>
           <p className={cn("text-sm font-medium mb-2", yunusobodProfit < 0 ? "text-red-700" : "text-blue-700")}>Yunusobod — Sof foyda</p>
-          <p className={cn("text-2xl font-bold num", yunusobodProfit < 0 ? "text-red-600" : "text-blue-900")}>{yunusobodProfit < 0 ? "-" : ""}{fmt(yunusobodProfit)}</p>
+          <p className={cn("text-2xl font-bold num", yunusobodProfit < 0 ? "text-red-600" : "text-blue-900")}>
+            {yunusobodProfit < 0 ? "-" : ""}{fmt(yunusobodProfit)}
+          </p>
           <p className={cn("text-xs mt-2", yunusobodProfit < 0 ? "text-red-500" : "text-blue-600")}>Batafsil ko'rish →</p>
         </div>
       </div>
 
-      {/* ====== НОВЫЙ БЛОК: PUL TAQSIMOTI — только здесь изменения ====== */}
-      <div className="bg-card rounded-2xl border border-border p-5 shadow-soft mb-6">
-        <div className="flex items-center justify-between mb-1">
-          <h3 className="font-semibold flex items-center gap-2"><Wallet className="h-4 w-4" />Pul taqsimoti</h3>
-          <span className="text-xs text-muted-foreground">{String(now.getDate()).padStart(2,"0")}.{String(now.getMonth()+1).padStart(2,"0")}.{now.getFullYear()}</span>
-        </div>
-        <p className="text-xs text-muted-foreground mb-4">
-          Joriy oy kassasi: <span className={cn("font-semibold", kassa < 0 ? "text-red-500" : "text-foreground")}>{kassa < 0 ? "-" : ""}{fmt(kassa)}</span>
-          {" · "}Oylik ehtiyoj: <span className="font-semibold">{fmt(jamiKerak)}</span>
-          {" · "}Bo'sh pul: <span className={cn("font-semibold", erkinPul > 0 ? "text-emerald-600" : "text-muted-foreground")}>{fmt(erkinPul)}</span>
-        </p>
-
-        {ogohlar.length > 0 && (
-          <div className="mb-4 p-3 rounded-xl border border-amber-200 bg-amber-50 flex items-start gap-2">
-            <AlertTriangle className="h-4 w-4 text-amber-600 shrink-0 mt-0.5" />
-            <div className="text-xs text-amber-800">
-              <span className="font-semibold">Diqqat — pul yetmaydi:</span>{" "}
-              {ogohlar.slice(0, 3).map((o, i) => (
-                <span key={o.id}>{i > 0 ? ", " : ""}<b>{o.nomi}</b> ({sanaFmt(o.sana)}, yana {fmt(o.kerak - o.toplangan)} kerak)</span>
-              ))}
-              {ogohlar.length > 3 ? " va boshqalar." : "."}
-            </div>
-          </div>
-        )}
-
-        <div className="space-y-3">
-          {vedrolar.map(v => (
-            <div key={v.id} className={cn("p-4 rounded-xl border",
-              v.yetarli ? "border-emerald-200 bg-emerald-50" :
-              v.sana && v.kunQoldi <= 3 ? "border-red-200 bg-red-50" :
-              "border-border bg-background")}>
-              <div className="flex items-center justify-between mb-2">
-                <div className="flex items-center gap-2 min-w-0">
-                  {v.yetarli
-                    ? <CheckCircle2 className="h-4 w-4 text-emerald-500 shrink-0" />
-                    : <Clock className={cn("h-4 w-4 shrink-0", v.sana && v.kunQoldi <= 3 ? "text-red-500" : "text-muted-foreground")} />}
-                  <span className="font-semibold text-sm truncate">{v.nomi}</span>
-                </div>
-                <span className="text-xs text-muted-foreground whitespace-nowrap ml-2">
-                  {v.sana ? `${sanaFmt(v.sana)} · ${v.kunQoldi} kun` : "Oy davomida"}
-                </span>
-              </div>
-              <div className="h-2 rounded-full bg-secondary overflow-hidden mb-1.5">
-                <div
-                  className={cn("h-full rounded-full transition-all duration-500",
-                    v.yetarli ? "bg-emerald-500" :
-                    v.sana && v.kunQoldi <= 3 ? "bg-red-500" :
-                    "bg-primary")}
-                  style={{ width: `${v.foiz}%` }}
-                />
-              </div>
-              <div className="flex items-center justify-between text-xs">
-                <span className={cn("num font-semibold", v.yetarli ? "text-emerald-700" : "text-foreground")}>
-                  {fmt(v.toplangan)} / {fmt(v.kerak)}
-                </span>
-                <span className={cn("font-bold",
-                  v.yetarli ? "text-emerald-600" :
-                  v.sana && v.kunQoldi <= 3 ? "text-red-500" :
-                  "text-muted-foreground")}>
-                  {v.foiz}%{!v.yetarli ? ` · yana ${fmt(v.kerak - v.toplangan)}` : " ✓"}
-                </span>
-              </div>
-            </div>
-          ))}
-        </div>
-
-        <div className="flex items-center justify-between pt-3 mt-2 border-t border-border">
-          <span className="text-xs font-semibold text-muted-foreground">Hammasi yopilgandan keyin qoladi</span>
-          <span className={cn("num font-bold text-sm", erkinPul > 0 ? "text-emerald-600" : "text-red-500")}>{erkinPul > 0 ? "+" : ""}{fmt(erkinPul)}</span>
-        </div>
-      </div>
-      {/* ====== КОНЕЦ НОВОГО БЛОКА ====== */}
-
-      {/* Rejadagi xarajatlar — ТРОНУТО НОЛЬ, точь-в-точь как было */}
+      {/* Rejadagi xarajatlar */}
       <div className="bg-card rounded-2xl border border-border p-5 shadow-soft mb-6">
         <div className="flex items-center justify-between mb-4">
           <div>
@@ -600,7 +460,7 @@ export function Moliya() {
         )}
       </div>
 
-      {/* Modal — ТРОНУТО НОЛЬ */}
+      {/* Модальное окно */}
       {modalFilial && modalData && (
         <div className="fixed inset-0 bg-foreground/30 backdrop-blur-sm z-50 flex items-center justify-center p-4">
           <div className="bg-card rounded-2xl border border-border shadow-elevated w-full max-w-md">
@@ -619,11 +479,15 @@ export function Moliya() {
               </div>
               <div className={cn("rounded-xl p-4 border", modalData.profit < 0 ? "border-red-100 bg-red-50" : "border-blue-100 bg-blue-50")}>
                 <p className={cn("text-xs font-medium mb-1", modalData.profit < 0 ? "text-red-700" : "text-blue-700")}>Sof foyda</p>
-                <p className={cn("text-xl font-bold num", modalData.profit < 0 ? "text-red-600" : "text-blue-900")}>{modalData.profit < 0 ? "-" : ""}{fmt(modalData.profit)}</p>
+                <p className={cn("text-xl font-bold num", modalData.profit < 0 ? "text-red-600" : "text-blue-900")}>
+                  {modalData.profit < 0 ? "-" : ""}{fmt(modalData.profit)}
+                </p>
               </div>
               <div className={cn("rounded-xl p-4 border", totalProfit < 0 ? "border-red-100 bg-red-50" : "border-purple-100 bg-purple-50")}>
                 <p className={cn("text-xs font-medium mb-1", totalProfit < 0 ? "text-red-700" : "text-purple-700")}>Umumiy sof foyda (2 filial)</p>
-                <p className={cn("text-xl font-bold num", totalProfit < 0 ? "text-red-600" : "text-purple-900")}>{totalProfit < 0 ? "-" : ""}{fmt(totalProfit)}</p>
+                <p className={cn("text-xl font-bold num", totalProfit < 0 ? "text-red-600" : "text-purple-900")}>
+                  {totalProfit < 0 ? "-" : ""}{fmt(totalProfit)}
+                </p>
                 <p className={cn("text-xs mt-1", totalProfit < 0 ? "text-red-500" : "text-purple-600")}>
                   Novza: {novzaProfit < 0 ? "-" : ""}{fmt(novzaProfit)} + Yunusobod: {yunusobodProfit < 0 ? "-" : ""}{fmt(yunusobodProfit)}
                 </p>
@@ -633,7 +497,7 @@ export function Moliya() {
         </div>
       )}
 
-      {/* График — ТРОНУТО НОЛЬ */}
+      {/* График */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 mb-6">
         <div className="lg:col-span-2 bg-card rounded-2xl border border-border p-5 shadow-soft">
           <div className="flex items-start justify-between mb-4">
@@ -664,27 +528,15 @@ export function Moliya() {
           {expenseBreakdown.length === 0 ? <p className="text-sm text-muted-foreground">Xarajatlar yo'q</p> : (
             <>
               <ResponsiveContainer width="100%" height={200}>
-                <PieChart>
-                  <Pie data={expenseBreakdown} dataKey="value" innerRadius={55} outerRadius={80} paddingAngle={2}>
-                    {expenseBreakdown.map((e, i) => <Cell key={i} fill={e.color} />)}
-                  </Pie>
-                  <Tooltip contentStyle={{ background: "hsl(var(--card))", border: "1px solid hsl(var(--border))", borderRadius: 12, fontSize: 12 }} formatter={(val) => [`${val}%`, ""]} />
-                </PieChart>
+                <PieChart><Pie data={expenseBreakdown} dataKey="value" innerRadius={55} outerRadius={80} paddingAngle={2}>{expenseBreakdown.map((e, i) => <Cell key={i} fill={e.color} />)}</Pie><Tooltip contentStyle={{ background: "hsl(var(--card))", border: "1px solid hsl(var(--border))", borderRadius: 12, fontSize: 12 }} formatter={(val) => [`${val}%`, ""]} /></PieChart>
               </ResponsiveContainer>
-              <div className="mt-3 space-y-2">
-                {expenseBreakdown.map(e => (
-                  <div key={e.name} className="flex items-center justify-between text-sm">
-                    <span className="inline-flex items-center gap-2"><span className="h-2.5 w-2.5 rounded-sm" style={{ background: e.color }} />{e.name}</span>
-                    <span className="num font-medium">{e.value}%</span>
-                  </div>
-                ))}
-              </div>
+              <div className="mt-3 space-y-2">{expenseBreakdown.map(e => (<div key={e.name} className="flex items-center justify-between text-sm"><span className="inline-flex items-center gap-2"><span className="h-2.5 w-2.5 rounded-sm" style={{ background: e.color }} />{e.name}</span><span className="num font-medium">{e.value}%</span></div>))}</div>
             </>
           )}
         </div>
       </div>
 
-      {/* Filtr — ТРОНУТО НОЛЬ */}
+      {/* Фильтр */}
       <div className="bg-card rounded-2xl border border-border p-5 shadow-soft mb-4">
         <h3 className="font-semibold mb-4">Filtr</h3>
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
@@ -717,7 +569,7 @@ export function Moliya() {
         </div>
       </div>
 
-      {/* Таблица — ТРОНУТО НОЛЬ */}
+      {/* Таблица */}
       <div className="bg-card rounded-2xl border border-border p-5 shadow-soft">
         <div className="flex items-center justify-between mb-4">
           <h3 className="font-semibold">Tranzaksiyalar ({tableFiltered.length})</h3>
