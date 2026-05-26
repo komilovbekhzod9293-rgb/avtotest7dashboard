@@ -17,11 +17,11 @@ const EXPENSE_COLORS = ["hsl(222 47% 11%)","hsl(220 9% 46%)","hsl(230 70% 55%)",
 // ============ PUL TAQSIMOTI SOZLAMASI ============
 interface Bucket { id: string; nomi: string; summa: number; kun: number; ustuvor: number; }
 const BUCKETS: Bucket[] = [
-  { id: "rahbar_7",    nomi: "Rahbarlar oyligi (7-kun)",    summa: 20_000_000, kun: 7,  ustuvor: 1 },
-  { id: "ar_novza",   nomi: "Novza filial arendasi",        summa: 18_000_000, kun: 7,  ustuvor: 1 },
-  { id: "ar_yunus",   nomi: "Yunusobod filial arendasi",    summa: 9_000_000,  kun: 9,  ustuvor: 1 },
   { id: "ikrom",      nomi: "Ikrom Bekturdiyev (sherik)",   summa: 15_000_000, kun: 3,  ustuvor: 2 },
   { id: "oqit_op",    nomi: "O'qituvchilar + operatorlar",  summa: 38_000_000, kun: 4,  ustuvor: 1 },
+  { id: "rahbar_7",   nomi: "Rahbarlar oyligi (7-kun)",     summa: 20_000_000, kun: 7,  ustuvor: 1 },
+  { id: "ar_novza",   nomi: "Novza filial arendasi",        summa: 18_000_000, kun: 7,  ustuvor: 1 },
+  { id: "ar_yunus",   nomi: "Yunusobod filial arendasi",    summa: 9_000_000,  kun: 9,  ustuvor: 1 },
   { id: "doniyor",    nomi: "Doniyor aka (sherik)",         summa: 20_000_000, kun: 10, ustuvor: 2 },
   { id: "rahbar_14",  nomi: "Rahbarlar oyligi (14-kun)",    summa: 20_000_000, kun: 14, ustuvor: 1 },
   { id: "rop",        nomi: "Rop oyligi",                   summa: 7_000_000,  kun: 15, ustuvor: 1 },
@@ -40,24 +40,19 @@ interface TaqsimItem {
   id: string; nomi: string; kerak: number; toplangan: number;
   foiz: number; targetKun: number; kunQoldi: number; yetarli: boolean;
 }
-
 interface TaqsimResult {
-  items: TaqsimItem[];
-  kunlikKirim: number;
-  tahlilOylar: string[];
-  qolgan: number;
+  items: TaqsimItem[]; kunlikKirim: number; tahlilOylar: string[]; qolgan: number;
 }
 
 function taqsimla(rows: Row[], bugun: Date): TaqsimResult {
-  // 1) O'tgan 1-2 oy kirimlarini tahlil qilish
+  // 1) O'tgan 1-2 oy kirimlarini tahlil qilish (kunlik o'rtacha)
   const oylar: { oy: number; yil: number }[] = [];
   for (let i = 1; i <= 2; i++) {
     const d = new Date(bugun.getFullYear(), bugun.getMonth() - i, 1);
     oylar.push({ oy: d.getMonth(), yil: d.getFullYear() });
   }
-
   const tahlilOylar: string[] = [];
-  let jami = 0; let kunSoni = 0;
+  let jamiKirim = 0; let kunSoni = 0;
   oylar.forEach(({ oy, yil }) => {
     const oyRows = rows.filter(r => {
       const p = r.sana.split(".");
@@ -65,61 +60,43 @@ function taqsimla(rows: Row[], bugun: Date): TaqsimResult {
       return parseInt(p[1]) - 1 === oy && parseInt(p[2]) === yil && r.summa > 0;
     });
     if (oyRows.length === 0) return;
-    const oyKirim = oyRows.reduce((s, r) => s + r.summa, 0);
-    jami += oyKirim;
+    jamiKirim += oyRows.reduce((s, r) => s + r.summa, 0);
     kunSoni += new Date(yil, oy + 1, 0).getDate();
     tahlilOylar.push(`${UZ_MONTHS[oy]} ${yil}`);
   });
-
-  // Agar tahlil yo'q bo'lsa joriy oy kirimini ishlatamiz
   if (kunSoni === 0) {
-    const joriyRows = rows.filter(r => {
+    const joriy = rows.filter(r => {
       const p = r.sana.split(".");
       if (p.length < 3) return false;
       return parseInt(p[1]) - 1 === bugun.getMonth() && parseInt(p[2]) === bugun.getFullYear() && r.summa > 0;
     });
-    jami = joriyRows.reduce((s, r) => s + r.summa, 0);
+    jamiKirim = joriy.reduce((s, r) => s + r.summa, 0);
     kunSoni = bugun.getDate();
     tahlilOylar.push(`${UZ_MONTHS[bugun.getMonth()]} ${bugun.getFullYear()} (joriy oy)`);
   }
+  const kunlikKirim = kunSoni > 0 ? Math.round(jamiKirim / kunSoni) : 0;
 
-  const kunlikKirim = kunSoni > 0 ? Math.round(jami / kunSoni) : 0;
+  // 2) Kassa = barcha vaqt uchun HAMMA kirim minus HAMMA chiqim (totalProfit)
+  const kassaKirim = rows.filter(r => r.summa > 0).reduce((s, r) => s + r.summa, 0);
+  const kassaChiqim = rows.filter(r => r.summa < 0).reduce((s, r) => s + Math.abs(r.summa), 0);
+  const kassa = Math.max(0, kassaKirim - kassaChiqim);
 
-  // 2) Joriy oy kirimini hisoblash (kassa)
-  const joriyOyRows = rows.filter(r => {
-    const p = r.sana.split(".");
-    if (p.length < 3) return false;
-    return parseInt(p[1]) - 1 === bugun.getMonth() && parseInt(p[2]) === bugun.getFullYear();
-  });
-  const joriyKirim = joriyOyRows.filter(r => r.summa > 0).reduce((s, r) => s + r.summa, 0);
-  const joriyChiqim = joriyOyRows.filter(r => r.summa < 0).reduce((s, r) => s + Math.abs(r.summa), 0);
-  const kassa = joriyKirim - joriyChiqim;
-
-  // 3) Har bir xarajat uchun target sana va prognoz
+  // 3) Har bir xarajat uchun kun qoldi
   const bugunKun = bugun.getDate();
   const items: TaqsimItem[] = BUCKETS.map(b => {
-    let targetKun = b.kun;
     let kunQoldi: number;
-
-    if (targetKun <= bugunKun) {
-      // Bu oy o'tib ketgan — keyingi oyga
-      const keyingiOy = new Date(bugun.getFullYear(), bugun.getMonth() + 1, targetKun);
-      kunQoldi = Math.max(1, Math.ceil((keyingiOy.getTime() - bugun.getTime()) / 86400000));
+    if (b.kun <= bugunKun) {
+      const keyingi = new Date(bugun.getFullYear(), bugun.getMonth() + 1, b.kun);
+      kunQoldi = Math.max(1, Math.ceil((keyingi.getTime() - bugun.getTime()) / 86400000));
     } else {
-      kunQoldi = targetKun - bugunKun;
+      kunQoldi = b.kun - bugunKun;
     }
-
-    // Prognoz: bu kun davomida qancha yig'iladi?
-    const prognoz = kunlikKirim * kunQoldi;
-    // Kassadan va prognozdan umumiy qancha bor?
-    // Har bir xarajatga proporsional ulush beramiz
-    return { id: b.id, nomi: b.nomi, kerak: b.summa, toplangan: 0, foiz: 0, targetKun, kunQoldi, yetarli: false };
+    return { id: b.id, nomi: b.nomi, kerak: b.summa, toplangan: 0, foiz: 0, targetKun: b.kun, kunQoldi, yetarli: false };
   });
 
-  // 4) Kassani ustuvorlik bo'yicha taqsimlash
-  let qolgan = Math.max(0, kassa);
+  // 4) Kassani ustuvorlik + shoshilinchlik bo'yicha taqsimlash
+  let qolgan = kassa;
   const ustuvorlar = [...new Set(BUCKETS.map(b => b.ustuvor))].sort((a, b) => a - b);
-
   for (const u of ustuvorlar) {
     if (qolgan <= 0) break;
     let guruh = items.filter(i => {
@@ -143,18 +120,12 @@ function taqsimla(rows: Row[], bugun: Date): TaqsimResult {
     }
   }
 
-  // 5) Foiz va yetarlilikni hisoblash
+  // 5) Foiz, yetarlilik, saralash (kun qoldi bo'yicha o'sish)
   items.forEach(i => {
     i.foiz = Math.min(100, Math.round((i.toplangan / i.kerak) * 100));
     i.yetarli = i.toplangan >= i.kerak - 1;
   });
-
-  // 6) Sana bo'yicha o'sish tartibida saralash
-  items.sort((a, b) => {
-    const aKun = a.kunQoldi;
-    const bKun = b.kunQoldi;
-    return aKun - bKun;
-  });
+  items.sort((a, b) => a.kunQoldi - b.kunQoldi);
 
   return { items, kunlikKirim, tahlilOylar, qolgan: Math.max(0, qolgan) };
 }
@@ -256,7 +227,6 @@ export function Moliya() {
   const [filterTo, setFilterTo] = useState("");
   const [tolovLoading, setTolovLoading] = useState<number | null>(null);
 
-  // Pul taqsimoti state
   const [taqsimOpen, setTaqsimOpen] = useState(false);
   const [tahlilOpen, setTahlilOpen] = useState(false);
 
@@ -382,7 +352,6 @@ export function Moliya() {
   const yunusobodExpenses = periodFiltered.filter(r => r.summa < 0 && r.filial === "Yunusobod").reduce((s, r) => s + Math.abs(r.summa), 0);
   const yunusobodProfit   = yunusobodRevenue - yunusobodExpenses;
 
-  // Pul taqsimoti hisoblash
   const taqsim = taqsimla(rows, now);
   const yetarliSon = taqsim.items.filter(i => i.yetarli).length;
   const xatarliSon = taqsim.items.filter(i => !i.yetarli && i.kunQoldi <= 3).length;
@@ -546,26 +515,23 @@ export function Moliya() {
         </div>
       </div>
 
-      {/* ====== PUL TAQSIMOTI — YANGI KICHIK OYNA ====== */}
+      {/* PUL TAQSIMOTI */}
       <div className="bg-card rounded-2xl border border-border shadow-soft mb-6 overflow-hidden">
-        {/* Compact header — always visible */}
         <button
           onClick={() => setTaqsimOpen(v => !v)}
           className="w-full flex items-center justify-between px-5 py-4 hover:bg-secondary/40 transition"
         >
-          <div className="flex items-center gap-3">
+          <div className="flex items-center gap-3 flex-wrap">
             <div className="flex items-center gap-2">
               <span className="font-semibold text-sm">Pul taqsimoti</span>
-              {/* Info icon */}
               <button
                 onClick={e => { e.stopPropagation(); setTahlilOpen(v => !v); }}
                 className="h-5 w-5 rounded-full bg-muted flex items-center justify-center hover:bg-primary hover:text-primary-foreground transition"
-                title="Tahlil haqida"
               >
                 <Info className="h-3 w-3" />
               </button>
             </div>
-            <div className="flex items-center gap-1.5">
+            <div className="flex items-center gap-1.5 flex-wrap">
               {xatarliSon > 0 && (
                 <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-red-100 text-red-700 text-xs font-medium">
                   <AlertTriangle className="h-3 w-3" />{xatarliSon} xatar
@@ -574,36 +540,36 @@ export function Moliya() {
               <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-700 text-xs font-medium">
                 <CheckCircle2 className="h-3 w-3" />{yetarliSon}/{taqsim.items.length}
               </span>
-              <span className="text-xs text-muted-foreground">
-                · Kunlik kirim: ~{fmtShort(taqsim.kunlikKirim)}
-              </span>
+              <span className="text-xs text-muted-foreground">· ~{fmtShort(taqsim.kunlikKirim)}/kun</span>
             </div>
           </div>
-          {taqsimOpen ? <ChevronUp className="h-4 w-4 text-muted-foreground" /> : <ChevronDown className="h-4 w-4 text-muted-foreground" />}
+          {taqsimOpen ? <ChevronUp className="h-4 w-4 text-muted-foreground shrink-0" /> : <ChevronDown className="h-4 w-4 text-muted-foreground shrink-0" />}
         </button>
 
-        {/* Tahlil explanation modal */}
         {tahlilOpen && (
           <div className="mx-5 mb-3 p-4 rounded-xl border border-blue-200 bg-blue-50 text-xs text-blue-900">
-            <p className="font-semibold mb-1">📊 Nima asosida taqsimlanyapti?</p>
+            <p className="font-semibold mb-2">📊 Nima asosida taqsimlanyapti?</p>
             <p className="mb-2">
-              Sistema o'tgan <strong>{taqsim.tahlilOylar.join(" va ")}</strong> oylaridagi kirimlarni tahlil qildi.
+              Sistema <strong>{taqsim.tahlilOylar.join(" va ")}</strong> oylaridagi kirimlarni tahlil qildi.
               O'sha oylar bo'yicha kunlik o'rtacha kirim: <strong>{fmt(taqsim.kunlikKirim)}</strong>.
             </p>
             <p className="mb-2">
-              Har bir xarajatga qancha kun qolganiga qarab — shoshilinchlik hisoblanadi.
-              Qancha kam kun qolsa, kassadan shuncha katta ulush shu xarajatga ajratiladi.
+              Hozirgi kassada: <strong>{fmt(Math.max(0, rows.filter(r => r.summa > 0).reduce((s,r) => s+r.summa,0) - rows.filter(r => r.summa < 0).reduce((s,r) => s+Math.abs(r.summa),0)))}</strong> bor.
+              Shu pul har bir xarajatga qancha kun qolganiga qarab taqsimlanadi — qancha kam kun qolsa, shuncha katta ulush oladi.
             </p>
             <p className="mb-2">
-              Ustuvorlik darajasi ham hisobga olinadi: maoshlar va arenda birinchi, sheriklar ikkinchi, marketing va ofis xarajatlari uchinchi, zaxira oxirgi navbatda to'ldiriladi.
+              <strong>Ustuvorlik tartibi:</strong><br />
+              1️⃣ Maoshlar va arenda (eng muhim)<br />
+              2️⃣ Sheriklar va soliq<br />
+              3️⃣ Marketing, ofis, AI<br />
+              4️⃣ Moliyaviy zaxira (oxirgi)
             </p>
             <p className="text-blue-700">
-              ⚠️ Bu prognoz — real hisob emas. Pul kassaga tushganda taqsimlash yangilanadi.
+              ⚠️ Bu prognoz hisobi — kassaga yangi pul tushganda avtomatik yangilanadi.
             </p>
           </div>
         )}
 
-        {/* Expanded list */}
         {taqsimOpen && (
           <div className="px-5 pb-5">
             <div className="space-y-2">
@@ -645,9 +611,8 @@ export function Moliya() {
           </div>
         )}
       </div>
-      {/* ====== PUL TAQSIMOTI TUGADI ====== */}
 
-      {/* Rejadagi xarajatlar — ТРОНУТО НОЛЬ */}
+      {/* Rejadagi xarajatlar */}
       <div className="bg-card rounded-2xl border border-border p-5 shadow-soft mb-6">
         <div className="flex items-center justify-between mb-4">
           <div>
