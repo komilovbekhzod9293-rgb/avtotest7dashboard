@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { Header } from "@/components/dashboard/Header";
-import { TrendingUp, Loader2, AlertCircle, Plus, X, CheckCircle2, Clock, CalendarClock, Globe } from "lucide-react";
+import { TrendingUp, Loader2, AlertCircle, Plus, X, CheckCircle2, Clock, CalendarClock, Globe, ChevronDown, ChevronUp, AlertTriangle, Info } from "lucide-react";
 import { Area, AreaChart, CartesianGrid, Cell, Pie, PieChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
 import { cn } from "@/lib/utils";
 
@@ -13,6 +13,152 @@ const REJADAGI_WEBHOOK = "https://n8n.srv1215497.hstgr.cloud/webhook/rasxodqoshi
 const ONLINE_WEBHOOK = "https://n8n.srv1215497.hstgr.cloud/webhook/add";
 const UZ_MONTHS = ["Yan","Fev","Mar","Apr","May","Iyn","Iyl","Avg","Sen","Okt","Noy","Dek"];
 const EXPENSE_COLORS = ["hsl(222 47% 11%)","hsl(220 9% 46%)","hsl(230 70% 55%)","hsl(38 92% 50%)","hsl(220 13% 78%)"];
+
+// ============ PUL TAQSIMOTI SOZLAMASI ============
+interface Bucket { id: string; nomi: string; summa: number; kun: number; ustuvor: number; }
+const BUCKETS: Bucket[] = [
+  { id: "rahbar_7",    nomi: "Rahbarlar oyligi (7-kun)",    summa: 20_000_000, kun: 7,  ustuvor: 1 },
+  { id: "ar_novza",   nomi: "Novza filial arendasi",        summa: 18_000_000, kun: 7,  ustuvor: 1 },
+  { id: "ar_yunus",   nomi: "Yunusobod filial arendasi",    summa: 9_000_000,  kun: 9,  ustuvor: 1 },
+  { id: "ikrom",      nomi: "Ikrom Bekturdiyev (sherik)",   summa: 15_000_000, kun: 3,  ustuvor: 2 },
+  { id: "oqit_op",    nomi: "O'qituvchilar + operatorlar",  summa: 38_000_000, kun: 4,  ustuvor: 1 },
+  { id: "doniyor",    nomi: "Doniyor aka (sherik)",         summa: 20_000_000, kun: 10, ustuvor: 2 },
+  { id: "rahbar_14",  nomi: "Rahbarlar oyligi (14-kun)",    summa: 20_000_000, kun: 14, ustuvor: 1 },
+  { id: "rop",        nomi: "Rop oyligi",                   summa: 7_000_000,  kun: 15, ustuvor: 1 },
+  { id: "operator2",  nomi: "2 operator oyligi",            summa: 10_000_000, kun: 20, ustuvor: 1 },
+  { id: "rahbar_21",  nomi: "Rahbarlar oyligi (21-kun)",    summa: 20_000_000, kun: 21, ustuvor: 1 },
+  { id: "rahbar_28",  nomi: "Rahbarlar oyligi (28-kun)",    summa: 20_000_000, kun: 28, ustuvor: 1 },
+  { id: "soliq",      nomi: "Soliq",                        summa: 5_000_000,  kun: 30, ustuvor: 2 },
+  { id: "marketing",  nomi: "Marketing",                    summa: 10_000_000, kun: 30, ustuvor: 3 },
+  { id: "ofis",       nomi: "Ofis xarajatlari",             summa: 6_000_000,  kun: 30, ustuvor: 3 },
+  { id: "ai",         nomi: "AI xarajatlari",               summa: 3_000_000,  kun: 30, ustuvor: 3 },
+  { id: "ehson",      nomi: "Ehson / Xayriya",              summa: 1_000_000,  kun: 30, ustuvor: 2 },
+  { id: "podushka",   nomi: "Moliyaviy yostiq (zaxira)",    summa: 5_000_000,  kun: 30, ustuvor: 4 },
+];
+
+interface TaqsimItem {
+  id: string; nomi: string; kerak: number; toplangan: number;
+  foiz: number; targetKun: number; kunQoldi: number; yetarli: boolean;
+}
+
+interface TaqsimResult {
+  items: TaqsimItem[];
+  kunlikKirim: number;
+  tahlilOylar: string[];
+  qolgan: number;
+}
+
+function taqsimla(rows: Row[], bugun: Date): TaqsimResult {
+  // 1) O'tgan 1-2 oy kirimlarini tahlil qilish
+  const oylar: { oy: number; yil: number }[] = [];
+  for (let i = 1; i <= 2; i++) {
+    const d = new Date(bugun.getFullYear(), bugun.getMonth() - i, 1);
+    oylar.push({ oy: d.getMonth(), yil: d.getFullYear() });
+  }
+
+  const tahlilOylar: string[] = [];
+  let jami = 0; let kunSoni = 0;
+  oylar.forEach(({ oy, yil }) => {
+    const oyRows = rows.filter(r => {
+      const p = r.sana.split(".");
+      if (p.length < 3) return false;
+      return parseInt(p[1]) - 1 === oy && parseInt(p[2]) === yil && r.summa > 0;
+    });
+    if (oyRows.length === 0) return;
+    const oyKirim = oyRows.reduce((s, r) => s + r.summa, 0);
+    jami += oyKirim;
+    kunSoni += new Date(yil, oy + 1, 0).getDate();
+    tahlilOylar.push(`${UZ_MONTHS[oy]} ${yil}`);
+  });
+
+  // Agar tahlil yo'q bo'lsa joriy oy kirimini ishlatamiz
+  if (kunSoni === 0) {
+    const joriyRows = rows.filter(r => {
+      const p = r.sana.split(".");
+      if (p.length < 3) return false;
+      return parseInt(p[1]) - 1 === bugun.getMonth() && parseInt(p[2]) === bugun.getFullYear() && r.summa > 0;
+    });
+    jami = joriyRows.reduce((s, r) => s + r.summa, 0);
+    kunSoni = bugun.getDate();
+    tahlilOylar.push(`${UZ_MONTHS[bugun.getMonth()]} ${bugun.getFullYear()} (joriy oy)`);
+  }
+
+  const kunlikKirim = kunSoni > 0 ? Math.round(jami / kunSoni) : 0;
+
+  // 2) Joriy oy kirimini hisoblash (kassa)
+  const joriyOyRows = rows.filter(r => {
+    const p = r.sana.split(".");
+    if (p.length < 3) return false;
+    return parseInt(p[1]) - 1 === bugun.getMonth() && parseInt(p[2]) === bugun.getFullYear();
+  });
+  const joriyKirim = joriyOyRows.filter(r => r.summa > 0).reduce((s, r) => s + r.summa, 0);
+  const joriyChiqim = joriyOyRows.filter(r => r.summa < 0).reduce((s, r) => s + Math.abs(r.summa), 0);
+  const kassa = joriyKirim - joriyChiqim;
+
+  // 3) Har bir xarajat uchun target sana va prognoz
+  const bugunKun = bugun.getDate();
+  const items: TaqsimItem[] = BUCKETS.map(b => {
+    let targetKun = b.kun;
+    let kunQoldi: number;
+
+    if (targetKun <= bugunKun) {
+      // Bu oy o'tib ketgan — keyingi oyga
+      const keyingiOy = new Date(bugun.getFullYear(), bugun.getMonth() + 1, targetKun);
+      kunQoldi = Math.max(1, Math.ceil((keyingiOy.getTime() - bugun.getTime()) / 86400000));
+    } else {
+      kunQoldi = targetKun - bugunKun;
+    }
+
+    // Prognoz: bu kun davomida qancha yig'iladi?
+    const prognoz = kunlikKirim * kunQoldi;
+    // Kassadan va prognozdan umumiy qancha bor?
+    // Har bir xarajatga proporsional ulush beramiz
+    return { id: b.id, nomi: b.nomi, kerak: b.summa, toplangan: 0, foiz: 0, targetKun, kunQoldi, yetarli: false };
+  });
+
+  // 4) Kassani ustuvorlik bo'yicha taqsimlash
+  let qolgan = Math.max(0, kassa);
+  const ustuvorlar = [...new Set(BUCKETS.map(b => b.ustuvor))].sort((a, b) => a - b);
+
+  for (const u of ustuvorlar) {
+    if (qolgan <= 0) break;
+    let guruh = items.filter(i => {
+      const b = BUCKETS.find(x => x.id === i.id)!;
+      return b.ustuvor === u && i.toplangan < i.kerak - 1;
+    });
+    while (qolgan > 1 && guruh.length > 0) {
+      const vaznlar = guruh.map(i => (i.kerak - i.toplangan) / Math.max(1, i.kunQoldi));
+      const jamiVazn = vaznlar.reduce((a, b) => a + b, 0);
+      if (jamiVazn <= 0) break;
+      let ishlatildi = 0;
+      guruh.forEach((item, idx) => {
+        const ulush = qolgan * (vaznlar[idx] / jamiVazn);
+        const beriladi = Math.min(ulush, item.kerak - item.toplangan);
+        item.toplangan += beriladi;
+        ishlatildi += beriladi;
+      });
+      qolgan -= ishlatildi;
+      guruh = guruh.filter(i => i.toplangan < i.kerak - 1);
+      if (ishlatildi < 1) break;
+    }
+  }
+
+  // 5) Foiz va yetarlilikni hisoblash
+  items.forEach(i => {
+    i.foiz = Math.min(100, Math.round((i.toplangan / i.kerak) * 100));
+    i.yetarli = i.toplangan >= i.kerak - 1;
+  });
+
+  // 6) Sana bo'yicha o'sish tartibida saralash
+  items.sort((a, b) => {
+    const aKun = a.kunQoldi;
+    const bKun = b.kunQoldi;
+    return aKun - bKun;
+  });
+
+  return { items, kunlikKirim, tahlilOylar, qolgan: Math.max(0, qolgan) };
+}
+// =================================================
 
 const fmt = (n: number) => Math.round(Math.abs(n)).toLocaleString("ru-RU") + " so'm";
 const fmtShort = (n: number) => {
@@ -109,6 +255,10 @@ export function Moliya() {
   const [filterFrom, setFilterFrom] = useState("");
   const [filterTo, setFilterTo] = useState("");
   const [tolovLoading, setTolovLoading] = useState<number | null>(null);
+
+  // Pul taqsimoti state
+  const [taqsimOpen, setTaqsimOpen] = useState(false);
+  const [tahlilOpen, setTahlilOpen] = useState(false);
 
   const fetchData = () => {
     setLoading(true);
@@ -231,6 +381,11 @@ export function Moliya() {
   const yunusobodRevenue  = periodFiltered.filter(r => r.summa > 0 && r.filial === "Yunusobod").reduce((s, r) => s + r.summa, 0);
   const yunusobodExpenses = periodFiltered.filter(r => r.summa < 0 && r.filial === "Yunusobod").reduce((s, r) => s + Math.abs(r.summa), 0);
   const yunusobodProfit   = yunusobodRevenue - yunusobodExpenses;
+
+  // Pul taqsimoti hisoblash
+  const taqsim = taqsimla(rows, now);
+  const yetarliSon = taqsim.items.filter(i => i.yetarli).length;
+  const xatarliSon = taqsim.items.filter(i => !i.yetarli && i.kunQoldi <= 3).length;
 
   const tableFiltered = periodFiltered.filter(r => {
     if (filterKirim === "Kirim" && r.summa < 0) return false;
@@ -355,58 +510,144 @@ export function Moliya() {
         </div>
       )}
 
-      {/* Marja карточка */}
+      {/* Marja */}
       <div className={cn("rounded-2xl p-5 shadow-soft border mb-4",
-        totalProfit < 0
-          ? "border-red-200 bg-gradient-to-br from-red-50 to-white"
-          : "border-purple-100 bg-gradient-to-br from-purple-50 to-white")}>
+        totalProfit < 0 ? "border-red-200 bg-gradient-to-br from-red-50 to-white" : "border-purple-100 bg-gradient-to-br from-purple-50 to-white")}>
         <div className="flex items-center justify-between">
           <div>
             <p className={cn("text-sm font-medium mb-1", totalProfit < 0 ? "text-red-700" : "text-purple-700")}>Marja</p>
-            <p className={cn("text-3xl font-bold num", totalProfit < 0 ? "text-red-600" : "text-purple-900")}>
-              {totalProfit < 0 ? "-" : ""}{margin}%
-            </p>
+            <p className={cn("text-3xl font-bold num", totalProfit < 0 ? "text-red-600" : "text-purple-900")}>{totalProfit < 0 ? "-" : ""}{margin}%</p>
             <p className={cn("text-xs mt-1", totalProfit < 0 ? "text-red-600" : "text-purple-600")}>
               Daromad: {fmt(totalRevenue)} · Xarajat: {fmt(totalExpenses)} · Sof foyda:{" "}
-              <span className={cn("font-semibold", totalProfit < 0 ? "text-red-600" : "")}>
-                {totalProfit < 0 ? "-" : ""}{fmt(totalProfit)}
-              </span>
+              <span className={cn("font-semibold", totalProfit < 0 ? "text-red-600" : "")}>{totalProfit < 0 ? "-" : ""}{fmt(totalProfit)}</span>
             </p>
           </div>
-          <div className={cn("h-12 w-12 rounded-full flex items-center justify-center",
-            totalProfit < 0 ? "bg-red-100" : "bg-purple-100")}>
+          <div className={cn("h-12 w-12 rounded-full flex items-center justify-center", totalProfit < 0 ? "bg-red-100" : "bg-purple-100")}>
             <TrendingUp className={cn("h-6 w-6", totalProfit < 0 ? "text-red-600" : "text-purple-600")} />
           </div>
         </div>
       </div>
 
-      {/* Novza и Yunusobod */}
+      {/* Novza Yunusobod */}
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-6">
         <div className={cn("rounded-2xl p-5 shadow-soft border cursor-pointer transition",
-          novzaProfit < 0
-            ? "border-red-200 bg-gradient-to-br from-red-50 to-white hover:border-red-300"
-            : "border-blue-100 bg-gradient-to-br from-blue-50 to-white hover:border-blue-300")}
+          novzaProfit < 0 ? "border-red-200 bg-gradient-to-br from-red-50 to-white hover:border-red-300" : "border-blue-100 bg-gradient-to-br from-blue-50 to-white hover:border-blue-300")}
           onClick={() => setModalFilial("Novza")}>
           <p className={cn("text-sm font-medium mb-2", novzaProfit < 0 ? "text-red-700" : "text-blue-700")}>Novza — Sof foyda</p>
-          <p className={cn("text-2xl font-bold num", novzaProfit < 0 ? "text-red-600" : "text-blue-900")}>
-            {novzaProfit < 0 ? "-" : ""}{fmt(novzaProfit)}
-          </p>
+          <p className={cn("text-2xl font-bold num", novzaProfit < 0 ? "text-red-600" : "text-blue-900")}>{novzaProfit < 0 ? "-" : ""}{fmt(novzaProfit)}</p>
           <p className={cn("text-xs mt-2", novzaProfit < 0 ? "text-red-500" : "text-blue-600")}>Batafsil ko'rish →</p>
         </div>
         <div className={cn("rounded-2xl p-5 shadow-soft border cursor-pointer transition",
-          yunusobodProfit < 0
-            ? "border-red-200 bg-gradient-to-br from-red-50 to-white hover:border-red-300"
-            : "border-blue-100 bg-gradient-to-br from-blue-50 to-white hover:border-blue-300")}
+          yunusobodProfit < 0 ? "border-red-200 bg-gradient-to-br from-red-50 to-white hover:border-red-300" : "border-blue-100 bg-gradient-to-br from-blue-50 to-white hover:border-blue-300")}
           onClick={() => setModalFilial("Yunusobod")}>
           <p className={cn("text-sm font-medium mb-2", yunusobodProfit < 0 ? "text-red-700" : "text-blue-700")}>Yunusobod — Sof foyda</p>
-          <p className={cn("text-2xl font-bold num", yunusobodProfit < 0 ? "text-red-600" : "text-blue-900")}>
-            {yunusobodProfit < 0 ? "-" : ""}{fmt(yunusobodProfit)}
-          </p>
+          <p className={cn("text-2xl font-bold num", yunusobodProfit < 0 ? "text-red-600" : "text-blue-900")}>{yunusobodProfit < 0 ? "-" : ""}{fmt(yunusobodProfit)}</p>
           <p className={cn("text-xs mt-2", yunusobodProfit < 0 ? "text-red-500" : "text-blue-600")}>Batafsil ko'rish →</p>
         </div>
       </div>
 
-      {/* Rejadagi xarajatlar */}
+      {/* ====== PUL TAQSIMOTI — YANGI KICHIK OYNA ====== */}
+      <div className="bg-card rounded-2xl border border-border shadow-soft mb-6 overflow-hidden">
+        {/* Compact header — always visible */}
+        <button
+          onClick={() => setTaqsimOpen(v => !v)}
+          className="w-full flex items-center justify-between px-5 py-4 hover:bg-secondary/40 transition"
+        >
+          <div className="flex items-center gap-3">
+            <div className="flex items-center gap-2">
+              <span className="font-semibold text-sm">Pul taqsimoti</span>
+              {/* Info icon */}
+              <button
+                onClick={e => { e.stopPropagation(); setTahlilOpen(v => !v); }}
+                className="h-5 w-5 rounded-full bg-muted flex items-center justify-center hover:bg-primary hover:text-primary-foreground transition"
+                title="Tahlil haqida"
+              >
+                <Info className="h-3 w-3" />
+              </button>
+            </div>
+            <div className="flex items-center gap-1.5">
+              {xatarliSon > 0 && (
+                <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-red-100 text-red-700 text-xs font-medium">
+                  <AlertTriangle className="h-3 w-3" />{xatarliSon} xatar
+                </span>
+              )}
+              <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-700 text-xs font-medium">
+                <CheckCircle2 className="h-3 w-3" />{yetarliSon}/{taqsim.items.length}
+              </span>
+              <span className="text-xs text-muted-foreground">
+                · Kunlik kirim: ~{fmtShort(taqsim.kunlikKirim)}
+              </span>
+            </div>
+          </div>
+          {taqsimOpen ? <ChevronUp className="h-4 w-4 text-muted-foreground" /> : <ChevronDown className="h-4 w-4 text-muted-foreground" />}
+        </button>
+
+        {/* Tahlil explanation modal */}
+        {tahlilOpen && (
+          <div className="mx-5 mb-3 p-4 rounded-xl border border-blue-200 bg-blue-50 text-xs text-blue-900">
+            <p className="font-semibold mb-1">📊 Nima asosida taqsimlanyapti?</p>
+            <p className="mb-2">
+              Sistema o'tgan <strong>{taqsim.tahlilOylar.join(" va ")}</strong> oylaridagi kirimlarni tahlil qildi.
+              O'sha oylar bo'yicha kunlik o'rtacha kirim: <strong>{fmt(taqsim.kunlikKirim)}</strong>.
+            </p>
+            <p className="mb-2">
+              Har bir xarajatga qancha kun qolganiga qarab — shoshilinchlik hisoblanadi.
+              Qancha kam kun qolsa, kassadan shuncha katta ulush shu xarajatga ajratiladi.
+            </p>
+            <p className="mb-2">
+              Ustuvorlik darajasi ham hisobga olinadi: maoshlar va arenda birinchi, sheriklar ikkinchi, marketing va ofis xarajatlari uchinchi, zaxira oxirgi navbatda to'ldiriladi.
+            </p>
+            <p className="text-blue-700">
+              ⚠️ Bu prognoz — real hisob emas. Pul kassaga tushganda taqsimlash yangilanadi.
+            </p>
+          </div>
+        )}
+
+        {/* Expanded list */}
+        {taqsimOpen && (
+          <div className="px-5 pb-5">
+            <div className="space-y-2">
+              {taqsim.items.map(v => (
+                <div key={v.id} className={cn("p-3 rounded-xl border",
+                  v.yetarli ? "border-emerald-200 bg-emerald-50" :
+                  v.kunQoldi <= 3 ? "border-red-200 bg-red-50" :
+                  "border-border bg-background")}>
+                  <div className="flex items-center justify-between mb-1.5">
+                    <div className="flex items-center gap-2 min-w-0">
+                      {v.yetarli
+                        ? <CheckCircle2 className="h-3.5 w-3.5 text-emerald-500 shrink-0" />
+                        : <Clock className={cn("h-3.5 w-3.5 shrink-0", v.kunQoldi <= 3 ? "text-red-500" : "text-muted-foreground")} />}
+                      <span className="font-medium text-sm truncate">{v.nomi}</span>
+                    </div>
+                    <span className="text-xs text-muted-foreground whitespace-nowrap ml-2">
+                      {v.targetKun}-kun · {v.kunQoldi} kun qoldi
+                    </span>
+                  </div>
+                  <div className="h-1.5 rounded-full bg-secondary overflow-hidden mb-1">
+                    <div className={cn("h-full rounded-full transition-all",
+                      v.yetarli ? "bg-emerald-500" : v.kunQoldi <= 3 ? "bg-red-500" : "bg-primary")}
+                      style={{ width: `${v.foiz}%` }} />
+                  </div>
+                  <div className="flex items-center justify-between text-xs">
+                    <span className="num text-muted-foreground">{fmtShort(v.toplangan)} / {fmtShort(v.kerak)}</span>
+                    <span className={cn("font-semibold",
+                      v.yetarli ? "text-emerald-600" : v.kunQoldi <= 3 ? "text-red-500" : "text-muted-foreground")}>
+                      {v.foiz}%{!v.yetarli ? ` · ${fmtShort(v.kerak - v.toplangan)} kerak` : " ✓"}
+                    </span>
+                  </div>
+                </div>
+              ))}
+            </div>
+            <div className="flex items-center justify-between pt-3 mt-2 border-t border-border">
+              <span className="text-xs text-muted-foreground">Hammasi yopilsa qoladi</span>
+              <span className={cn("num font-bold text-sm", taqsim.qolgan > 0 ? "text-emerald-600" : "text-muted-foreground")}>{fmt(taqsim.qolgan)}</span>
+            </div>
+          </div>
+        )}
+      </div>
+      {/* ====== PUL TAQSIMOTI TUGADI ====== */}
+
+      {/* Rejadagi xarajatlar — ТРОНУТО НОЛЬ */}
       <div className="bg-card rounded-2xl border border-border p-5 shadow-soft mb-6">
         <div className="flex items-center justify-between mb-4">
           <div>
@@ -460,7 +701,7 @@ export function Moliya() {
         )}
       </div>
 
-      {/* Модальное окно */}
+      {/* Modal */}
       {modalFilial && modalData && (
         <div className="fixed inset-0 bg-foreground/30 backdrop-blur-sm z-50 flex items-center justify-center p-4">
           <div className="bg-card rounded-2xl border border-border shadow-elevated w-full max-w-md">
@@ -479,15 +720,11 @@ export function Moliya() {
               </div>
               <div className={cn("rounded-xl p-4 border", modalData.profit < 0 ? "border-red-100 bg-red-50" : "border-blue-100 bg-blue-50")}>
                 <p className={cn("text-xs font-medium mb-1", modalData.profit < 0 ? "text-red-700" : "text-blue-700")}>Sof foyda</p>
-                <p className={cn("text-xl font-bold num", modalData.profit < 0 ? "text-red-600" : "text-blue-900")}>
-                  {modalData.profit < 0 ? "-" : ""}{fmt(modalData.profit)}
-                </p>
+                <p className={cn("text-xl font-bold num", modalData.profit < 0 ? "text-red-600" : "text-blue-900")}>{modalData.profit < 0 ? "-" : ""}{fmt(modalData.profit)}</p>
               </div>
               <div className={cn("rounded-xl p-4 border", totalProfit < 0 ? "border-red-100 bg-red-50" : "border-purple-100 bg-purple-50")}>
                 <p className={cn("text-xs font-medium mb-1", totalProfit < 0 ? "text-red-700" : "text-purple-700")}>Umumiy sof foyda (2 filial)</p>
-                <p className={cn("text-xl font-bold num", totalProfit < 0 ? "text-red-600" : "text-purple-900")}>
-                  {totalProfit < 0 ? "-" : ""}{fmt(totalProfit)}
-                </p>
+                <p className={cn("text-xl font-bold num", totalProfit < 0 ? "text-red-600" : "text-purple-900")}>{totalProfit < 0 ? "-" : ""}{fmt(totalProfit)}</p>
                 <p className={cn("text-xs mt-1", totalProfit < 0 ? "text-red-500" : "text-purple-600")}>
                   Novza: {novzaProfit < 0 ? "-" : ""}{fmt(novzaProfit)} + Yunusobod: {yunusobodProfit < 0 ? "-" : ""}{fmt(yunusobodProfit)}
                 </p>
@@ -528,15 +765,27 @@ export function Moliya() {
           {expenseBreakdown.length === 0 ? <p className="text-sm text-muted-foreground">Xarajatlar yo'q</p> : (
             <>
               <ResponsiveContainer width="100%" height={200}>
-                <PieChart><Pie data={expenseBreakdown} dataKey="value" innerRadius={55} outerRadius={80} paddingAngle={2}>{expenseBreakdown.map((e, i) => <Cell key={i} fill={e.color} />)}</Pie><Tooltip contentStyle={{ background: "hsl(var(--card))", border: "1px solid hsl(var(--border))", borderRadius: 12, fontSize: 12 }} formatter={(val) => [`${val}%`, ""]} /></PieChart>
+                <PieChart>
+                  <Pie data={expenseBreakdown} dataKey="value" innerRadius={55} outerRadius={80} paddingAngle={2}>
+                    {expenseBreakdown.map((e, i) => <Cell key={i} fill={e.color} />)}
+                  </Pie>
+                  <Tooltip contentStyle={{ background: "hsl(var(--card))", border: "1px solid hsl(var(--border))", borderRadius: 12, fontSize: 12 }} formatter={(val) => [`${val}%`, ""]} />
+                </PieChart>
               </ResponsiveContainer>
-              <div className="mt-3 space-y-2">{expenseBreakdown.map(e => (<div key={e.name} className="flex items-center justify-between text-sm"><span className="inline-flex items-center gap-2"><span className="h-2.5 w-2.5 rounded-sm" style={{ background: e.color }} />{e.name}</span><span className="num font-medium">{e.value}%</span></div>))}</div>
+              <div className="mt-3 space-y-2">
+                {expenseBreakdown.map(e => (
+                  <div key={e.name} className="flex items-center justify-between text-sm">
+                    <span className="inline-flex items-center gap-2"><span className="h-2.5 w-2.5 rounded-sm" style={{ background: e.color }} />{e.name}</span>
+                    <span className="num font-medium">{e.value}%</span>
+                  </div>
+                ))}
+              </div>
             </>
           )}
         </div>
       </div>
 
-      {/* Фильтр */}
+      {/* Filtr */}
       <div className="bg-card rounded-2xl border border-border p-5 shadow-soft mb-4">
         <h3 className="font-semibold mb-4">Filtr</h3>
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
