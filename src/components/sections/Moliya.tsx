@@ -52,9 +52,8 @@ function taqsimla(rows: Row[], bugun: Date): TaqsimResult {
   const tahlilOylar: string[] = [];
   let jamiKirim = 0;
   let kunSoni = 0;
-  oylar.forEach(function(item) {
-    const oy = item.oy;
-    const yil = item.yil;
+  oylar.forEach(function(it) {
+    const oy = it.oy; const yil = it.yil;
     const oyRows = rows.filter(function(r) {
       const p = r.sana.split(".");
       if (p.length < 3) return false;
@@ -95,38 +94,49 @@ function taqsimla(rows: Row[], bugun: Date): TaqsimResult {
     return { id: b.id, nomi: b.nomi, kerak: b.summa, toplangan: 0, foiz: 0, targetKun: b.kun, kunQoldi: kunQoldi, yetarli: false };
   });
 
+  // Sana bo'yicha saralash (eng yaqin birinchi)
   const sorted = items.slice().sort(function(a, b) { return a.kunQoldi - b.kunQoldi; });
-  const jamiSumma = BUCKETS.reduce(function(s, b) { return s + b.summa; }, 0);
 
-  let qolganKassa = kassa;
-  let iteratsiya = 0;
-  const MAX_ITER = 1000;
+  // LOGIKA:
+  // 70% kassa -> birinchi 4 xarajatga (ichida: eng yaqin eng ko'p oladi - 1/kunQoldi vazni)
+  // 30% kassa -> qolgan barcha xarajatlarga (summaga qarab %)
+  // Agar birinchi 4 dan biri to'lsa -> uning ulushi keyingi 4 ga o'tadi
 
-  while (qolganKassa > 100 && iteratsiya < MAX_ITER) {
-    iteratsiya++;
-    const yopilmaganlar = sorted.filter(function(i) { return !i.yetarli; });
-    if (yopilmaganlar.length === 0) break;
-    const birinchi4 = new Set(yopilmaganlar.slice(0, 4).map(function(i) { return i.id; }));
-    const vaznlar = yopilmaganlar.map(function(i) {
-      const bazaviy = i.kerak / jamiSumma;
-      const koef = birinchi4.has(i.id) ? 2 : 1;
-      return { id: i.id, vazn: bazaviy * koef };
-    });
-    const jamiVazn = vaznlar.reduce(function(s, v) { return s + v.vazn; }, 0);
-    if (jamiVazn <= 0) break;
-    let iterBerdi = 0;
-    vaznlar.forEach(function(v) {
+  const kassa70 = kassa * 0.70;
+  const kassa30 = kassa * 0.30;
+
+  // Birinchi 4 ga taqsimlash - vazn: summa / kunQoldi (shoshilinch + katta = ko'proq)
+  const top4 = sorted.slice(0, 4);
+  const top4Vazn = top4.map(function(i) {
+    return { id: i.id, vazn: i.kerak / Math.max(1, i.kunQoldi) };
+  });
+  const top4JamiVazn = top4Vazn.reduce(function(s, v) { return s + v.vazn; }, 0);
+
+  let top4Qolgan = kassa70;
+  if (top4JamiVazn > 0) {
+    top4Vazn.forEach(function(v) {
       const item = items.find(function(i) { return i.id === v.id; });
       if (!item) return;
-      const ulush = qolganKassa * (v.vazn / jamiVazn);
-      const kerakYana = item.kerak - item.toplangan;
-      const beriladi = Math.min(ulush, kerakYana);
-      item.toplangan += beriladi;
-      iterBerdi += beriladi;
+      const ulush = kassa70 * (v.vazn / top4JamiVazn);
+      item.toplangan = Math.min(ulush, item.kerak);
+      top4Qolgan -= item.toplangan;
     });
-    qolganKassa -= iterBerdi;
-    items.forEach(function(i) { i.yetarli = i.toplangan >= i.kerak - 1; });
-    if (iterBerdi < 1) break;
+  }
+
+  // Agar birinchi 4 dan biror biri to'liq yopilsa, ortiqcha pul keyingi xarajatlarga o'tadi
+  // top4Qolgan manfiy bo'lishi mumkin (agar to'liq to'lsa) - buni qolgan30 ga qo'shamiz
+  const qolganBudjet = kassa30 + Math.max(0, top4Qolgan);
+
+  // Qolgan 13 xarajatga summaga qarab %
+  const qolgan13 = sorted.slice(4);
+  const qolgan13Jami = qolgan13.reduce(function(s, i) { return s + i.kerak; }, 0);
+  if (qolgan13Jami > 0 && qolganBudjet > 0) {
+    qolgan13.forEach(function(sortedItem) {
+      const item = items.find(function(i) { return i.id === sortedItem.id; });
+      if (!item) return;
+      const foizUlush = item.kerak / qolgan13Jami;
+      item.toplangan += Math.min(qolganBudjet * foizUlush, item.kerak - item.toplangan);
+    });
   }
 
   items.forEach(function(i) {
@@ -135,7 +145,9 @@ function taqsimla(rows: Row[], bugun: Date): TaqsimResult {
   });
   items.sort(function(a, b) { return a.kunQoldi - b.kunQoldi; });
 
-  return { items: items, kunlikKirim: kunlikKirim, tahlilOylar: tahlilOylar, qolgan: Math.max(0, qolganKassa) };
+  const jamiToplangan = items.reduce(function(s, i) { return s + i.toplangan; }, 0);
+
+  return { items: items, kunlikKirim: kunlikKirim, tahlilOylar: tahlilOylar, qolgan: Math.max(0, kassa - jamiToplangan) };
 }
 
 const fmt = (n: number) => Math.round(Math.abs(n)).toLocaleString("ru-RU") + " so'm";
@@ -388,8 +400,7 @@ export function Moliya() {
     else monthMap[key].expenses += Math.abs(r.summa);
   });
   const chartData = Object.entries(monthMap).map(function(entry) {
-    const month = entry[0];
-    const v = entry[1];
+    const month = entry[0]; const v = entry[1];
     return { month: month, "Daromad": Math.round(v.revenue / 1000000), "Foyda": Math.round((v.revenue - v.expenses) / 1000000) };
   });
 
@@ -428,20 +439,17 @@ export function Moliya() {
         })}
         <div className="ml-auto flex gap-2">
           <button onClick={function() { setShowOnlineForm(!showOnlineForm); setOnlineResult(null); if (showForm) setShowForm(false); if (showRejadagiForm) setShowRejadagiForm(false); }}
-            className={cn("px-4 py-1.5 rounded-lg text-sm font-medium transition inline-flex items-center gap-2",
-              showOnlineForm ? "bg-primary text-primary-foreground" : "bg-secondary text-muted-foreground hover:text-foreground")}>
+            className={cn("px-4 py-1.5 rounded-lg text-sm font-medium transition inline-flex items-center gap-2", showOnlineForm ? "bg-primary text-primary-foreground" : "bg-secondary text-muted-foreground hover:text-foreground")}>
             {showOnlineForm ? <X className="h-4 w-4" /> : <Globe className="h-4 w-4" />}
             {showOnlineForm ? "Yopish" : "Online to'lov"}
           </button>
           <button onClick={function() { setShowRejadagiForm(!showRejadagiForm); setRejResult(null); if (showForm) setShowForm(false); if (showOnlineForm) setShowOnlineForm(false); }}
-            className={cn("px-4 py-1.5 rounded-lg text-sm font-medium transition inline-flex items-center gap-2",
-              showRejadagiForm ? "bg-primary text-primary-foreground" : "bg-secondary text-muted-foreground hover:text-foreground")}>
+            className={cn("px-4 py-1.5 rounded-lg text-sm font-medium transition inline-flex items-center gap-2", showRejadagiForm ? "bg-primary text-primary-foreground" : "bg-secondary text-muted-foreground hover:text-foreground")}>
             {showRejadagiForm ? <X className="h-4 w-4" /> : <CalendarClock className="h-4 w-4" />}
             {showRejadagiForm ? "Yopish" : "Rejadagi xarajat"}
           </button>
           <button onClick={function() { setShowForm(!showForm); setFormResult(null); if (showRejadagiForm) setShowRejadagiForm(false); if (showOnlineForm) setShowOnlineForm(false); }}
-            className={cn("px-4 py-1.5 rounded-lg text-sm font-medium transition inline-flex items-center gap-2",
-              showForm ? "bg-primary text-primary-foreground" : "bg-emerald-600 text-white hover:bg-emerald-700")}>
+            className={cn("px-4 py-1.5 rounded-lg text-sm font-medium transition inline-flex items-center gap-2", showForm ? "bg-primary text-primary-foreground" : "bg-emerald-600 text-white hover:bg-emerald-700")}>
             {showForm ? <X className="h-4 w-4" /> : <Plus className="h-4 w-4" />}
             {showForm ? "Yopish" : "Yangi yozuv"}
           </button>
@@ -501,8 +509,7 @@ export function Moliya() {
         </div>
       )}
 
-      <div className={cn("rounded-2xl p-5 shadow-soft border mb-4",
-        totalProfit < 0 ? "border-red-200 bg-gradient-to-br from-red-50 to-white" : "border-purple-100 bg-gradient-to-br from-purple-50 to-white")}>
+      <div className={cn("rounded-2xl p-5 shadow-soft border mb-4", totalProfit < 0 ? "border-red-200 bg-gradient-to-br from-red-50 to-white" : "border-purple-100 bg-gradient-to-br from-purple-50 to-white")}>
         <div className="flex items-center justify-between">
           <div>
             <p className={cn("text-sm font-medium mb-1", totalProfit < 0 ? "text-red-700" : "text-purple-700")}>Marja</p>
@@ -519,16 +526,12 @@ export function Moliya() {
       </div>
 
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-6">
-        <div className={cn("rounded-2xl p-5 shadow-soft border cursor-pointer transition",
-          novzaProfit < 0 ? "border-red-200 bg-gradient-to-br from-red-50 to-white hover:border-red-300" : "border-blue-100 bg-gradient-to-br from-blue-50 to-white hover:border-blue-300")}
-          onClick={function() { setModalFilial("Novza"); }}>
+        <div className={cn("rounded-2xl p-5 shadow-soft border cursor-pointer transition", novzaProfit < 0 ? "border-red-200 bg-gradient-to-br from-red-50 to-white hover:border-red-300" : "border-blue-100 bg-gradient-to-br from-blue-50 to-white hover:border-blue-300")} onClick={function() { setModalFilial("Novza"); }}>
           <p className={cn("text-sm font-medium mb-2", novzaProfit < 0 ? "text-red-700" : "text-blue-700")}>Novza — Sof foyda</p>
           <p className={cn("text-2xl font-bold num", novzaProfit < 0 ? "text-red-600" : "text-blue-900")}>{novzaProfit < 0 ? "-" : ""}{fmt(novzaProfit)}</p>
           <p className={cn("text-xs mt-2", novzaProfit < 0 ? "text-red-500" : "text-blue-600")}>Batafsil ko'rish</p>
         </div>
-        <div className={cn("rounded-2xl p-5 shadow-soft border cursor-pointer transition",
-          yunusobodProfit < 0 ? "border-red-200 bg-gradient-to-br from-red-50 to-white hover:border-red-300" : "border-blue-100 bg-gradient-to-br from-blue-50 to-white hover:border-blue-300")}
-          onClick={function() { setModalFilial("Yunusobod"); }}>
+        <div className={cn("rounded-2xl p-5 shadow-soft border cursor-pointer transition", yunusobodProfit < 0 ? "border-red-200 bg-gradient-to-br from-red-50 to-white hover:border-red-300" : "border-blue-100 bg-gradient-to-br from-blue-50 to-white hover:border-blue-300")} onClick={function() { setModalFilial("Yunusobod"); }}>
           <p className={cn("text-sm font-medium mb-2", yunusobodProfit < 0 ? "text-red-700" : "text-blue-700")}>Yunusobod — Sof foyda</p>
           <p className={cn("text-2xl font-bold num", yunusobodProfit < 0 ? "text-red-600" : "text-blue-900")}>{yunusobodProfit < 0 ? "-" : ""}{fmt(yunusobodProfit)}</p>
           <p className={cn("text-xs mt-2", yunusobodProfit < 0 ? "text-red-500" : "text-blue-600")}>Batafsil ko'rish</p>
@@ -536,17 +539,11 @@ export function Moliya() {
       </div>
 
       <div className="bg-card rounded-2xl border border-border shadow-soft mb-6 overflow-hidden">
-        <button
-          onClick={function() { setTaqsimOpen(function(v) { return !v; }); }}
-          className="w-full flex items-center justify-between px-5 py-4 hover:bg-secondary/40 transition"
-        >
+        <button onClick={function() { setTaqsimOpen(function(v) { return !v; }); }} className="w-full flex items-center justify-between px-5 py-4 hover:bg-secondary/40 transition">
           <div className="flex items-center gap-3 flex-wrap">
             <div className="flex items-center gap-2">
               <span className="font-semibold text-sm">Pul taqsimoti</span>
-              <button
-                onClick={function(e) { e.stopPropagation(); setTahlilOpen(function(v) { return !v; }); setTaqsimOpen(true); }}
-                className="h-5 w-5 rounded-full bg-muted flex items-center justify-center hover:bg-primary hover:text-primary-foreground transition"
-              >
+              <button onClick={function(e) { e.stopPropagation(); setTahlilOpen(function(v) { return !v; }); setTaqsimOpen(true); }} className="h-5 w-5 rounded-full bg-muted flex items-center justify-center hover:bg-primary hover:text-primary-foreground transition">
                 <Info className="h-3 w-3" />
               </button>
             </div>
@@ -568,14 +565,8 @@ export function Moliya() {
         {taqsimOpen && tahlilOpen && (
           <div className="mx-5 mb-3 p-4 rounded-xl border border-blue-200 bg-blue-50 text-xs text-blue-900">
             <p className="font-semibold mb-2">Nima asosida taqsimlanyapti?</p>
-            <p className="mb-2">
-              Sistema {taqsim.tahlilOylar.join(" va ")} oylaridagi kirimlarni tahlil qildi.
-              Kunlik ortacha kirim: {fmt(taqsim.kunlikKirim)}.
-            </p>
-            <p className="mb-2">
-              Kassadagi pul har bir xarajatning summasiga qarab foiz bilan taqsimlanadi.
-              Eng yaqin 4 xarajat 2x ustunlikka ega. Yopilgan xarajatning foizi qolganlar orasida taqsimlanadi.
-            </p>
+            <p className="mb-2">Sistema {taqsim.tahlilOylar.join(" va ")} oylaridagi kirimlarni tahlil qildi. Kunlik ortacha kirim: {fmt(taqsim.kunlikKirim)}.</p>
+            <p className="mb-2">Kassaning 70% eng yaqin 4 xarajatga (shoshilinchlik + summa asosida), 30% qolgan barcha xarajatlarga (summa %) taqsimlanadi. Eng yaqin xarajat eng ko'p ulush oladi.</p>
             <p className="text-blue-700">Bu prognoz hisobi — kassaga yangi pul tushganda avtomatik yangilanadi.</p>
           </div>
         )}
@@ -585,15 +576,10 @@ export function Moliya() {
             <div className="space-y-2">
               {taqsim.items.map(function(v) {
                 return (
-                  <div key={v.id} className={cn("p-3 rounded-xl border",
-                    v.yetarli ? "border-emerald-200 bg-emerald-50" :
-                    v.kunQoldi <= 3 ? "border-red-200 bg-red-50" :
-                    "border-border bg-background")}>
+                  <div key={v.id} className={cn("p-3 rounded-xl border", v.yetarli ? "border-emerald-200 bg-emerald-50" : v.kunQoldi <= 3 ? "border-red-200 bg-red-50" : "border-border bg-background")}>
                     <div className="flex items-center justify-between mb-1.5">
                       <div className="flex items-center gap-2 min-w-0">
-                        {v.yetarli
-                          ? <CheckCircle2 className="h-3.5 w-3.5 text-emerald-500 shrink-0" />
-                          : <Clock className={cn("h-3.5 w-3.5 shrink-0", v.kunQoldi <= 3 ? "text-red-500" : "text-muted-foreground")} />}
+                        {v.yetarli ? <CheckCircle2 className="h-3.5 w-3.5 text-emerald-500 shrink-0" /> : <Clock className={cn("h-3.5 w-3.5 shrink-0", v.kunQoldi <= 3 ? "text-red-500" : "text-muted-foreground")} />}
                         <span className="font-medium text-sm truncate">{v.nomi}</span>
                       </div>
                       <span className="text-xs text-muted-foreground whitespace-nowrap ml-2">
@@ -601,14 +587,11 @@ export function Moliya() {
                       </span>
                     </div>
                     <div className="h-1.5 rounded-full bg-secondary overflow-hidden mb-1">
-                      <div className={cn("h-full rounded-full transition-all",
-                        v.yetarli ? "bg-emerald-500" : v.kunQoldi <= 3 ? "bg-red-500" : "bg-primary")}
-                        style={{ width: v.foiz + "%" }} />
+                      <div className={cn("h-full rounded-full transition-all", v.yetarli ? "bg-emerald-500" : v.kunQoldi <= 3 ? "bg-red-500" : "bg-primary")} style={{ width: v.foiz + "%" }} />
                     </div>
                     <div className="flex items-center justify-between text-xs">
                       <span className="num text-muted-foreground">{fmtShort(v.toplangan)} / {fmtShort(v.kerak)}</span>
-                      <span className={cn("font-semibold",
-                        v.yetarli ? "text-emerald-600" : v.kunQoldi <= 3 ? "text-red-500" : "text-muted-foreground")}>
+                      <span className={cn("font-semibold", v.yetarli ? "text-emerald-600" : v.kunQoldi <= 3 ? "text-red-500" : "text-muted-foreground")}>
                         {v.foiz}%{!v.yetarli ? " · " + fmtShort(v.kerak - v.toplangan) + " kerak" : " ✓"}
                       </span>
                     </div>
@@ -640,8 +623,7 @@ export function Moliya() {
             {rejadagi.map(function(item, i) {
               const covered = totalProfit >= item.summa;
               return (
-                <div key={i} className={cn("flex items-center justify-between p-4 rounded-xl border transition",
-                  covered ? "border-emerald-200 bg-emerald-50" : "border-red-200 bg-red-50")}>
+                <div key={i} className={cn("flex items-center justify-between p-4 rounded-xl border transition", covered ? "border-emerald-200 bg-emerald-50" : "border-red-200 bg-red-50")}>
                   <div className="flex items-center gap-3">
                     {covered ? <CheckCircle2 className="h-5 w-5 text-emerald-500 shrink-0" /> : <Clock className="h-5 w-5 text-red-400 shrink-0" />}
                     <div>
@@ -652,8 +634,7 @@ export function Moliya() {
                   <div className="flex items-center gap-3">
                     <p className={cn("num font-bold text-sm", covered ? "text-emerald-700" : "text-red-600")}>{fmt(item.summa)}</p>
                     {covered && (
-                      <button onClick={function() { tolovQilindi(item, i); }} disabled={tolovLoading === i}
-                        className="px-3 py-1.5 bg-emerald-600 text-white rounded-lg text-xs font-medium hover:bg-emerald-700 transition disabled:opacity-50 inline-flex items-center gap-1.5 whitespace-nowrap">
+                      <button onClick={function() { tolovQilindi(item, i); }} disabled={tolovLoading === i} className="px-3 py-1.5 bg-emerald-600 text-white rounded-lg text-xs font-medium hover:bg-emerald-700 transition disabled:opacity-50 inline-flex items-center gap-1.5 whitespace-nowrap">
                         {tolovLoading === i ? <Loader2 className="h-3 w-3 animate-spin" /> : <CheckCircle2 className="h-3 w-3" />}
                         To'landi
                       </button>
@@ -769,11 +750,7 @@ export function Moliya() {
             <div className="flex rounded-lg border border-border overflow-hidden text-sm font-medium">
               {["Barchasi", "Kirim", "Chiqim"].map(function(v) {
                 return (
-                  <button key={v} onClick={function() { setFilterKirim(v); }}
-                    className={cn("flex-1 py-2 px-2 transition border-r border-border last:border-0 text-xs",
-                      filterKirim === v ? (v === "Kirim" ? "bg-emerald-600 text-white" : v === "Chiqim" ? "bg-red-500 text-white" : "bg-primary text-primary-foreground") : "bg-background text-muted-foreground hover:text-foreground")}>
-                    {v}
-                  </button>
+                  <button key={v} onClick={function() { setFilterKirim(v); }} className={cn("flex-1 py-2 px-2 transition border-r border-border last:border-0 text-xs", filterKirim === v ? (v === "Kirim" ? "bg-emerald-600 text-white" : v === "Chiqim" ? "bg-red-500 text-white" : "bg-primary text-primary-foreground") : "bg-background text-muted-foreground hover:text-foreground")}>{v}</button>
                 );
               })}
             </div>
@@ -783,11 +760,7 @@ export function Moliya() {
             <div className="flex rounded-lg border border-border overflow-hidden text-sm font-medium">
               {["Barchasi", "Novza", "Yunusobod"].map(function(v) {
                 return (
-                  <button key={v} onClick={function() { setFilterFilial(v); }}
-                    className={cn("flex-1 py-2 px-2 transition border-r border-border last:border-0 text-xs",
-                      filterFilial === v ? "bg-primary text-primary-foreground" : "bg-background text-muted-foreground hover:text-foreground")}>
-                    {v}
-                  </button>
+                  <button key={v} onClick={function() { setFilterFilial(v); }} className={cn("flex-1 py-2 px-2 transition border-r border-border last:border-0 text-xs", filterFilial === v ? "bg-primary text-primary-foreground" : "bg-background text-muted-foreground hover:text-foreground")}>{v}</button>
                 );
               })}
             </div>
@@ -801,8 +774,7 @@ export function Moliya() {
         <div className="flex items-center justify-between mb-4">
           <h3 className="font-semibold">Tranzaksiyalar ({tableFiltered.length})</h3>
           {(filterKirim !== "Barchasi" || filterFilial !== "Barchasi" || filterFrom || filterTo) && (
-            <button onClick={function() { setFilterKirim("Barchasi"); setFilterFilial("Barchasi"); setFilterFrom(""); setFilterTo(""); }}
-              className="text-xs text-muted-foreground hover:text-foreground px-3 py-1.5 rounded-lg bg-secondary">Filterni tozalash</button>
+            <button onClick={function() { setFilterKirim("Barchasi"); setFilterFilial("Barchasi"); setFilterFrom(""); setFilterTo(""); }} className="text-xs text-muted-foreground hover:text-foreground px-3 py-1.5 rounded-lg bg-secondary">Filterni tozalash</button>
           )}
         </div>
         <div className="overflow-x-auto">
