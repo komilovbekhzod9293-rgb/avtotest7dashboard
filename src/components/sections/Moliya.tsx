@@ -1,4 +1,4 @@
-```tsx
+tsx
 import { useEffect, useState } from "react";
 import { Header } from "@/components/dashboard/Header";
 import { TrendingUp, Loader2, AlertCircle, Plus, X, CheckCircle2, Clock, CalendarClock, Globe, ChevronDown, ChevronUp, AlertTriangle, Info } from "lucide-react";
@@ -17,23 +17,23 @@ const EXPENSE_COLORS = ["hsl(222 47% 11%)","hsl(220 9% 46%)","hsl(230 70% 55%)",
 
 interface Bucket { id: string; nomi: string; summa: number; kun: number; }
 const BUCKETS: Bucket[] = [
-  { id: "ikrom",      nomi: "Ikrom Bekturdiyev (sherik)",  summa: 15_000_000, kun: 3  },
-  { id: "oqit_op",    nomi: "O'qituvchilar + operatorlar", summa: 38_000_000, kun: 4  },
-  { id: "rahbar_7",   nomi: "Rahbarlar oyligi (7-kun)",    summa: 20_000_000, kun: 7  },
-  { id: "ar_novza",   nomi: "Novza filial arendasi",       summa: 18_000_000, kun: 7  },
-  { id: "ar_yunus",   nomi: "Yunusobod filial arendasi",   summa: 9_000_000,  kun: 9  },
-  { id: "doniyor",    nomi: "Doniyor aka (sherik)",        summa: 20_000_000, kun: 10 },
-  { id: "rahbar_14",  nomi: "Rahbarlar oyligi (14-kun)",   summa: 20_000_000, kun: 14 },
-  { id: "rop",        nomi: "Rop oyligi",                  summa: 7_000_000,  kun: 15 },
-  { id: "operator2",  nomi: "2 operator oyligi",           summa: 10_000_000, kun: 20 },
-  { id: "rahbar_21",  nomi: "Rahbarlar oyligi (21-kun)",   summa: 20_000_000, kun: 21 },
-  { id: "rahbar_28",  nomi: "Rahbarlar oyligi (28-kun)",   summa: 20_000_000, kun: 28 },
-  { id: "soliq",      nomi: "Soliq",                       summa: 5_000_000,  kun: 31 },
-  { id: "marketing",  nomi: "Marketing",                   summa: 10_000_000, kun: 31 },
-  { id: "ofis",       nomi: "Ofis xarajatlari",            summa: 6_000_000,  kun: 31 },
-  { id: "ai",         nomi: "AI xarajatlari",              summa: 3_000_000,  kun: 31 },
-  { id: "ehson",      nomi: "Ehson / Xayriya",             summa: 1_000_000,  kun: 31 },
-  { id: "podushka",   nomi: "Moliyaviy yostiq (zaxira)",   summa: 5_000_000,  kun: 31 },
+  { id: "ikrom",     nomi: "Ikrom Bekturdiyev (sherik)",  summa: 15000000, kun: 3  },
+  { id: "oqit_op",   nomi: "O'qituvchilar + operatorlar", summa: 38000000, kun: 4  },
+  { id: "rahbar_7",  nomi: "Rahbarlar oyligi (7-kun)",    summa: 20000000, kun: 7  },
+  { id: "ar_novza",  nomi: "Novza filial arendasi",       summa: 18000000, kun: 7  },
+  { id: "ar_yunus",  nomi: "Yunusobod filial arendasi",   summa: 9000000,  kun: 9  },
+  { id: "doniyor",   nomi: "Doniyor aka (sherik)",        summa: 20000000, kun: 10 },
+  { id: "rahbar_14", nomi: "Rahbarlar oyligi (14-kun)",   summa: 20000000, kun: 14 },
+  { id: "rop",       nomi: "Rop oyligi",                  summa: 7000000,  kun: 15 },
+  { id: "operator2", nomi: "2 operator oyligi",           summa: 10000000, kun: 20 },
+  { id: "rahbar_21", nomi: "Rahbarlar oyligi (21-kun)",   summa: 20000000, kun: 21 },
+  { id: "rahbar_28", nomi: "Rahbarlar oyligi (28-kun)",   summa: 20000000, kun: 28 },
+  { id: "soliq",     nomi: "Soliq",                       summa: 5000000,  kun: 31 },
+  { id: "marketing", nomi: "Marketing",                   summa: 10000000, kun: 31 },
+  { id: "ofis",      nomi: "Ofis xarajatlari",            summa: 6000000,  kun: 31 },
+  { id: "ai",        nomi: "AI xarajatlari",              summa: 3000000,  kun: 31 },
+  { id: "ehson",     nomi: "Ehson / Xayriya",             summa: 1000000,  kun: 31 },
+  { id: "podushka",  nomi: "Moliyaviy yostiq (zaxira)",   summa: 5000000,  kun: 31 },
 ];
 
 interface TaqsimItem {
@@ -51,35 +51,38 @@ function taqsimla(rows: Row[], bugun: Date): TaqsimResult {
     oylar.push({ oy: d.getMonth(), yil: d.getFullYear() });
   }
   const tahlilOylar: string[] = [];
-  let jamiKirim = 0; let kunSoni = 0;
-  oylar.forEach(({ oy, yil }) => {
-    const oyRows = rows.filter(r => {
+  let jamiKirim = 0;
+  let kunSoni = 0;
+  oylar.forEach(function(item) {
+    const oy = item.oy;
+    const yil = item.yil;
+    const oyRows = rows.filter(function(r) {
       const p = r.sana.split(".");
       if (p.length < 3) return false;
       return parseInt(p[1]) - 1 === oy && parseInt(p[2]) === yil && r.summa > 0;
     });
     if (oyRows.length === 0) return;
-    jamiKirim += oyRows.reduce((s, r) => s + r.summa, 0);
+    jamiKirim += oyRows.reduce(function(s, r) { return s + r.summa; }, 0);
     kunSoni += new Date(yil, oy + 1, 0).getDate();
-    tahlilOylar.push(`${UZ_MONTHS[oy]} ${yil}`);
+    tahlilOylar.push(UZ_MONTHS[oy] + " " + yil);
   });
   if (kunSoni === 0) {
-    const joriy = rows.filter(r => {
+    const joriy = rows.filter(function(r) {
       const p = r.sana.split(".");
       if (p.length < 3) return false;
       return parseInt(p[1]) - 1 === bugun.getMonth() && parseInt(p[2]) === bugun.getFullYear() && r.summa > 0;
     });
-    jamiKirim = joriy.reduce((s, r) => s + r.summa, 0);
+    jamiKirim = joriy.reduce(function(s, r) { return s + r.summa; }, 0);
     kunSoni = bugun.getDate();
-    tahlilOylar.push(`${UZ_MONTHS[bugun.getMonth()]} ${bugun.getFullYear()} (joriy oy)`);
+    tahlilOylar.push(UZ_MONTHS[bugun.getMonth()] + " " + bugun.getFullYear() + " (joriy oy)");
   }
   const kunlikKirim = kunSoni > 0 ? Math.round(jamiKirim / kunSoni) : 0;
 
-  const kassaKirim = rows.filter(r => r.summa > 0).reduce((s, r) => s + r.summa, 0);
-  const kassaChiqim = rows.filter(r => r.summa < 0).reduce((s, r) => s + Math.abs(r.summa), 0);
+  const kassaKirim = rows.filter(function(r) { return r.summa > 0; }).reduce(function(s, r) { return s + r.summa; }, 0);
+  const kassaChiqim = rows.filter(function(r) { return r.summa < 0; }).reduce(function(s, r) { return s + Math.abs(r.summa); }, 0);
   const kassa = Math.max(0, kassaKirim - kassaChiqim);
 
-  const items: TaqsimItem[] = BUCKETS.map(b => {
+  const items: TaqsimItem[] = BUCKETS.map(function(b) {
     let targetSana: Date;
     if (b.kun === 31) {
       targetSana = new Date(bugun.getFullYear(), bugun.getMonth() + 1, 0);
@@ -90,11 +93,11 @@ function taqsimla(rows: Row[], bugun: Date): TaqsimResult {
         : new Date(bugun.getFullYear(), bugun.getMonth() + 1, b.kun);
     }
     const kunQoldi = Math.max(1, Math.ceil((targetSana.getTime() - bugun.getTime()) / 86400000));
-    return { id: b.id, nomi: b.nomi, kerak: b.summa, toplangan: 0, foiz: 0, targetKun: b.kun, kunQoldi, yetarli: false };
+    return { id: b.id, nomi: b.nomi, kerak: b.summa, toplangan: 0, foiz: 0, targetKun: b.kun, kunQoldi: kunQoldi, yetarli: false };
   });
 
-  const sorted = [...items].sort((a, b) => a.kunQoldi - b.kunQoldi);
-  const jamiSumma = BUCKETS.reduce((s, b) => s + b.summa, 0);
+  const sorted = items.slice().sort(function(a, b) { return a.kunQoldi - b.kunQoldi; });
+  const jamiSumma = BUCKETS.reduce(function(s, b) { return s + b.summa; }, 0);
 
   let qolganKassa = kassa;
   let iteratsiya = 0;
@@ -102,22 +105,23 @@ function taqsimla(rows: Row[], bugun: Date): TaqsimResult {
 
   while (qolganKassa > 100 && iteratsiya < MAX_ITER) {
     iteratsiya++;
-    const yopilmaganlar = sorted.filter(i => !i.yetarli);
+    const yopilmaganlar = sorted.filter(function(i) { return !i.yetarli; });
     if (yopilmaganlar.length === 0) break;
 
-    const birinchi4Ids = new Set(yopilmaganlar.slice(0, 4).map(i => i.id));
+    const birinchi4Ids = new Set(yopilmaganlar.slice(0, 4).map(function(i) { return i.id; }));
 
-    const vaznlar = yopilmaganlar.map(i => {
+    const vaznlar = yopilmaganlar.map(function(i) {
       const bazaviy = i.kerak / jamiSumma;
       const koef = birinchi4Ids.has(i.id) ? 2 : 1;
       return { id: i.id, vazn: bazaviy * koef };
     });
-    const jamiVazn = vaznlar.reduce((s, v) => s + v.vazn, 0);
+    const jamiVazn = vaznlar.reduce(function(s, v) { return s + v.vazn; }, 0);
     if (jamiVazn <= 0) break;
 
     let iterBerdi = 0;
-    vaznlar.forEach(v => {
-      const item = items.find(i => i.id === v.id)!;
+    vaznlar.forEach(function(v) {
+      const item = items.find(function(i) { return i.id === v.id; });
+      if (!item) return;
       const ulush = qolganKassa * (v.vazn / jamiVazn);
       const kerakYana = item.kerak - item.toplangan;
       const beriladi = Math.min(ulush, kerakYana);
@@ -126,24 +130,24 @@ function taqsimla(rows: Row[], bugun: Date): TaqsimResult {
     });
 
     qolganKassa -= iterBerdi;
-    items.forEach(i => { i.yetarli = i.toplangan >= i.kerak - 1; });
+    items.forEach(function(i) { i.yetarli = i.toplangan >= i.kerak - 1; });
     if (iterBerdi < 1) break;
   }
 
-  items.forEach(i => {
+  items.forEach(function(i) {
     i.foiz = Math.min(100, Math.round((i.toplangan / i.kerak) * 100));
     i.yetarli = i.toplangan >= i.kerak - 1;
   });
-  items.sort((a, b) => a.kunQoldi - b.kunQoldi);
+  items.sort(function(a, b) { return a.kunQoldi - b.kunQoldi; });
 
-  return { items, kunlikKirim, tahlilOylar, qolgan: Math.max(0, qolganKassa) };
+  return { items: items, kunlikKirim: kunlikKirim, tahlilOylar: tahlilOylar, qolgan: Math.max(0, qolganKassa) };
 }
 
 const fmt = (n: number) => Math.round(Math.abs(n)).toLocaleString("ru-RU") + " so'm";
 const fmtShort = (n: number) => {
   const abs = Math.abs(n);
-  if (abs >= 1_000_000) return (n / 1_000_000).toFixed(1) + " mln";
-  if (abs >= 1_000) return Math.round(n / 1_000) + " ming";
+  if (abs >= 1000000) return (n / 1000000).toFixed(1) + " mln";
+  if (abs >= 1000) return Math.round(n / 1000) + " ming";
   return Math.round(n) + "";
 };
 
@@ -163,13 +167,13 @@ function parseDate(sana: string): Date | null {
 
 function todayInputFormat(): string {
   const now = new Date();
-  return `${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,"0")}-${String(now.getDate()).padStart(2,"0")}`;
+  return now.getFullYear() + "-" + String(now.getMonth()+1).padStart(2,"0") + "-" + String(now.getDate()).padStart(2,"0");
 }
 
 function inputToSheetDate(input: string): string {
   const parts = input.split("-");
   if (parts.length < 3) return "";
-  return `${parts[2]}.${parts[1]}.${parts[0]}`;
+  return parts[2] + "." + parts[1] + "." + parts[0];
 }
 
 function formatSummaInput(val: string): string {
@@ -240,43 +244,49 @@ export function Moliya() {
 
   const fetchData = () => {
     setLoading(true);
-    fetch(`https://sheets.googleapis.com/v4/spreadsheets/${SHEET_ID}/values/${SHEET_NAME}?key=${API_KEY}`)
-      .then(res => { if (!res.ok) throw new Error(`API xatosi: ${res.status}`); return res.json(); })
-      .then(data => {
-        const [, ...dataRows] = data.values as string[][];
-        setRows(dataRows.filter(r => r.length >= 6 && r[0] && r[5]).map(r => ({
-          sana: r[0] ?? "", ism: r[1] ?? "", filial: r[2] ?? "", turi: r[4] ?? "",
-          summa: parseSumma(r[5]), kirimChiqim: r[6] ?? "", izoh: r[7] ?? "",
-        })));
+    fetch("https://sheets.googleapis.com/v4/spreadsheets/" + SHEET_ID + "/values/" + SHEET_NAME + "?key=" + API_KEY)
+      .then(function(res) { if (!res.ok) throw new Error("API xatosi: " + res.status); return res.json(); })
+      .then(function(data) {
+        const allRows = data.values as string[][];
+        const dataRows = allRows.slice(1);
+        setRows(dataRows.filter(function(r) { return r.length >= 6 && r[0] && r[5]; }).map(function(r) {
+          return {
+            sana: r[0] || "", ism: r[1] || "", filial: r[2] || "", turi: r[4] || "",
+            summa: parseSumma(r[5]), kirimChiqim: r[6] || "", izoh: r[7] || "",
+          };
+        }));
       })
-      .catch(e => setError(e.message))
-      .finally(() => setLoading(false));
+      .catch(function(e) { setError(e.message); })
+      .finally(function() { setLoading(false); });
   };
 
   const fetchRejadagi = () => {
     setRejadagiLoading(true);
-    fetch(`https://sheets.googleapis.com/v4/spreadsheets/${REJADAGI_SHEET_ID}/values/Лист1?key=${API_KEY}`)
-      .then(res => { if (!res.ok) throw new Error(); return res.json(); })
-      .then(data => {
-        const [, ...dataRows] = (data.values || []) as string[][];
+    fetch("https://sheets.googleapis.com/v4/spreadsheets/" + REJADAGI_SHEET_ID + "/values/Лист1?key=" + API_KEY)
+      .then(function(res) { if (!res.ok) throw new Error(); return res.json(); })
+      .then(function(data) {
+        const allRows = (data.values || []) as string[][];
+        const dataRows = allRows.slice(1);
         setRejadagi(
           dataRows
-            .filter(r => r.length >= 3 && r[0] && r[3] !== "tolov qilindi")
-            .map(r => ({
-              nomi: r[0] ?? "", sana: r[1] ?? "",
-              summa: parseFloat(r[2]?.replace(/\s/g, "") || "0") || 0,
-              status: r[3] ?? "rejada", izoh: r[4] ?? "",
-            }))
+            .filter(function(r) { return r.length >= 3 && r[0] && r[3] !== "tolov qilindi"; })
+            .map(function(r) {
+              return {
+                nomi: r[0] || "", sana: r[1] || "",
+                summa: parseFloat((r[2] || "").replace(/\s/g, "")) || 0,
+                status: r[3] || "rejada", izoh: r[4] || "",
+              };
+            })
         );
       })
-      .catch(() => {})
-      .finally(() => setRejadagiLoading(false));
+      .catch(function() {})
+      .finally(function() { setRejadagiLoading(false); });
   };
 
-  useEffect(() => { fetchData(); fetchRejadagi(); }, []);
+  useEffect(function() { fetchData(); fetchRejadagi(); }, []);
 
   async function submitForm() {
-    if (!formIsm || !formSumma) { setFormResult("❌ Ism va summani kiriting"); return; }
+    if (!formIsm || !formSumma) { setFormResult("Ism va summani kiriting"); return; }
     setFormLoading(true); setFormResult(null);
     const summaNum = parseInt(formSumma.replace(/\s/g, ""));
     const finalSumma = formKirim === "Chiqim" ? -summaNum : summaNum;
@@ -285,40 +295,40 @@ export function Moliya() {
         method: "POST", headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ sana: inputToSheetDate(formSana), ism: formIsm, filial: formFilial, online_offline: formOnline, telefon: formTelefon, turi: formTuri, summa: finalSumma, kirim_chiqim: formKirim, izoh: formIzoh }),
       });
-      setFormResult("✅ Muvaffaqiyatli saqlandi!");
+      setFormResult("Muvaffaqiyatli saqlandi!");
       setFormIsm(""); setFormSumma(""); setFormIzoh(""); setFormTelefon(""); setFormSana(todayInputFormat());
-      setTimeout(() => fetchData(), 2000);
-    } catch { setFormResult("❌ Xatolik yuz berdi"); }
+      setTimeout(function() { fetchData(); }, 2000);
+    } catch { setFormResult("Xatolik yuz berdi"); }
     finally { setFormLoading(false); }
   }
 
   async function submitRejadagi() {
-    if (!rejNomi || !rejSumma) { setRejResult("❌ Nomi va summani kiriting"); return; }
+    if (!rejNomi || !rejSumma) { setRejResult("Nomi va summani kiriting"); return; }
     setRejLoading(true); setRejResult(null);
     try {
       await fetch(REJADAGI_WEBHOOK, {
         method: "POST", headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ action: "add", nomi: rejNomi, sana: inputToSheetDate(rejSana), summa: parseInt(rejSumma.replace(/\s/g, "")), izoh: rejIzoh, status: "rejada" }),
       });
-      setRejResult("✅ Saqlandi!");
+      setRejResult("Saqlandi!");
       setRejNomi(""); setRejSumma(""); setRejIzoh(""); setRejSana(todayInputFormat());
-      setTimeout(() => fetchRejadagi(), 2000);
-    } catch { setRejResult("❌ Xatolik"); }
+      setTimeout(function() { fetchRejadagi(); }, 2000);
+    } catch { setRejResult("Xatolik"); }
     finally { setRejLoading(false); }
   }
 
   async function submitOnline() {
-    if (!onlineIsm || !onlineSumma || !onlineTelefon) { setOnlineResult("❌ Barcha maydonlarni to'ldiring"); return; }
+    if (!onlineIsm || !onlineSumma || !onlineTelefon) { setOnlineResult("Barcha maydonlarni toldiring"); return; }
     setOnlineLoading(true); setOnlineResult(null);
     try {
       await fetch(ONLINE_WEBHOOK, {
         method: "POST", headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ ism: onlineIsm, telefon: onlineTelefon, summa: parseInt(onlineSumma.replace(/\s/g, "")), sana: inputToSheetDate(onlineSana) }),
       });
-      setOnlineResult("✅ Saqlandi!");
+      setOnlineResult("Saqlandi!");
       setOnlineIsm(""); setOnlineTelefon(""); setOnlineSumma(""); setOnlineSana(todayInputFormat());
-      setTimeout(() => fetchData(), 2000);
-    } catch { setOnlineResult("❌ Xatolik yuz berdi"); }
+      setTimeout(function() { fetchData(); }, 2000);
+    } catch { setOnlineResult("Xatolik yuz berdi"); }
     finally { setOnlineLoading(false); }
   }
 
@@ -329,16 +339,16 @@ export function Moliya() {
         method: "POST", headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ action: "tolov_qilindi", nomi: item.nomi, sana: item.sana, summa: item.summa, izoh: item.izoh }),
       });
-      setTimeout(() => fetchRejadagi(), 2000);
+      setTimeout(function() { fetchRejadagi(); }, 2000);
     } catch {}
     finally { setTolovLoading(null); }
   }
 
-  if (loading) return <div className="flex items-center justify-center h-64 gap-3 text-muted-foreground"><Loader2 className="h-5 w-5 animate-spin" /><span>Yuklanmoqda…</span></div>;
+  if (loading) return <div className="flex items-center justify-center h-64 gap-3 text-muted-foreground"><Loader2 className="h-5 w-5 animate-spin" /><span>Yuklanmoqda</span></div>;
   if (error) return <div className="flex items-center justify-center h-64 gap-3 text-danger"><AlertCircle className="h-5 w-5" /><span>Xatolik: {error}</span></div>;
 
   const now = new Date();
-  const periodFiltered = rows.filter(r => {
+  const periodFiltered = rows.filter(function(r) {
     if (period === "barchasi") return true;
     const d = parseDate(r.sana);
     if (!d) return false;
@@ -348,23 +358,23 @@ export function Moliya() {
     return true;
   });
 
-  const totalRevenue  = periodFiltered.filter(r => r.summa > 0).reduce((s, r) => s + r.summa, 0);
-  const totalExpenses = periodFiltered.filter(r => r.summa < 0).reduce((s, r) => s + Math.abs(r.summa), 0);
+  const totalRevenue  = periodFiltered.filter(function(r) { return r.summa > 0; }).reduce(function(s, r) { return s + r.summa; }, 0);
+  const totalExpenses = periodFiltered.filter(function(r) { return r.summa < 0; }).reduce(function(s, r) { return s + Math.abs(r.summa); }, 0);
   const totalProfit   = totalRevenue - totalExpenses;
   const margin        = totalRevenue > 0 ? ((totalProfit / totalRevenue) * 100).toFixed(1) : "0.0";
 
-  const novzaRevenue    = periodFiltered.filter(r => r.summa > 0 && r.filial === "Novza").reduce((s, r) => s + r.summa, 0);
-  const novzaExpenses   = periodFiltered.filter(r => r.summa < 0 && r.filial === "Novza").reduce((s, r) => s + Math.abs(r.summa), 0);
+  const novzaRevenue    = periodFiltered.filter(function(r) { return r.summa > 0 && r.filial === "Novza"; }).reduce(function(s, r) { return s + r.summa; }, 0);
+  const novzaExpenses   = periodFiltered.filter(function(r) { return r.summa < 0 && r.filial === "Novza"; }).reduce(function(s, r) { return s + Math.abs(r.summa); }, 0);
   const novzaProfit     = novzaRevenue - novzaExpenses;
-  const yunusobodRevenue  = periodFiltered.filter(r => r.summa > 0 && r.filial === "Yunusobod").reduce((s, r) => s + r.summa, 0);
-  const yunusobodExpenses = periodFiltered.filter(r => r.summa < 0 && r.filial === "Yunusobod").reduce((s, r) => s + Math.abs(r.summa), 0);
+  const yunusobodRevenue  = periodFiltered.filter(function(r) { return r.summa > 0 && r.filial === "Yunusobod"; }).reduce(function(s, r) { return s + r.summa; }, 0);
+  const yunusobodExpenses = periodFiltered.filter(function(r) { return r.summa < 0 && r.filial === "Yunusobod"; }).reduce(function(s, r) { return s + Math.abs(r.summa); }, 0);
   const yunusobodProfit   = yunusobodRevenue - yunusobodExpenses;
 
   const taqsim = taqsimla(rows, now);
-  const yetarliSon = taqsim.items.filter(i => i.yetarli).length;
-  const xatarliSon = taqsim.items.filter(i => !i.yetarli && i.kunQoldi <= 3).length;
+  const yetarliSon = taqsim.items.filter(function(i) { return i.yetarli; }).length;
+  const xatarliSon = taqsim.items.filter(function(i) { return !i.yetarli && i.kunQoldi <= 3; }).length;
 
-  const tableFiltered = periodFiltered.filter(r => {
+  const tableFiltered = periodFiltered.filter(function(r) {
     if (filterKirim === "Kirim" && r.summa < 0) return false;
     if (filterKirim === "Chiqim" && r.summa > 0) return false;
     if (filterFilial !== "Barchasi" && r.filial !== filterFilial) return false;
@@ -374,22 +384,29 @@ export function Moliya() {
   });
 
   const monthMap: Record<string, { revenue: number; expenses: number }> = {};
-  periodFiltered.forEach(r => {
+  periodFiltered.forEach(function(r) {
     const parts = r.sana.split(".");
     if (parts.length < 2) return;
-    const key = UZ_MONTHS[parseInt(parts[1], 10) - 1] ?? r.sana;
+    const key = UZ_MONTHS[parseInt(parts[1], 10) - 1] || r.sana;
     if (!monthMap[key]) monthMap[key] = { revenue: 0, expenses: 0 };
     if (r.summa > 0) monthMap[key].revenue += r.summa;
     else monthMap[key].expenses += Math.abs(r.summa);
   });
-  const chartData = Object.entries(monthMap).map(([month, v]) => ({
-    month, "Daromad": Math.round(v.revenue / 1_000_000), "Foyda": Math.round((v.revenue - v.expenses) / 1_000_000),
-  }));
+  const chartData = Object.entries(monthMap).map(function(entry) {
+    const month = entry[0];
+    const v = entry[1];
+    return { month: month, "Daromad": Math.round(v.revenue / 1000000), "Foyda": Math.round((v.revenue - v.expenses) / 1000000) };
+  });
 
   const filialMap: Record<string, number> = {};
-  periodFiltered.filter(r => r.summa < 0).forEach(r => { const k = r.filial || "Boshqa"; filialMap[k] = (filialMap[k] ?? 0) + Math.abs(r.summa); });
-  const totalExp = Object.values(filialMap).reduce((a, b) => a + b, 0) || 1;
-  const expenseBreakdown = Object.entries(filialMap).map(([name, val], i) => ({ name, value: Math.round((val / totalExp) * 100), color: EXPENSE_COLORS[i % EXPENSE_COLORS.length] }));
+  periodFiltered.filter(function(r) { return r.summa < 0; }).forEach(function(r) {
+    const k = r.filial || "Boshqa";
+    filialMap[k] = (filialMap[k] || 0) + Math.abs(r.summa);
+  });
+  const totalExp = Object.values(filialMap).reduce(function(a, b) { return a + b; }, 0) || 1;
+  const expenseBreakdown = Object.entries(filialMap).map(function(entry, i) {
+    return { name: entry[0], value: Math.round((entry[1] / totalExp) * 100), color: EXPENSE_COLORS[i % EXPENSE_COLORS.length] };
+  });
 
   const periods: { id: Period; label: string }[] = [
     { id: "kun", label: "Bugun" }, { id: "hafta", label: "Hafta" }, { id: "oy", label: "Oy" }, { id: "barchasi", label: "Barchasi" },
@@ -406,26 +423,28 @@ export function Moliya() {
       <Header title="Moliya" subtitle="Daromad, xarajat va foyda tahlili" />
 
       <div className="flex flex-wrap gap-2 mb-6">
-        {periods.map(p => (
-          <button key={p.id} onClick={() => setPeriod(p.id)}
-            className={cn("px-4 py-1.5 rounded-lg text-sm font-medium transition", period === p.id ? "bg-primary text-primary-foreground" : "bg-secondary text-muted-foreground hover:text-foreground")}>
-            {p.label}
-          </button>
-        ))}
+        {periods.map(function(p) {
+          return (
+            <button key={p.id} onClick={function() { setPeriod(p.id); }}
+              className={cn("px-4 py-1.5 rounded-lg text-sm font-medium transition", period === p.id ? "bg-primary text-primary-foreground" : "bg-secondary text-muted-foreground hover:text-foreground")}>
+              {p.label}
+            </button>
+          );
+        })}
         <div className="ml-auto flex gap-2">
-          <button onClick={() => { setShowOnlineForm(!showOnlineForm); setOnlineResult(null); if (showForm) setShowForm(false); if (showRejadagiForm) setShowRejadagiForm(false); }}
+          <button onClick={function() { setShowOnlineForm(!showOnlineForm); setOnlineResult(null); if (showForm) setShowForm(false); if (showRejadagiForm) setShowRejadagiForm(false); }}
             className={cn("px-4 py-1.5 rounded-lg text-sm font-medium transition inline-flex items-center gap-2",
               showOnlineForm ? "bg-primary text-primary-foreground" : "bg-secondary text-muted-foreground hover:text-foreground")}>
             {showOnlineForm ? <X className="h-4 w-4" /> : <Globe className="h-4 w-4" />}
             {showOnlineForm ? "Yopish" : "Online to'lov"}
           </button>
-          <button onClick={() => { setShowRejadagiForm(!showRejadagiForm); setRejResult(null); if (showForm) setShowForm(false); if (showOnlineForm) setShowOnlineForm(false); }}
+          <button onClick={function() { setShowRejadagiForm(!showRejadagiForm); setRejResult(null); if (showForm) setShowForm(false); if (showOnlineForm) setShowOnlineForm(false); }}
             className={cn("px-4 py-1.5 rounded-lg text-sm font-medium transition inline-flex items-center gap-2",
               showRejadagiForm ? "bg-primary text-primary-foreground" : "bg-secondary text-muted-foreground hover:text-foreground")}>
             {showRejadagiForm ? <X className="h-4 w-4" /> : <CalendarClock className="h-4 w-4" />}
             {showRejadagiForm ? "Yopish" : "Rejadagi xarajat"}
           </button>
-          <button onClick={() => { setShowForm(!showForm); setFormResult(null); if (showRejadagiForm) setShowRejadagiForm(false); if (showOnlineForm) setShowOnlineForm(false); }}
+          <button onClick={function() { setShowForm(!showForm); setFormResult(null); if (showRejadagiForm) setShowRejadagiForm(false); if (showOnlineForm) setShowOnlineForm(false); }}
             className={cn("px-4 py-1.5 rounded-lg text-sm font-medium transition inline-flex items-center gap-2",
               showForm ? "bg-primary text-primary-foreground" : "bg-emerald-600 text-white hover:bg-emerald-700")}>
             {showForm ? <X className="h-4 w-4" /> : <Plus className="h-4 w-4" />}
@@ -438,15 +457,15 @@ export function Moliya() {
         <div className="bg-card rounded-2xl border border-border p-5 shadow-soft mb-6">
           <h3 className="font-semibold mb-4 flex items-center gap-2"><Globe className="h-4 w-4" />Online to'lov qo'shish</h3>
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-4">
-            <div><label className="text-xs text-muted-foreground mb-1 block">Ism Familya</label><input type="text" value={onlineIsm} onChange={e => setOnlineIsm(e.target.value)} className="w-full px-3 py-2 rounded-lg border border-border bg-background text-sm" /></div>
-            <div><label className="text-xs text-muted-foreground mb-1 block">Telefon raqami</label><input type="tel" placeholder="+998 90 000 00 00" value={onlineTelefon} onChange={e => setOnlineTelefon(e.target.value)} className="w-full px-3 py-2 rounded-lg border border-border bg-background text-sm" /></div>
-            <div><label className="text-xs text-muted-foreground mb-1 block">Summa (so'm)</label><input type="text" value={onlineSumma} onChange={e => setOnlineSumma(formatSummaInput(e.target.value))} className="w-full px-3 py-2 rounded-lg border border-border bg-background text-sm" /></div>
-            <div><label className="text-xs text-muted-foreground mb-1 block">Sana</label><input type="date" value={onlineSana} onChange={e => setOnlineSana(e.target.value)} className="w-full px-3 py-2 rounded-lg border border-border bg-background text-sm" /></div>
+            <div><label className="text-xs text-muted-foreground mb-1 block">Ism Familya</label><input type="text" value={onlineIsm} onChange={function(e) { setOnlineIsm(e.target.value); }} className="w-full px-3 py-2 rounded-lg border border-border bg-background text-sm" /></div>
+            <div><label className="text-xs text-muted-foreground mb-1 block">Telefon raqami</label><input type="tel" placeholder="+998 90 000 00 00" value={onlineTelefon} onChange={function(e) { setOnlineTelefon(e.target.value); }} className="w-full px-3 py-2 rounded-lg border border-border bg-background text-sm" /></div>
+            <div><label className="text-xs text-muted-foreground mb-1 block">Summa (so'm)</label><input type="text" value={onlineSumma} onChange={function(e) { setOnlineSumma(formatSummaInput(e.target.value)); }} className="w-full px-3 py-2 rounded-lg border border-border bg-background text-sm" /></div>
+            <div><label className="text-xs text-muted-foreground mb-1 block">Sana</label><input type="date" value={onlineSana} onChange={function(e) { setOnlineSana(e.target.value); }} className="w-full px-3 py-2 rounded-lg border border-border bg-background text-sm" /></div>
           </div>
           <button onClick={submitOnline} disabled={onlineLoading} className="px-6 py-2 bg-secondary text-foreground rounded-lg text-sm font-medium hover:bg-secondary/80 transition disabled:opacity-50 inline-flex items-center gap-2">
-            {onlineLoading ? <><Loader2 className="h-4 w-4 animate-spin" />Saqlanmoqda…</> : "Saqlash"}
+            {onlineLoading ? <><Loader2 className="h-4 w-4 animate-spin" />Saqlanmoqda</> : "Saqlash"}
           </button>
-          {onlineResult && <div className={cn("mt-4 p-3 rounded-xl text-sm font-medium inline-block ml-3", onlineResult.startsWith("✅") ? "text-emerald-700" : "text-red-600")}>{onlineResult}</div>}
+          {onlineResult && <div className={cn("mt-4 p-3 rounded-xl text-sm font-medium inline-block ml-3", onlineResult.startsWith("Saqlandi") ? "text-emerald-700" : "text-red-600")}>{onlineResult}</div>}
         </div>
       )}
 
@@ -454,20 +473,20 @@ export function Moliya() {
         <div className="bg-card rounded-2xl border border-border p-5 shadow-soft mb-6">
           <h3 className="font-semibold mb-4 flex items-center gap-2"><Plus className="h-4 w-4" />Yangi kirim / chiqim</h3>
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 mb-4">
-            <div><label className="text-xs text-muted-foreground mb-1 block">Sana</label><input type="date" value={formSana} onChange={e => setFormSana(e.target.value)} className="w-full px-3 py-2 rounded-lg border border-border bg-background text-sm" /></div>
-            <div><label className="text-xs text-muted-foreground mb-1 block">Ism Familya</label><input type="text" value={formIsm} onChange={e => setFormIsm(e.target.value)} className="w-full px-3 py-2 rounded-lg border border-border bg-background text-sm" /></div>
-            <div><label className="text-xs text-muted-foreground mb-1 block">Telefon raqami</label><input type="tel" placeholder="+998 90 000 00 00" value={formTelefon} onChange={e => setFormTelefon(e.target.value)} className="w-full px-3 py-2 rounded-lg border border-border bg-background text-sm" /></div>
-            <div><label className="text-xs text-muted-foreground mb-1 block">Summa (so'm)</label><input type="text" value={formSumma} onChange={e => setFormSumma(formatSummaInput(e.target.value))} className="w-full px-3 py-2 rounded-lg border border-border bg-background text-sm" /></div>
+            <div><label className="text-xs text-muted-foreground mb-1 block">Sana</label><input type="date" value={formSana} onChange={function(e) { setFormSana(e.target.value); }} className="w-full px-3 py-2 rounded-lg border border-border bg-background text-sm" /></div>
+            <div><label className="text-xs text-muted-foreground mb-1 block">Ism Familya</label><input type="text" value={formIsm} onChange={function(e) { setFormIsm(e.target.value); }} className="w-full px-3 py-2 rounded-lg border border-border bg-background text-sm" /></div>
+            <div><label className="text-xs text-muted-foreground mb-1 block">Telefon raqami</label><input type="tel" placeholder="+998 90 000 00 00" value={formTelefon} onChange={function(e) { setFormTelefon(e.target.value); }} className="w-full px-3 py-2 rounded-lg border border-border bg-background text-sm" /></div>
+            <div><label className="text-xs text-muted-foreground mb-1 block">Summa (so'm)</label><input type="text" value={formSumma} onChange={function(e) { setFormSumma(formatSummaInput(e.target.value)); }} className="w-full px-3 py-2 rounded-lg border border-border bg-background text-sm" /></div>
             <div><label className="text-xs text-muted-foreground mb-1 block">Filial</label><Toggle left="Novza" right="Yunusobod" value={formFilial} onChange={setFormFilial} /></div>
             <div><label className="text-xs text-muted-foreground mb-1 block">Turi</label><Toggle left="Naqd" right="Karta" value={formTuri} onChange={setFormTuri} /></div>
             <div><label className="text-xs text-muted-foreground mb-1 block">Online / Offline</label><Toggle left="Offline" right="Online" value={formOnline} onChange={setFormOnline} /></div>
             <div><label className="text-xs text-muted-foreground mb-1 block">Kirim / Chiqim</label><Toggle left="Kirim" right="Chiqim" value={formKirim} onChange={setFormKirim} leftColor="bg-emerald-600 text-white" rightColor="bg-red-500 text-white" /></div>
-            <div className="sm:col-span-2"><label className="text-xs text-muted-foreground mb-1 block">Izoh (ixtiyoriy)</label><input type="text" value={formIzoh} onChange={e => setFormIzoh(e.target.value)} className="w-full px-3 py-2 rounded-lg border border-border bg-background text-sm" /></div>
+            <div className="sm:col-span-2"><label className="text-xs text-muted-foreground mb-1 block">Izoh (ixtiyoriy)</label><input type="text" value={formIzoh} onChange={function(e) { setFormIzoh(e.target.value); }} className="w-full px-3 py-2 rounded-lg border border-border bg-background text-sm" /></div>
           </div>
           <button onClick={submitForm} disabled={formLoading} className="px-6 py-2 bg-emerald-600 text-white rounded-lg text-sm font-medium hover:bg-emerald-700 transition disabled:opacity-50 inline-flex items-center gap-2">
-            {formLoading ? <><Loader2 className="h-4 w-4 animate-spin" />Saqlanmoqda…</> : "Saqlash"}
+            {formLoading ? <><Loader2 className="h-4 w-4 animate-spin" />Saqlanmoqda</> : "Saqlash"}
           </button>
-          {formResult && <div className={cn("mt-4 p-3 rounded-xl text-sm font-medium", formResult.startsWith("✅") ? "bg-emerald-50 text-emerald-800 border border-emerald-100" : "bg-red-50 text-red-800 border border-red-100")}>{formResult}</div>}
+          {formResult && <div className={cn("mt-4 p-3 rounded-xl text-sm font-medium", formResult.startsWith("Muvaffaqiyatli") ? "bg-emerald-50 text-emerald-800 border border-emerald-100" : "bg-red-50 text-red-800 border border-red-100")}>{formResult}</div>}
         </div>
       )}
 
@@ -475,15 +494,15 @@ export function Moliya() {
         <div className="bg-card rounded-2xl border border-border p-5 shadow-soft mb-6">
           <h3 className="font-semibold mb-4 flex items-center gap-2"><CalendarClock className="h-4 w-4" />Rejadagi xarajat qo'shish</h3>
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-4">
-            <div><label className="text-xs text-muted-foreground mb-1 block">Xarajat nomi</label><input type="text" placeholder="Ijara, Maosh..." value={rejNomi} onChange={e => setRejNomi(e.target.value)} className="w-full px-3 py-2 rounded-lg border border-border bg-background text-sm" /></div>
-            <div><label className="text-xs text-muted-foreground mb-1 block">Sana / Oy</label><input type="date" value={rejSana} onChange={e => setRejSana(e.target.value)} className="w-full px-3 py-2 rounded-lg border border-border bg-background text-sm" /></div>
-            <div><label className="text-xs text-muted-foreground mb-1 block">Summa (so'm)</label><input type="text" value={rejSumma} onChange={e => setRejSumma(formatSummaInput(e.target.value))} className="w-full px-3 py-2 rounded-lg border border-border bg-background text-sm" /></div>
-            <div><label className="text-xs text-muted-foreground mb-1 block">Izoh</label><input type="text" value={rejIzoh} onChange={e => setRejIzoh(e.target.value)} className="w-full px-3 py-2 rounded-lg border border-border bg-background text-sm" /></div>
+            <div><label className="text-xs text-muted-foreground mb-1 block">Xarajat nomi</label><input type="text" placeholder="Ijara, Maosh..." value={rejNomi} onChange={function(e) { setRejNomi(e.target.value); }} className="w-full px-3 py-2 rounded-lg border border-border bg-background text-sm" /></div>
+            <div><label className="text-xs text-muted-foreground mb-1 block">Sana / Oy</label><input type="date" value={rejSana} onChange={function(e) { setRejSana(e.target.value); }} className="w-full px-3 py-2 rounded-lg border border-border bg-background text-sm" /></div>
+            <div><label className="text-xs text-muted-foreground mb-1 block">Summa (so'm)</label><input type="text" value={rejSumma} onChange={function(e) { setRejSumma(formatSummaInput(e.target.value)); }} className="w-full px-3 py-2 rounded-lg border border-border bg-background text-sm" /></div>
+            <div><label className="text-xs text-muted-foreground mb-1 block">Izoh</label><input type="text" value={rejIzoh} onChange={function(e) { setRejIzoh(e.target.value); }} className="w-full px-3 py-2 rounded-lg border border-border bg-background text-sm" /></div>
           </div>
           <button onClick={submitRejadagi} disabled={rejLoading} className="px-6 py-2 bg-primary text-primary-foreground rounded-lg text-sm font-medium hover:opacity-90 transition disabled:opacity-50 inline-flex items-center gap-2">
-            {rejLoading ? <><Loader2 className="h-4 w-4 animate-spin" />Saqlanmoqda…</> : "Saqlash"}
+            {rejLoading ? <><Loader2 className="h-4 w-4 animate-spin" />Saqlanmoqda</> : "Saqlash"}
           </button>
-          {rejResult && <div className={cn("mt-4 p-3 rounded-xl text-sm font-medium inline-block ml-3", rejResult.startsWith("✅") ? "text-emerald-700" : "text-red-600")}>{rejResult}</div>}
+          {rejResult && <div className={cn("mt-4 p-3 rounded-xl text-sm font-medium inline-block ml-3", rejResult.startsWith("Saqlandi") ? "text-emerald-700" : "text-red-600")}>{rejResult}</div>}
         </div>
       )}
 
@@ -507,30 +526,30 @@ export function Moliya() {
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-6">
         <div className={cn("rounded-2xl p-5 shadow-soft border cursor-pointer transition",
           novzaProfit < 0 ? "border-red-200 bg-gradient-to-br from-red-50 to-white hover:border-red-300" : "border-blue-100 bg-gradient-to-br from-blue-50 to-white hover:border-blue-300")}
-          onClick={() => setModalFilial("Novza")}>
+          onClick={function() { setModalFilial("Novza"); }}>
           <p className={cn("text-sm font-medium mb-2", novzaProfit < 0 ? "text-red-700" : "text-blue-700")}>Novza — Sof foyda</p>
           <p className={cn("text-2xl font-bold num", novzaProfit < 0 ? "text-red-600" : "text-blue-900")}>{novzaProfit < 0 ? "-" : ""}{fmt(novzaProfit)}</p>
-          <p className={cn("text-xs mt-2", novzaProfit < 0 ? "text-red-500" : "text-blue-600")}>Batafsil ko'rish →</p>
+          <p className={cn("text-xs mt-2", novzaProfit < 0 ? "text-red-500" : "text-blue-600")}>Batafsil ko'rish</p>
         </div>
         <div className={cn("rounded-2xl p-5 shadow-soft border cursor-pointer transition",
           yunusobodProfit < 0 ? "border-red-200 bg-gradient-to-br from-red-50 to-white hover:border-red-300" : "border-blue-100 bg-gradient-to-br from-blue-50 to-white hover:border-blue-300")}
-          onClick={() => setModalFilial("Yunusobod")}>
+          onClick={function() { setModalFilial("Yunusobod"); }}>
           <p className={cn("text-sm font-medium mb-2", yunusobodProfit < 0 ? "text-red-700" : "text-blue-700")}>Yunusobod — Sof foyda</p>
           <p className={cn("text-2xl font-bold num", yunusobodProfit < 0 ? "text-red-600" : "text-blue-900")}>{yunusobodProfit < 0 ? "-" : ""}{fmt(yunusobodProfit)}</p>
-          <p className={cn("text-xs mt-2", yunusobodProfit < 0 ? "text-red-500" : "text-blue-600")}>Batafsil ko'rish →</p>
+          <p className={cn("text-xs mt-2", yunusobodProfit < 0 ? "text-red-500" : "text-blue-600")}>Batafsil ko'rish</p>
         </div>
       </div>
 
       <div className="bg-card rounded-2xl border border-border shadow-soft mb-6 overflow-hidden">
         <button
-          onClick={() => setTaqsimOpen(v => !v)}
+          onClick={function() { setTaqsimOpen(function(v) { return !v; }); }}
           className="w-full flex items-center justify-between px-5 py-4 hover:bg-secondary/40 transition"
         >
           <div className="flex items-center gap-3 flex-wrap">
             <div className="flex items-center gap-2">
               <span className="font-semibold text-sm">Pul taqsimoti</span>
               <button
-                onClick={e => { e.stopPropagation(); setTahlilOpen(v => !v); setTaqsimOpen(true); }}
+                onClick={function(e) { e.stopPropagation(); setTahlilOpen(function(v) { return !v; }); setTaqsimOpen(true); }}
                 className="h-5 w-5 rounded-full bg-muted flex items-center justify-center hover:bg-primary hover:text-primary-foreground transition"
               >
                 <Info className="h-3 w-3" />
@@ -553,54 +572,54 @@ export function Moliya() {
 
         {taqsimOpen && tahlilOpen && (
           <div className="mx-5 mb-3 p-4 rounded-xl border border-blue-200 bg-blue-50 text-xs text-blue-900">
-            <p className="font-semibold mb-2">📊 Nima asosida taqsimlanyapti?</p>
+            <p className="font-semibold mb-2">Nima asosida taqsimlanyapti?</p>
             <p className="mb-2">
-              Sistema <strong>{taqsim.tahlilOylar.join(" va ")}</strong> oylaridagi kirimlarni tahlil qildi.
-              O'sha oylar bo'yicha kunlik o'rtacha kirim: <strong>{fmt(taqsim.kunlikKirim)}</strong>.
+              Sistema {taqsim.tahlilOylar.join(" va ")} oylaridagi kirimlarni tahlil qildi.
+              Kunlik ortacha kirim: {fmt(taqsim.kunlikKirim)}.
             </p>
             <p className="mb-2">
-              Kassadagi pul har bir xarajatning summasiga qarab foiz bilan taqsimlanadi — katta summa = katta foiz. Eng yaqin 4 xarajat 2x ustunlikka ega, qolganlar oddiy foiz oladi. Biror xarajat yopilsa, uning foizi qolganlar o'rtasida taqsimlanadi.
+              Kassadagi pul har bir xarajatning summasiga qarab foiz bilan taqsimlanadi.
+              Eng yaqin 4 xarajat 2x ustunlikka ega. Yopilgan xarajatning foizi qolganlar orasida taqsimlanadi.
             </p>
-            <p className="mb-2">
-              <strong>Ustuvorlik:</strong> Eng yaqin 4 xarajat → 2x foiz. Yopilgach keyingi 4 avtomatik ustuvorlikka o'tadi.
-            </p>
-            <p className="text-blue-700">⚠️ Bu prognoz hisobi — kassaga yangi pul tushganda avtomatik yangilanadi.</p>
+            <p className="text-blue-700">Bu prognoz hisobi — kassaga yangi pul tushganda avtomatik yangilanadi.</p>
           </div>
         )}
 
         {taqsimOpen && (
           <div className="px-5 pb-5">
             <div className="space-y-2">
-              {taqsim.items.map(v => (
-                <div key={v.id} className={cn("p-3 rounded-xl border",
-                  v.yetarli ? "border-emerald-200 bg-emerald-50" :
-                  v.kunQoldi <= 3 ? "border-red-200 bg-red-50" :
-                  "border-border bg-background")}>
-                  <div className="flex items-center justify-between mb-1.5">
-                    <div className="flex items-center gap-2 min-w-0">
-                      {v.yetarli
-                        ? <CheckCircle2 className="h-3.5 w-3.5 text-emerald-500 shrink-0" />
-                        : <Clock className={cn("h-3.5 w-3.5 shrink-0", v.kunQoldi <= 3 ? "text-red-500" : "text-muted-foreground")} />}
-                      <span className="font-medium text-sm truncate">{v.nomi}</span>
+              {taqsim.items.map(function(v) {
+                return (
+                  <div key={v.id} className={cn("p-3 rounded-xl border",
+                    v.yetarli ? "border-emerald-200 bg-emerald-50" :
+                    v.kunQoldi <= 3 ? "border-red-200 bg-red-50" :
+                    "border-border bg-background")}>
+                    <div className="flex items-center justify-between mb-1.5">
+                      <div className="flex items-center gap-2 min-w-0">
+                        {v.yetarli
+                          ? <CheckCircle2 className="h-3.5 w-3.5 text-emerald-500 shrink-0" />
+                          : <Clock className={cn("h-3.5 w-3.5 shrink-0", v.kunQoldi <= 3 ? "text-red-500" : "text-muted-foreground")} />}
+                        <span className="font-medium text-sm truncate">{v.nomi}</span>
+                      </div>
+                      <span className="text-xs text-muted-foreground whitespace-nowrap ml-2">
+                        {v.targetKun === 31 ? "Oy oxiri" : v.targetKun + "-kun"} · {v.kunQoldi} kun qoldi
+                      </span>
                     </div>
-                    <span className="text-xs text-muted-foreground whitespace-nowrap ml-2">
-                      {v.targetKun === 31 ? "Oy oxiri" : `${v.targetKun}-kun`} · {v.kunQoldi} kun qoldi
-                    </span>
+                    <div className="h-1.5 rounded-full bg-secondary overflow-hidden mb-1">
+                      <div className={cn("h-full rounded-full transition-all",
+                        v.yetarli ? "bg-emerald-500" : v.kunQoldi <= 3 ? "bg-red-500" : "bg-primary")}
+                        style={{ width: v.foiz + "%" }} />
+                    </div>
+                    <div className="flex items-center justify-between text-xs">
+                      <span className="num text-muted-foreground">{fmtShort(v.toplangan)} / {fmtShort(v.kerak)}</span>
+                      <span className={cn("font-semibold",
+                        v.yetarli ? "text-emerald-600" : v.kunQoldi <= 3 ? "text-red-500" : "text-muted-foreground")}>
+                        {v.foiz}%{!v.yetarli ? " · " + fmtShort(v.kerak - v.toplangan) + " kerak" : " ✓"}
+                      </span>
+                    </div>
                   </div>
-                  <div className="h-1.5 rounded-full bg-secondary overflow-hidden mb-1">
-                    <div className={cn("h-full rounded-full transition-all",
-                      v.yetarli ? "bg-emerald-500" : v.kunQoldi <= 3 ? "bg-red-500" : "bg-primary")}
-                      style={{ width: `${v.foiz}%` }} />
-                  </div>
-                  <div className="flex items-center justify-between text-xs">
-                    <span className="num text-muted-foreground">{fmtShort(v.toplangan)} / {fmtShort(v.kerak)}</span>
-                    <span className={cn("font-semibold",
-                      v.yetarli ? "text-emerald-600" : v.kunQoldi <= 3 ? "text-red-500" : "text-muted-foreground")}>
-                      {v.foiz}%{!v.yetarli ? ` · ${fmtShort(v.kerak - v.toplangan)} kerak` : " ✓"}
-                    </span>
-                  </div>
-                </div>
-              ))}
+                );
+              })}
             </div>
             <div className="flex items-center justify-between pt-3 mt-2 border-t border-border">
               <span className="text-xs text-muted-foreground">Hammasi yopilsa qoladi</span>
@@ -618,12 +637,12 @@ export function Moliya() {
           </div>
         </div>
         {rejadagiLoading ? (
-          <div className="flex items-center gap-2 text-muted-foreground text-sm py-4"><Loader2 className="h-4 w-4 animate-spin" /><span>Yuklanmoqda…</span></div>
+          <div className="flex items-center gap-2 text-muted-foreground text-sm py-4"><Loader2 className="h-4 w-4 animate-spin" /><span>Yuklanmoqda</span></div>
         ) : rejadagi.length === 0 ? (
           <p className="text-sm text-muted-foreground text-center py-6">Rejadagi xarajatlar yo'q</p>
         ) : (
           <div className="space-y-2">
-            {rejadagi.map((item, i) => {
+            {rejadagi.map(function(item, i) {
               const covered = totalProfit >= item.summa;
               return (
                 <div key={i} className={cn("flex items-center justify-between p-4 rounded-xl border transition",
@@ -632,13 +651,13 @@ export function Moliya() {
                     {covered ? <CheckCircle2 className="h-5 w-5 text-emerald-500 shrink-0" /> : <Clock className="h-5 w-5 text-red-400 shrink-0" />}
                     <div>
                       <p className={cn("font-semibold text-sm", covered ? "text-emerald-900" : "text-red-900")}>{item.nomi}</p>
-                      <p className={cn("text-xs mt-0.5", covered ? "text-emerald-600" : "text-red-500")}>{item.sana}{item.izoh ? ` · ${item.izoh}` : ""}</p>
+                      <p className={cn("text-xs mt-0.5", covered ? "text-emerald-600" : "text-red-500")}>{item.sana}{item.izoh ? " · " + item.izoh : ""}</p>
                     </div>
                   </div>
                   <div className="flex items-center gap-3">
                     <p className={cn("num font-bold text-sm", covered ? "text-emerald-700" : "text-red-600")}>{fmt(item.summa)}</p>
                     {covered && (
-                      <button onClick={() => tolovQilindi(item, i)} disabled={tolovLoading === i}
+                      <button onClick={function() { tolovQilindi(item, i); }} disabled={tolovLoading === i}
                         className="px-3 py-1.5 bg-emerald-600 text-white rounded-lg text-xs font-medium hover:bg-emerald-700 transition disabled:opacity-50 inline-flex items-center gap-1.5 whitespace-nowrap">
                         {tolovLoading === i ? <Loader2 className="h-3 w-3 animate-spin" /> : <CheckCircle2 className="h-3 w-3" />}
                         To'landi
@@ -650,13 +669,13 @@ export function Moliya() {
             })}
             <div className="flex items-center justify-between pt-3 border-t border-border mt-2">
               <span className="text-xs font-semibold text-muted-foreground">Jami rejadagi xarajatlar</span>
-              <span className="num font-bold text-sm">{fmt(rejadagi.reduce((s, r) => s + r.summa, 0))}</span>
+              <span className="num font-bold text-sm">{fmt(rejadagi.reduce(function(s, r) { return s + r.summa; }, 0))}</span>
             </div>
             <div className="flex items-center justify-between">
               <span className="text-xs font-semibold text-muted-foreground">Xarajatlardan keyin qoladi</span>
-              <span className={cn("num font-bold text-sm", totalProfit - rejadagi.reduce((s, r) => s + r.summa, 0) >= 0 ? "text-emerald-600" : "text-red-500")}>
-                {totalProfit - rejadagi.reduce((s, r) => s + r.summa, 0) < 0 ? "-" : ""}
-                {fmt(totalProfit - rejadagi.reduce((s, r) => s + r.summa, 0))}
+              <span className={cn("num font-bold text-sm", totalProfit - rejadagi.reduce(function(s, r) { return s + r.summa; }, 0) >= 0 ? "text-emerald-600" : "text-red-500")}>
+                {totalProfit - rejadagi.reduce(function(s, r) { return s + r.summa; }, 0) < 0 ? "-" : ""}
+                {fmt(totalProfit - rejadagi.reduce(function(s, r) { return s + r.summa; }, 0))}
               </span>
             </div>
           </div>
@@ -668,7 +687,7 @@ export function Moliya() {
           <div className="bg-card rounded-2xl border border-border shadow-elevated w-full max-w-md">
             <div className="flex items-center justify-between px-5 py-4 border-b border-border">
               <h3 className="font-semibold text-lg">{modalFilial} — Batafsil</h3>
-              <button onClick={() => setModalFilial(null)} className="h-8 w-8 rounded-lg hover:bg-secondary flex items-center justify-center"><X className="h-4 w-4" /></button>
+              <button onClick={function() { setModalFilial(null); }} className="h-8 w-8 rounded-lg hover:bg-secondary flex items-center justify-center"><X className="h-4 w-4" /></button>
             </div>
             <div className="p-5 space-y-3">
               <div className="rounded-xl p-4 border border-emerald-100 bg-emerald-50">
@@ -713,7 +732,7 @@ export function Moliya() {
               <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" vertical={false} />
               <XAxis dataKey="month" stroke="hsl(var(--muted-foreground))" fontSize={12} tickLine={false} axisLine={false} />
               <YAxis stroke="hsl(var(--muted-foreground))" fontSize={12} tickLine={false} axisLine={false} />
-              <Tooltip contentStyle={{ background: "hsl(var(--card))", border: "1px solid hsl(var(--border))", borderRadius: 12, fontSize: 12 }} formatter={(val) => [`${val} mln`, ""]} />
+              <Tooltip contentStyle={{ background: "hsl(var(--card))", border: "1px solid hsl(var(--border))", borderRadius: 12, fontSize: 12 }} formatter={function(val) { return [val + " mln", ""]; }} />
               <Area type="monotone" dataKey="Daromad" stroke="hsl(var(--primary))" strokeWidth={2.5} fill="url(#rev)" />
               <Area type="monotone" dataKey="Foyda" stroke="hsl(var(--brand))" strokeWidth={2.5} fill="url(#prof)" />
             </AreaChart>
@@ -727,18 +746,20 @@ export function Moliya() {
               <ResponsiveContainer width="100%" height={200}>
                 <PieChart>
                   <Pie data={expenseBreakdown} dataKey="value" innerRadius={55} outerRadius={80} paddingAngle={2}>
-                    {expenseBreakdown.map((e, i) => <Cell key={i} fill={e.color} />)}
+                    {expenseBreakdown.map(function(e, i) { return <Cell key={i} fill={e.color} />; })}
                   </Pie>
-                  <Tooltip contentStyle={{ background: "hsl(var(--card))", border: "1px solid hsl(var(--border))", borderRadius: 12, fontSize: 12 }} formatter={(val) => [`${val}%`, ""]} />
+                  <Tooltip contentStyle={{ background: "hsl(var(--card))", border: "1px solid hsl(var(--border))", borderRadius: 12, fontSize: 12 }} formatter={function(val) { return [val + "%", ""]; }} />
                 </PieChart>
               </ResponsiveContainer>
               <div className="mt-3 space-y-2">
-                {expenseBreakdown.map(e => (
-                  <div key={e.name} className="flex items-center justify-between text-sm">
-                    <span className="inline-flex items-center gap-2"><span className="h-2.5 w-2.5 rounded-sm" style={{ background: e.color }} />{e.name}</span>
-                    <span className="num font-medium">{e.value}%</span>
-                  </div>
-                ))}
+                {expenseBreakdown.map(function(e) {
+                  return (
+                    <div key={e.name} className="flex items-center justify-between text-sm">
+                      <span className="inline-flex items-center gap-2"><span className="h-2.5 w-2.5 rounded-sm" style={{ background: e.color }} />{e.name}</span>
+                      <span className="num font-medium">{e.value}%</span>
+                    </div>
+                  );
+                })}
               </div>
             </>
           )}
@@ -751,29 +772,33 @@ export function Moliya() {
           <div>
             <label className="text-xs text-muted-foreground mb-1 block">Turi</label>
             <div className="flex rounded-lg border border-border overflow-hidden text-sm font-medium">
-              {["Barchasi", "Kirim", "Chiqim"].map(v => (
-                <button key={v} onClick={() => setFilterKirim(v)}
-                  className={cn("flex-1 py-2 px-2 transition border-r border-border last:border-0 text-xs",
-                    filterKirim === v ? (v === "Kirim" ? "bg-emerald-600 text-white" : v === "Chiqim" ? "bg-red-500 text-white" : "bg-primary text-primary-foreground") : "bg-background text-muted-foreground hover:text-foreground")}>
-                  {v}
-                </button>
-              ))}
+              {["Barchasi", "Kirim", "Chiqim"].map(function(v) {
+                return (
+                  <button key={v} onClick={function() { setFilterKirim(v); }}
+                    className={cn("flex-1 py-2 px-2 transition border-r border-border last:border-0 text-xs",
+                      filterKirim === v ? (v === "Kirim" ? "bg-emerald-600 text-white" : v === "Chiqim" ? "bg-red-500 text-white" : "bg-primary text-primary-foreground") : "bg-background text-muted-foreground hover:text-foreground")}>
+                    {v}
+                  </button>
+                );
+              })}
             </div>
           </div>
           <div>
             <label className="text-xs text-muted-foreground mb-1 block">Filial</label>
             <div className="flex rounded-lg border border-border overflow-hidden text-sm font-medium">
-              {["Barchasi", "Novza", "Yunusobod"].map(v => (
-                <button key={v} onClick={() => setFilterFilial(v)}
-                  className={cn("flex-1 py-2 px-2 transition border-r border-border last:border-0 text-xs",
-                    filterFilial === v ? "bg-primary text-primary-foreground" : "bg-background text-muted-foreground hover:text-foreground")}>
-                  {v}
-                </button>
-              ))}
+              {["Barchasi", "Novza", "Yunusobod"].map(function(v) {
+                return (
+                  <button key={v} onClick={function() { setFilterFilial(v); }}
+                    className={cn("flex-1 py-2 px-2 transition border-r border-border last:border-0 text-xs",
+                      filterFilial === v ? "bg-primary text-primary-foreground" : "bg-background text-muted-foreground hover:text-foreground")}>
+                    {v}
+                  </button>
+                );
+              })}
             </div>
           </div>
-          <div><label className="text-xs text-muted-foreground mb-1 block">Dan</label><input type="date" value={filterFrom} onChange={e => setFilterFrom(e.target.value)} className="w-full px-3 py-2 rounded-lg border border-border bg-background text-sm" /></div>
-          <div><label className="text-xs text-muted-foreground mb-1 block">Gacha</label><input type="date" value={filterTo} onChange={e => setFilterTo(e.target.value)} className="w-full px-3 py-2 rounded-lg border border-border bg-background text-sm" /></div>
+          <div><label className="text-xs text-muted-foreground mb-1 block">Dan</label><input type="date" value={filterFrom} onChange={function(e) { setFilterFrom(e.target.value); }} className="w-full px-3 py-2 rounded-lg border border-border bg-background text-sm" /></div>
+          <div><label className="text-xs text-muted-foreground mb-1 block">Gacha</label><input type="date" value={filterTo} onChange={function(e) { setFilterTo(e.target.value); }} className="w-full px-3 py-2 rounded-lg border border-border bg-background text-sm" /></div>
         </div>
       </div>
 
@@ -781,7 +806,7 @@ export function Moliya() {
         <div className="flex items-center justify-between mb-4">
           <h3 className="font-semibold">Tranzaksiyalar ({tableFiltered.length})</h3>
           {(filterKirim !== "Barchasi" || filterFilial !== "Barchasi" || filterFrom || filterTo) && (
-            <button onClick={() => { setFilterKirim("Barchasi"); setFilterFilial("Barchasi"); setFilterFrom(""); setFilterTo(""); }}
+            <button onClick={function() { setFilterKirim("Barchasi"); setFilterFilial("Barchasi"); setFilterFrom(""); setFilterTo(""); }}
               className="text-xs text-muted-foreground hover:text-foreground px-3 py-1.5 rounded-lg bg-secondary">Filterni tozalash</button>
           )}
         </div>
@@ -798,18 +823,20 @@ export function Moliya() {
               </tr>
             </thead>
             <tbody className="divide-y divide-border">
-              {[...tableFiltered].reverse().map((r, i) => (
-                <tr key={i} className="hover:bg-secondary/60 transition">
-                  <td className="py-3 num text-muted-foreground">{r.sana}</td>
-                  <td className="py-3 font-medium">{r.ism}</td>
-                  <td className="py-3 text-muted-foreground">{r.filial}</td>
-                  <td className="py-3 text-muted-foreground">{r.turi}</td>
-                  <td className={`py-3 text-right num font-semibold ${r.summa >= 0 ? "text-emerald-600" : "text-red-500"}`}>
-                    {r.summa >= 0 ? "+" : "-"}{fmt(Math.abs(r.summa))}
-                  </td>
-                  <td className="py-3 text-muted-foreground text-xs max-w-[200px] truncate">{r.izoh || "—"}</td>
-                </tr>
-              ))}
+              {tableFiltered.slice().reverse().map(function(r, i) {
+                return (
+                  <tr key={i} className="hover:bg-secondary/60 transition">
+                    <td className="py-3 num text-muted-foreground">{r.sana}</td>
+                    <td className="py-3 font-medium">{r.ism}</td>
+                    <td className="py-3 text-muted-foreground">{r.filial}</td>
+                    <td className="py-3 text-muted-foreground">{r.turi}</td>
+                    <td className={"py-3 text-right num font-semibold " + (r.summa >= 0 ? "text-emerald-600" : "text-red-500")}>
+                      {r.summa >= 0 ? "+" : "-"}{fmt(Math.abs(r.summa))}
+                    </td>
+                    <td className="py-3 text-muted-foreground text-xs max-w-[200px] truncate">{r.izoh || "—"}</td>
+                  </tr>
+                );
+              })}
             </tbody>
           </table>
         </div>
@@ -817,3 +844,4 @@ export function Moliya() {
     </div>
   );
 }
+
