@@ -35,6 +35,20 @@ const BUCKETS: Bucket[] = [
   { id: "podushka",  nomi: "Moliyaviy yostiq (zaxira)",   summa: 5000000,  kun: 31, chiqimTuri: "",                  hasDate: false },
 ];
 
+// Bir kategoriyada bir nechta bucket bo'lsa, tranzaksiya sanasi bo'yicha eng yaqin bucket'ni topadi
+function findClosestBucket(buckets: Bucket[], txKun: number): Bucket {
+  let closest = buckets[0];
+  let minDiff = Math.abs(txKun - buckets[0].kun);
+  for (let i = 1; i < buckets.length; i++) {
+    const diff = Math.abs(txKun - buckets[i].kun);
+    if (diff < minDiff) {
+      minDiff = diff;
+      closest = buckets[i];
+    }
+  }
+  return closest;
+}
+
 interface TaqsimItem {
   id: string; nomi: string; kerak: number;
   toplangan: number; foiz: number;
@@ -84,10 +98,11 @@ function taqsimla(rows: Row[], bugun: Date): TaqsimResult {
   const kassaChiqim = rows.filter(function(r) { return r.summa < 0; }).reduce(function(s, r) { return s + Math.abs(r.summa); }, 0);
   const kassa = Math.max(0, kassaKirim - kassaChiqim);
 
-  // 3) Joriy oy to'lovlari (chiqimTuri bo'yicha)
+  // 3) Joriy oy to'lovlari — tranzaksiya sanasi bo'yicha eng yaqin bucket'ga to'g'ridan-to'g'ri yozish
   const joriyOy = bugun.getMonth();
   const joriyYil = bugun.getFullYear();
-  const katTolangan: Record<string, number> = {};
+  const bucketTolangan: Record<string, number> = {};
+
   rows.forEach(function(r) {
     const p = r.sana.split(".");
     if (p.length < 3) return;
@@ -95,19 +110,35 @@ function taqsimla(rows: Row[], bugun: Date): TaqsimResult {
     const rYil = parseInt(p[2]);
     if (rOy !== joriyOy || rYil !== joriyYil) return;
     if (r.summa >= 0) return;
-    const t = r.chiqimTuri || "";
-    if (!t) return;
-    katTolangan[t] = (katTolangan[t] || 0) + Math.abs(r.summa);
+    const tur = r.chiqimTuri || "";
+    if (!tur) return;
+
+    const txKun = parseInt(p[0]);
+
+    // Ushbu kategoriyaga tegishli barcha hasDate bucket'lar
+    const matching = BUCKETS.filter(function(b) { return b.chiqimTuri === tur && b.hasDate; });
+
+    if (matching.length === 0) {
+      // Sanasiz bucket — to'g'ridan-to'g'ri kategoriya bo'yicha yig'amiz
+      const bezdateMatch = BUCKETS.find(function(b) { return b.chiqimTuri === tur && !b.hasDate; });
+      if (bezdateMatch) {
+        bucketTolangan[bezdateMatch.id] = (bucketTolangan[bezdateMatch.id] || 0) + Math.abs(r.summa);
+      }
+      return;
+    }
+
+    if (matching.length === 1) {
+      // Bitta bucket — to'g'ridan-to'g'ri
+      bucketTolangan[matching[0].id] = (bucketTolangan[matching[0].id] || 0) + Math.abs(r.summa);
+      return;
+    }
+
+    // Bir nechta bucket — tranzaksiya sanasiga eng yaqin bucket'ga yoz
+    const closest = findClosestBucket(matching, txKun);
+    bucketTolangan[closest.id] = (bucketTolangan[closest.id] || 0) + Math.abs(r.summa);
   });
 
-  // 4) Har bir kategoriyaning umumiy summasi
-  const katJami: Record<string, number> = {};
-  BUCKETS.forEach(function(b) {
-    if (!b.chiqimTuri) return;
-    katJami[b.chiqimTuri] = (katJami[b.chiqimTuri] || 0) + b.summa;
-  });
-
-  // 5) Items
+  // 4) Items
   const items: TaqsimItem[] = BUCKETS.map(function(b) {
     let targetSana: Date;
     if (b.kun === 31) {
@@ -120,12 +151,7 @@ function taqsimla(rows: Row[], bugun: Date): TaqsimResult {
     }
     const kunQoldi = Math.max(1, Math.ceil((targetSana.getTime() - bugun.getTime()) / 86400000));
 
-    let tolanganSumma = 0;
-    if (b.chiqimTuri && katTolangan[b.chiqimTuri]) {
-      const kj = katJami[b.chiqimTuri] || b.summa;
-      const kt = katTolangan[b.chiqimTuri];
-      tolanganSumma = Math.min(b.summa, kt * (b.summa / kj));
-    }
+    const tolanganSumma = Math.min(b.summa, bucketTolangan[b.id] || 0);
     const tolanganReal = tolanganSumma >= b.summa * 0.95;
 
     return {
@@ -138,7 +164,7 @@ function taqsimla(rows: Row[], bugun: Date): TaqsimResult {
     };
   });
 
-  // 6) Taqsimlash: 86% kaskad (sanali), 14% teng (sanasiz)
+  // 5) Taqsimlash: 86% kaskad (sanali), 14% teng (sanasiz)
   const kassaBezdatnyx = kassa * 0.14;
   const kassaDatli = kassa * 0.86;
 
@@ -166,14 +192,14 @@ function taqsimla(rows: Row[], bugun: Date): TaqsimResult {
     qolganBudjet -= ajratildi;
   });
 
-  // 7) Foiz
+  // 6) Foiz
   items.forEach(function(i) {
     const jami = i.tolanganSumma + i.toplangan;
     i.foiz = Math.min(100, Math.round((jami / i.kerak) * 100));
     i.yetarli = i.foiz >= 100;
   });
 
-  // 8) Sort: HAR DOIM kun bo'yicha (targetKun), sanasiz oxirida
+  // 7) Sort: HAR DOIM targetKun bo'yicha, sanasiz oxirida
   items.sort(function(a, b) {
     if (a.hasDate && !b.hasDate) return -1;
     if (!a.hasDate && b.hasDate) return 1;
@@ -190,12 +216,7 @@ function taqsimla(rows: Row[], bugun: Date): TaqsimResult {
 }
 
 const fmt = (n: number) => Math.round(Math.abs(n)).toLocaleString("ru-RU") + " so'm";
-const fmtShort = (n: number) => {
-  const abs = Math.abs(n);
-  if (abs >= 1000000) return (n / 1000000).toFixed(1) + " mln";
-  if (abs >= 1000) return Math.round(n / 1000) + " ming";
-  return Math.round(n) + "";
-};
+const fmtFull = (n: number) => Math.round(Math.abs(n)).toLocaleString("ru-RU");
 
 function parseSumma(raw: string): number {
   const str = raw.trim();
@@ -591,7 +612,7 @@ export function Moliya() {
               <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-700 text-xs font-medium">
                 <CheckCircle2 className="h-3 w-3" />{yetarliSon}/{taqsim.items.length} yopildi
               </span>
-              <span className="text-xs text-muted-foreground">· ~{fmtShort(taqsim.kunlikKirim)}/kun</span>
+              <span className="text-xs text-muted-foreground">· ~{fmt(taqsim.kunlikKirim)}/kun</span>
             </div>
           </div>
           {taqsimOpen ? <ChevronUp className="h-4 w-4 text-muted-foreground shrink-0" /> : <ChevronDown className="h-4 w-4 text-muted-foreground shrink-0" />}
@@ -601,8 +622,8 @@ export function Moliya() {
           <div className="mx-5 mb-3 p-4 rounded-xl border border-blue-200 bg-blue-50 text-xs text-blue-900">
             <p className="font-semibold mb-2">Nima asosida taqsimlanyapti?</p>
             <p className="mb-2">Kassaning 14% sanasiz xarajatlarga (Soliq, Marketing, Ofis, AI, Ehson, Zaxira) teng taqsimlanadi. Qolgan 86% sanali xarajatlarga kaskad usulida: eng yaqin xarajat to'liq yopiladi, ortiqcha pul keyingisiga o'tadi.</p>
-            <p className="mb-1">🟢 Yashil + zichriv = haqiqatda to'langan (Google Sheets dan).</p>
-            <p className="mb-1">🟢 Yashil (zichrvsiz) = kassada yetarli pul bor (100%).</p>
+            <p className="mb-1">🟢 Yashil + chiziqli = haqiqatda to'langan (Google Sheets dan).</p>
+            <p className="mb-1">🟢 Yashil (chiziqsiz) = kassada yetarli pul bor (100%).</p>
             <p className="text-blue-700">🔴 Qizil = 3 kun yoki kamroq qoldi, hali to'lanmagan.</p>
           </div>
         )}
@@ -651,13 +672,13 @@ export function Moliya() {
                     </div>
                     <div className="flex items-center justify-between text-xs">
                       <span className="num text-muted-foreground">
-                        {fmtShort(v.tolanganSumma + v.toplangan)} / {fmtShort(v.kerak)}
+                        {fmtFull(v.tolanganSumma + v.toplangan)} / {fmtFull(v.kerak)} so'm
                       </span>
                       <span className={cn("font-semibold",
                         isGreen ? "text-emerald-600" :
                         isXatar ? "text-red-500" :
                         "text-muted-foreground")}>
-                        {v.foiz}%{!isGreen ? " · " + fmtShort(v.kerak - v.tolanganSumma - v.toplangan) + " kerak" : " ✓"}
+                        {v.foiz}%{!isGreen ? " · " + fmtFull(v.kerak - v.tolanganSumma - v.toplangan) + " kerak" : " ✓"}
                       </span>
                     </div>
                   </div>
