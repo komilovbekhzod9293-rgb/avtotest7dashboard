@@ -47,7 +47,7 @@ interface TaqsimResult {
 }
 
 function taqsimla(rows: Row[], bugun: Date): TaqsimResult {
-  // 1) Tahlil
+  // 1) Kunlik kirim (oxirgi 2 to'liq oy)
   const oylar: { oy: number; yil: number }[] = [];
   for (let i = 1; i <= 2; i++) {
     const d = new Date(bugun.getFullYear(), bugun.getMonth() - i, 1);
@@ -120,12 +120,10 @@ function taqsimla(rows: Row[], bugun: Date): TaqsimResult {
     }
     const kunQoldi = Math.max(1, Math.ceil((targetSana.getTime() - bugun.getTime()) / 86400000));
 
-    // Bu bucket uchun haqiqatda to'langan summa (joriy oy)
     let tolanganSumma = 0;
     if (b.chiqimTuri && katTolangan[b.chiqimTuri]) {
       const kj = katJami[b.chiqimTuri] || b.summa;
       const kt = katTolangan[b.chiqimTuri];
-      // Bu bucket ning ulushi proportional
       tolanganSumma = Math.min(b.summa, kt * (b.summa / kj));
     }
     const tolanganReal = tolanganSumma >= b.summa * 0.95;
@@ -140,75 +138,54 @@ function taqsimla(rows: Row[], bugun: Date): TaqsimResult {
     };
   });
 
-  // 6) Taqsimlash
-  // 12% -> sanasiz (hasDate=false), qoldi > 0
-  // 88% -> sanali (hasDate=true), qoldi > 0:
-  //   85% eng yaqin bitta xarajatga
-  //   15% qolganlariga proportional
+  // 6) Taqsimlash: 86% kaskad (sanali), 14% teng (sanasiz)
+  const kassaBezdatnyx = kassa * 0.14;
+  const kassaDatli = kassa * 0.86;
 
-  const kassa12 = kassa * 0.12;
-  const kassa88 = kassa * 0.88;
-
-  // Sanasiz - hali to'lanmagan va qoldi bor
-  const bezDate = items.filter(function(i) {
-    return !i.hasDate && i.tolanganSumma < i.kerak;
-  });
-  const bezDateSum = bezDate.reduce(function(s, i) { return s + (i.kerak - i.tolanganSumma); }, 0);
-  if (bezDateSum > 0) {
+  // Sanasiz — hali to'lanmaganlar, teng taqsimlash
+  const bezDate = items.filter(function(i) { return !i.hasDate && !i.tolanganReal; });
+  if (bezDate.length > 0) {
+    const ulush = kassaBezdatnyx / bezDate.length;
     bezDate.forEach(function(item) {
       const qoldi = item.kerak - item.tolanganSumma;
-      item.toplangan = Math.min(kassa12 * (qoldi / bezDateSum), qoldi);
+      item.toplangan = Math.min(ulush, qoldi);
     });
   }
 
-  // Sanali - sana bo'yicha sort, hali to'lanmagan
+  // Sanali — kaskad: eng yaqindan boshlab to'liq yopib ketadi
   const withDate = items
-    .filter(function(i) { return i.hasDate && i.tolanganSumma < i.kerak; })
+    .filter(function(i) { return i.hasDate && !i.tolanganReal; })
     .sort(function(a, b) { return a.kunQoldi - b.kunQoldi; });
 
-  if (withDate.length > 0) {
-    const birinchi = withDate[0];
-    const birinchiQoldi = birinchi.kerak - birinchi.tolanganSumma;
-    birinchi.toplangan = Math.min(kassa88 * 0.85, birinchiQoldi);
+  let qolganBudjet = kassaDatli;
+  withDate.forEach(function(item) {
+    if (qolganBudjet <= 0) return;
+    const qoldi = item.kerak - item.tolanganSumma;
+    const ajratildi = Math.min(qolganBudjet, qoldi);
+    item.toplangan = ajratildi;
+    qolganBudjet -= ajratildi;
+  });
 
-    const qolganlar = withDate.slice(1);
-    if (qolganlar.length > 0) {
-      const qolganSum = qolganlar.reduce(function(s, i) { return s + (i.kerak - i.tolanganSumma); }, 0);
-      const qolganBudjet = kassa88 * 0.15;
-      if (qolganSum > 0) {
-        qolganlar.forEach(function(item) {
-          const qoldi = item.kerak - item.tolanganSumma;
-          item.toplangan = Math.min(qolganBudjet * (qoldi / qolganSum), qoldi);
-        });
-      }
-    }
-  }
-
-  // 7) Foiz hisoblash
-  // tolanganSumma = haqiqiy to'langan (tabledan)
-  // toplangan = kassa zaxira
-  // foiz = (tolanganSumma + toplangan) / kerak * 100
+  // 7) Foiz
   items.forEach(function(i) {
     const jami = i.tolanganSumma + i.toplangan;
     i.foiz = Math.min(100, Math.round((jami / i.kerak) * 100));
     i.yetarli = i.foiz >= 100;
   });
 
-  // 8) Sort: sanali (kunQoldi bo'yicha), keyin sanasiz
+  // 8) Sort: HAR DOIM kun bo'yicha (targetKun), sanasiz oxirida
   items.sort(function(a, b) {
     if (a.hasDate && !b.hasDate) return -1;
     if (!a.hasDate && b.hasDate) return 1;
-    if (a.hasDate && b.hasDate) return a.kunQoldi - b.kunQoldi;
+    if (a.hasDate && b.hasDate) return a.targetKun - b.targetKun;
     return 0;
   });
-
-  const jamiToplangan = items.reduce(function(s, i) { return s + i.toplangan; }, 0);
 
   return {
     items: items,
     kunlikKirim: kunlikKirim,
     tahlilOylar: tahlilOylar,
-    qolgan: Math.max(0, kassa - jamiToplangan),
+    qolgan: kassa,
   };
 }
 
@@ -436,8 +413,8 @@ export function Moliya() {
   const yunusobodProfit   = yunusobodRevenue - yunusobodExpenses;
 
   const taqsim = taqsimla(rows, now);
-  const yetarliSon = taqsim.items.filter(function(i) { return i.tolanganReal; }).length;
-  const xatarliSon = taqsim.items.filter(function(i) { return !i.tolanganReal && i.hasDate && i.kunQoldi <= 3 && i.foiz < 100; }).length;
+  const yetarliSon = taqsim.items.filter(function(i) { return i.tolanganReal || i.foiz >= 100; }).length;
+  const xatarliSon = taqsim.items.filter(function(i) { return !i.tolanganReal && i.foiz < 100 && i.hasDate && i.kunQoldi <= 3; }).length;
 
   const tableFiltered = periodFiltered.filter(function(r) {
     if (filterKirim === "Kirim" && r.summa < 0) return false;
@@ -612,7 +589,7 @@ export function Moliya() {
                 </span>
               )}
               <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-700 text-xs font-medium">
-                <CheckCircle2 className="h-3 w-3" />{yetarliSon}/{taqsim.items.length} to'landi
+                <CheckCircle2 className="h-3 w-3" />{yetarliSon}/{taqsim.items.length} yopildi
               </span>
               <span className="text-xs text-muted-foreground">· ~{fmtShort(taqsim.kunlikKirim)}/kun</span>
             </div>
@@ -623,10 +600,10 @@ export function Moliya() {
         {taqsimOpen && tahlilOpen && (
           <div className="mx-5 mb-3 p-4 rounded-xl border border-blue-200 bg-blue-50 text-xs text-blue-900">
             <p className="font-semibold mb-2">Nima asosida taqsimlanyapti?</p>
-            <p className="mb-2">Sistema {taqsim.tahlilOylar.join(" va ")} oylaridagi kirimlarni tahlil qildi. Kunlik ortacha kirim: {fmt(taqsim.kunlikKirim)}.</p>
-            <p className="mb-2">Kassaning 12% aniq sanasi yo'q xarajatlarga (Soliq, Marketing, Ofis, AI, Ehson, Zaxira) teng taqsimlanadi. Qolgan 88% dan: 85% eng yaqin xarajatga, 15% qolgan sanali xarajatlarga.</p>
-            <p className="mb-1">Yashil galochka = bu oy haqiqatda to'langan (Google Sheets dan).</p>
-            <p className="text-blue-700">Yashil progress = kassada yetarli pul bor.</p>
+            <p className="mb-2">Kassaning 14% sanasiz xarajatlarga (Soliq, Marketing, Ofis, AI, Ehson, Zaxira) teng taqsimlanadi. Qolgan 86% sanali xarajatlarga kaskad usulida: eng yaqin xarajat to'liq yopiladi, ortiqcha pul keyingisiga o'tadi.</p>
+            <p className="mb-1">🟢 Yashil + zichriv = haqiqatda to'langan (Google Sheets dan).</p>
+            <p className="mb-1">🟢 Yashil (zichrvsiz) = kassada yetarli pul bor (100%).</p>
+            <p className="text-blue-700">🔴 Qizil = 3 kun yoki kamroq qoldi, hali to'lanmagan.</p>
           </div>
         )}
 
@@ -634,24 +611,32 @@ export function Moliya() {
           <div className="px-5 pb-5">
             <div className="space-y-2">
               {taqsim.items.map(function(v) {
-                const isFullyFunded = v.foiz >= 100;
-                const bgClass = v.tolanganReal
+                const isGreen = v.tolanganReal || v.foiz >= 100;
+                const isXatar = !v.tolanganReal && v.foiz < 100 && v.hasDate && v.kunQoldi <= 3;
+                const bgClass = isGreen
                   ? "border-emerald-200 bg-emerald-50"
-                  : isFullyFunded
-                    ? "border-emerald-200 bg-emerald-50"
-                    : v.hasDate && v.kunQoldi <= 3
-                      ? "border-red-200 bg-red-50"
-                      : "border-border bg-background";
+                  : isXatar
+                    ? "border-red-200 bg-red-50"
+                    : "border-border bg-background";
 
                 return (
                   <div key={v.id} className={cn("p-3 rounded-xl border", bgClass)}>
                     <div className="flex items-center justify-between mb-1.5">
                       <div className="flex items-center gap-2 min-w-0">
-                        {v.tolanganReal
+                        {isGreen
                           ? <CheckCircle2 className="h-3.5 w-3.5 text-emerald-500 shrink-0" />
-                          : <Clock className={cn("h-3.5 w-3.5 shrink-0", v.hasDate && v.kunQoldi <= 3 && !isFullyFunded ? "text-red-500" : "text-muted-foreground")} />}
-                        <span className={cn("font-medium text-sm truncate", v.tolanganReal ? "line-through text-emerald-600" : "")}>{v.nomi}</span>
-                        {v.tolanganReal && <span className="text-xs text-emerald-600 font-semibold shrink-0 ml-1">To'landi</span>}
+                          : <Clock className={cn("h-3.5 w-3.5 shrink-0", isXatar ? "text-red-500" : "text-muted-foreground")} />}
+                        <span className={cn(
+                          "font-medium text-sm truncate",
+                          v.tolanganReal ? "line-through text-emerald-600" :
+                          isGreen ? "text-emerald-700" : ""
+                        )}>{v.nomi}</span>
+                        {v.tolanganReal && (
+                          <span className="text-xs text-emerald-600 font-semibold shrink-0 ml-1">To'landi</span>
+                        )}
+                        {!v.tolanganReal && isGreen && (
+                          <span className="text-xs text-emerald-600 font-semibold shrink-0 ml-1">Kassada bor</span>
+                        )}
                       </div>
                       <span className="text-xs text-muted-foreground whitespace-nowrap ml-2">
                         {v.hasDate ? (v.targetKun === 31 ? "Oy oxiri" : v.targetKun + "-kun") : "Oy davomida"}
@@ -660,8 +645,8 @@ export function Moliya() {
                     </div>
                     <div className="h-1.5 rounded-full bg-secondary overflow-hidden mb-1">
                       <div className={cn("h-full rounded-full transition-all",
-                        v.tolanganReal || isFullyFunded ? "bg-emerald-500" :
-                        v.hasDate && v.kunQoldi <= 3 ? "bg-red-500" : "bg-primary")}
+                        isGreen ? "bg-emerald-500" :
+                        isXatar ? "bg-red-500" : "bg-primary")}
                         style={{ width: v.foiz + "%" }} />
                     </div>
                     <div className="flex items-center justify-between text-xs">
@@ -669,10 +654,10 @@ export function Moliya() {
                         {fmtShort(v.tolanganSumma + v.toplangan)} / {fmtShort(v.kerak)}
                       </span>
                       <span className={cn("font-semibold",
-                        v.tolanganReal || isFullyFunded ? "text-emerald-600" :
-                        v.hasDate && v.kunQoldi <= 3 ? "text-red-500" :
+                        isGreen ? "text-emerald-600" :
+                        isXatar ? "text-red-500" :
                         "text-muted-foreground")}>
-                        {v.foiz}%{!v.tolanganReal && !isFullyFunded ? " · " + fmtShort(v.kerak - v.tolanganSumma - v.toplangan) + " kerak" : " ✓"}
+                        {v.foiz}%{!isGreen ? " · " + fmtShort(v.kerak - v.tolanganSumma - v.toplangan) + " kerak" : " ✓"}
                       </span>
                     </div>
                   </div>
@@ -680,7 +665,7 @@ export function Moliya() {
               })}
             </div>
             <div className="flex items-center justify-between pt-3 mt-2 border-t border-border">
-              <span className="text-xs text-muted-foreground">Kassada qolgan bo'sh pul</span>
+              <span className="text-xs text-muted-foreground">Kassada qolgan pul (sof foyda)</span>
               <span className={cn("num font-bold text-sm", taqsim.qolgan > 0 ? "text-emerald-600" : "text-muted-foreground")}>{fmt(taqsim.qolgan)}</span>
             </div>
           </div>
