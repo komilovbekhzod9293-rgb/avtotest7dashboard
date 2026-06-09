@@ -51,6 +51,7 @@ interface TaqsimItem {
   toplangan: number; foiz: number;
   foizReal: number; foizKassa: number;
   targetKun: number; kunQoldi: number;
+  kechikkan: boolean;
   yetarli: boolean; tolanganReal: boolean;
   tolanganSumma: number; hasDate: boolean;
   isPriority: boolean;
@@ -60,7 +61,7 @@ interface TaqsimResult {
 }
 
 function taqsimla(rows: Row[], bugun: Date, priorityId: string | null): TaqsimResult {
-  // 1) Kunlik kirim (oxirgi 2 to'liq oy)
+  // 1) Kunlik kirim
   const oylar: { oy: number; yil: number }[] = [];
   for (let i = 1; i <= 2; i++) {
     const d = new Date(bugun.getFullYear(), bugun.getMonth() - i, 1);
@@ -97,7 +98,7 @@ function taqsimla(rows: Row[], bugun: Date, priorityId: string | null): TaqsimRe
   const kassaChiqim = rows.filter(function(r) { return r.summa < 0; }).reduce(function(s, r) { return s + Math.abs(r.summa); }, 0);
   const kassa = Math.max(0, kassaKirim - kassaChiqim);
 
-  // 3) Joriy oy to'lovlari — tranzaksiya sanasi bo'yicha eng yaqin bucket'ga
+  // 3) Joriy oy to'lovlari
   const joriyOy = bugun.getMonth();
   const joriyYil = bugun.getFullYear();
   const bucketTolangan: Record<string, number> = {};
@@ -128,21 +129,39 @@ function taqsimla(rows: Row[], bugun: Date, priorityId: string | null): TaqsimRe
   // 4) Items
   const items: TaqsimItem[] = BUCKETS.map(function(b) {
     let targetSana: Date;
+    let kechikkan = false;
+
     if (b.kun === 31) {
+      // Sanasiz yoki oy oxiri — har doim joriy oy oxiri
       targetSana = new Date(bugun.getFullYear(), bugun.getMonth() + 1, 0);
     } else {
       const buOyda = new Date(bugun.getFullYear(), bugun.getMonth(), b.kun);
-      targetSana = buOyda > bugun
-        ? buOyda
-        : new Date(bugun.getFullYear(), bugun.getMonth() + 1, b.kun);
+      // Bugun o'tib ketganmi?
+      if (buOyda <= bugun) {
+        // Joriy oyda sana o'tgan — kechikkan yoki to'langan
+        targetSana = buOyda;
+        kechikkan = true; // to'lanmagan bo'lsa kechikkan
+      } else {
+        targetSana = buOyda;
+        kechikkan = false;
+      }
     }
-    const kunQoldi = Math.max(1, Math.ceil((targetSana.getTime() - bugun.getTime()) / 86400000));
+
+    const kunQoldi = kechikkan
+      ? 0
+      : Math.max(1, Math.ceil((targetSana.getTime() - bugun.getTime()) / 86400000));
+
     const tolanganSumma = Math.min(b.summa, bucketTolangan[b.id] || 0);
     const tolanganReal = tolanganSumma >= b.summa * 0.95;
+
+    // Agar to'langan bo'lsa — kechikkan emas
+    if (tolanganReal) kechikkan = false;
+
     return {
       id: b.id, nomi: b.nomi, kerak: b.summa,
       toplangan: 0, foiz: 0, foizReal: 0, foizKassa: 0,
       targetKun: b.kun, kunQoldi: kunQoldi,
+      kechikkan: kechikkan,
       yetarli: false, tolanganReal: tolanganReal,
       tolanganSumma: tolanganSumma,
       hasDate: b.hasDate,
@@ -164,18 +183,24 @@ function taqsimla(rows: Row[], bugun: Date, priorityId: string | null): TaqsimRe
     });
   }
 
-  // Sanali — agar priorityId bo'lsa, birinchi o'sha oladi
+  // Sanali — prioritet yoki kunQoldi bo'yicha kaskad
   const withDate = items.filter(function(i) { return i.hasDate && !i.tolanganReal; });
 
   if (priorityId) {
-    // Prioritetli bucket birinchi
     withDate.sort(function(a, b) {
       if (a.id === priorityId) return -1;
       if (b.id === priorityId) return 1;
+      if (a.kechikkan && !b.kechikkan) return -1;
+      if (!a.kechikkan && b.kechikkan) return 1;
       return a.kunQoldi - b.kunQoldi;
     });
   } else {
-    withDate.sort(function(a, b) { return a.kunQoldi - b.kunQoldi; });
+    // Kechikkanlar birinchi, keyin kunQoldi bo'yicha
+    withDate.sort(function(a, b) {
+      if (a.kechikkan && !b.kechikkan) return -1;
+      if (!a.kechikkan && b.kechikkan) return 1;
+      return a.kunQoldi - b.kunQoldi;
+    });
   }
 
   let qolganBudjet = kassaDatli;
@@ -187,7 +212,7 @@ function taqsimla(rows: Row[], bugun: Date, priorityId: string | null): TaqsimRe
     qolganBudjet -= ajratildi;
   });
 
-  // 6) Foiz — real va kassa alohida
+  // 6) Foiz
   items.forEach(function(i) {
     i.foizReal = Math.min(100, Math.round((i.tolanganSumma / i.kerak) * 100));
     i.foizKassa = Math.min(100 - i.foizReal, Math.round((i.toplangan / i.kerak) * 100));
@@ -437,7 +462,7 @@ export function Moliya() {
 
   const taqsim = taqsimla(rows, now, priorityId);
   const yetarliSon = taqsim.items.filter(function(i) { return i.tolanganReal || i.foiz >= 100; }).length;
-  const xatarliSon = taqsim.items.filter(function(i) { return !i.tolanganReal && i.foiz < 100 && i.hasDate && i.kunQoldi <= 3; }).length;
+  const xatarliSon = taqsim.items.filter(function(i) { return !i.tolanganReal && i.foiz < 100 && i.hasDate && (i.kunQoldi <= 3 || i.kechikkan); }).length;
 
   const tableFiltered = periodFiltered.filter(function(r) {
     if (filterKirim === "Kirim" && r.summa < 0) return false;
@@ -631,7 +656,7 @@ export function Moliya() {
             <p className="mb-2">Kassaning 14% sanasiz xarajatlarga teng taqsimlanadi. 86% sanali xarajatlarga kaskad usulida.</p>
             <p className="mb-1">🟢 To'q yashil = haqiqatda to'langan · 🟩 Och yashil = kassadan zaxiralangan</p>
             <p className="mb-1">🎯 Qo'lda prioritet = barcha 86% o'sha xarajatga boradi</p>
-            <p className="text-blue-700">🔴 Qizil = 3 kun yoki kamroq qoldi</p>
+            <p className="text-blue-700">🔴 Kechikmoqda = sana o'tib ketgan, hali to'lanmagan</p>
           </div>
         )}
 
@@ -651,8 +676,8 @@ export function Moliya() {
             <div className="space-y-2">
               {taqsim.items.map(function(v) {
                 const isGreen = v.tolanganReal || v.foiz >= 100;
-                const isXatar = !v.tolanganReal && v.foiz < 100 && v.hasDate && v.kunQoldi <= 3;
-                const bgClass = v.isPriority
+                const isXatar = !v.tolanganReal && v.foiz < 100 && v.hasDate && (v.kunQoldi <= 3 || v.kechikkan);
+                const bgClass = v.isPriority && !v.tolanganReal
                   ? "border-orange-300 bg-orange-50"
                   : isGreen
                     ? "border-emerald-200 bg-emerald-50"
@@ -664,7 +689,7 @@ export function Moliya() {
                   <div key={v.id} className={cn("p-3 rounded-xl border", bgClass)}>
                     <div className="flex items-center justify-between mb-1.5">
                       <div className="flex items-center gap-2 min-w-0">
-                        {v.isPriority
+                        {v.isPriority && !v.tolanganReal
                           ? <Target className="h-3.5 w-3.5 text-orange-500 shrink-0" />
                           : isGreen
                             ? <CheckCircle2 className="h-3.5 w-3.5 text-emerald-500 shrink-0" />
@@ -678,11 +703,19 @@ export function Moliya() {
                         {v.tolanganReal && <span className="text-xs text-emerald-600 font-semibold shrink-0 ml-1">To'landi</span>}
                         {!v.tolanganReal && isGreen && <span className="text-xs text-emerald-600 font-semibold shrink-0 ml-1">Kassada bor</span>}
                         {v.isPriority && !v.tolanganReal && <span className="text-xs text-orange-600 font-semibold shrink-0 ml-1">Prioritet</span>}
+                        {v.kechikkan && !v.tolanganReal && (
+                          <span className="text-xs text-red-600 font-semibold shrink-0 ml-1 inline-flex items-center gap-0.5">
+                            <AlertTriangle className="h-3 w-3" />Kechikmoqda
+                          </span>
+                        )}
                       </div>
                       <div className="flex items-center gap-2 shrink-0 ml-2">
                         <span className="text-xs text-muted-foreground whitespace-nowrap">
-                          {v.hasDate ? (v.targetKun === 31 ? "Oy oxiri" : v.targetKun + "-kun") : "Oy davomida"}
-                          {v.hasDate ? " · " + v.kunQoldi + " kun qoldi" : ""}
+                          {v.hasDate
+                            ? (v.targetKun === 31 ? "Oy oxiri" : v.targetKun + "-kun")
+                            : "Oy davomida"}
+                          {v.hasDate && !v.kechikkan && " · " + v.kunQoldi + " kun qoldi"}
+                          {v.hasDate && v.kechikkan && !v.tolanganReal && " · to'lanmagan"}
                         </span>
                         {!v.tolanganReal && (
                           <button
@@ -701,22 +734,13 @@ export function Moliya() {
                       </div>
                     </div>
 
-                    {/* Ikki rangli progress bar */}
                     <div className="h-2 rounded-full bg-secondary overflow-hidden mb-1">
                       <div className="h-full flex">
-                        {/* To'q yashil: haqiqiy to'langan */}
                         {v.foizReal > 0 && (
-                          <div
-                            className="h-full bg-emerald-600 transition-all"
-                            style={{ width: v.foizReal + "%" }}
-                          />
+                          <div className="h-full bg-emerald-600 transition-all" style={{ width: v.foizReal + "%" }} />
                         )}
-                        {/* Och yashil: kassadan zaxiralangan */}
                         {v.foizKassa > 0 && (
-                          <div
-                            className="h-full bg-emerald-300 transition-all"
-                            style={{ width: v.foizKassa + "%" }}
-                          />
+                          <div className="h-full bg-emerald-300 transition-all" style={{ width: v.foizKassa + "%" }} />
                         )}
                       </div>
                     </div>
