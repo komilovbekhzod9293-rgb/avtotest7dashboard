@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { Header } from "@/components/dashboard/Header";
-import { TrendingUp, Loader2, AlertCircle, Plus, X, CheckCircle2, Clock, CalendarClock, Globe, ChevronDown, ChevronUp, AlertTriangle, Info } from "lucide-react";
+import { TrendingUp, Loader2, AlertCircle, Plus, X, CheckCircle2, Clock, CalendarClock, Globe, ChevronDown, ChevronUp, AlertTriangle, Info, Target } from "lucide-react";
 import { Area, AreaChart, CartesianGrid, Cell, Pie, PieChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
 import { cn } from "@/lib/utils";
 
@@ -13,6 +13,7 @@ const REJADAGI_WEBHOOK = "https://n8n.srv1215497.hstgr.cloud/webhook/rasxodqoshi
 const ONLINE_WEBHOOK = "https://n8n.srv1215497.hstgr.cloud/webhook/add";
 const UZ_MONTHS = ["Yan","Fev","Mar","Apr","May","Iyn","Iyl","Avg","Sen","Okt","Noy","Dek"];
 const EXPENSE_COLORS = ["hsl(222 47% 11%)","hsl(220 9% 46%)","hsl(230 70% 55%)","hsl(38 92% 50%)","hsl(220 13% 78%)"];
+const PRIORITY_KEY = "moliya_priority_id";
 
 interface Bucket { id: string; nomi: string; summa: number; kun: number; chiqimTuri: string; hasDate: boolean; }
 const BUCKETS: Bucket[] = [
@@ -35,16 +36,12 @@ const BUCKETS: Bucket[] = [
   { id: "podushka",  nomi: "Moliyaviy yostiq (zaxira)",   summa: 5000000,  kun: 31, chiqimTuri: "",                  hasDate: false },
 ];
 
-// Bir kategoriyada bir nechta bucket bo'lsa, tranzaksiya sanasi bo'yicha eng yaqin bucket'ni topadi
 function findClosestBucket(buckets: Bucket[], txKun: number): Bucket {
   let closest = buckets[0];
   let minDiff = Math.abs(txKun - buckets[0].kun);
   for (let i = 1; i < buckets.length; i++) {
     const diff = Math.abs(txKun - buckets[i].kun);
-    if (diff < minDiff) {
-      minDiff = diff;
-      closest = buckets[i];
-    }
+    if (diff < minDiff) { minDiff = diff; closest = buckets[i]; }
   }
   return closest;
 }
@@ -52,15 +49,17 @@ function findClosestBucket(buckets: Bucket[], txKun: number): Bucket {
 interface TaqsimItem {
   id: string; nomi: string; kerak: number;
   toplangan: number; foiz: number;
+  foizReal: number; foizKassa: number;
   targetKun: number; kunQoldi: number;
   yetarli: boolean; tolanganReal: boolean;
   tolanganSumma: number; hasDate: boolean;
+  isPriority: boolean;
 }
 interface TaqsimResult {
   items: TaqsimItem[]; kunlikKirim: number; tahlilOylar: string[]; qolgan: number;
 }
 
-function taqsimla(rows: Row[], bugun: Date): TaqsimResult {
+function taqsimla(rows: Row[], bugun: Date, priorityId: string | null): TaqsimResult {
   // 1) Kunlik kirim (oxirgi 2 to'liq oy)
   const oylar: { oy: number; yil: number }[] = [];
   for (let i = 1; i <= 2; i++) {
@@ -98,11 +97,10 @@ function taqsimla(rows: Row[], bugun: Date): TaqsimResult {
   const kassaChiqim = rows.filter(function(r) { return r.summa < 0; }).reduce(function(s, r) { return s + Math.abs(r.summa); }, 0);
   const kassa = Math.max(0, kassaKirim - kassaChiqim);
 
-  // 3) Joriy oy to'lovlari — tranzaksiya sanasi bo'yicha eng yaqin bucket'ga to'g'ridan-to'g'ri yozish
+  // 3) Joriy oy to'lovlari — tranzaksiya sanasi bo'yicha eng yaqin bucket'ga
   const joriyOy = bugun.getMonth();
   const joriyYil = bugun.getFullYear();
   const bucketTolangan: Record<string, number> = {};
-
   rows.forEach(function(r) {
     const p = r.sana.split(".");
     if (p.length < 3) return;
@@ -112,28 +110,17 @@ function taqsimla(rows: Row[], bugun: Date): TaqsimResult {
     if (r.summa >= 0) return;
     const tur = r.chiqimTuri || "";
     if (!tur) return;
-
     const txKun = parseInt(p[0]);
-
-    // Ushbu kategoriyaga tegishli barcha hasDate bucket'lar
     const matching = BUCKETS.filter(function(b) { return b.chiqimTuri === tur && b.hasDate; });
-
     if (matching.length === 0) {
-      // Sanasiz bucket — to'g'ridan-to'g'ri kategoriya bo'yicha yig'amiz
       const bezdateMatch = BUCKETS.find(function(b) { return b.chiqimTuri === tur && !b.hasDate; });
-      if (bezdateMatch) {
-        bucketTolangan[bezdateMatch.id] = (bucketTolangan[bezdateMatch.id] || 0) + Math.abs(r.summa);
-      }
+      if (bezdateMatch) bucketTolangan[bezdateMatch.id] = (bucketTolangan[bezdateMatch.id] || 0) + Math.abs(r.summa);
       return;
     }
-
     if (matching.length === 1) {
-      // Bitta bucket — to'g'ridan-to'g'ri
       bucketTolangan[matching[0].id] = (bucketTolangan[matching[0].id] || 0) + Math.abs(r.summa);
       return;
     }
-
-    // Bir nechta bucket — tranzaksiya sanasiga eng yaqin bucket'ga yoz
     const closest = findClosestBucket(matching, txKun);
     bucketTolangan[closest.id] = (bucketTolangan[closest.id] || 0) + Math.abs(r.summa);
   });
@@ -150,25 +137,24 @@ function taqsimla(rows: Row[], bugun: Date): TaqsimResult {
         : new Date(bugun.getFullYear(), bugun.getMonth() + 1, b.kun);
     }
     const kunQoldi = Math.max(1, Math.ceil((targetSana.getTime() - bugun.getTime()) / 86400000));
-
     const tolanganSumma = Math.min(b.summa, bucketTolangan[b.id] || 0);
     const tolanganReal = tolanganSumma >= b.summa * 0.95;
-
     return {
       id: b.id, nomi: b.nomi, kerak: b.summa,
-      toplangan: 0, foiz: 0,
+      toplangan: 0, foiz: 0, foizReal: 0, foizKassa: 0,
       targetKun: b.kun, kunQoldi: kunQoldi,
       yetarli: false, tolanganReal: tolanganReal,
       tolanganSumma: tolanganSumma,
       hasDate: b.hasDate,
+      isPriority: priorityId === b.id,
     };
   });
 
-  // 5) Taqsimlash: 86% kaskad (sanali), 14% teng (sanasiz)
+  // 5) Taqsimlash
   const kassaBezdatnyx = kassa * 0.14;
   const kassaDatli = kassa * 0.86;
 
-  // Sanasiz — hali to'lanmaganlar, teng taqsimlash
+  // Sanasiz
   const bezDate = items.filter(function(i) { return !i.hasDate && !i.tolanganReal; });
   if (bezDate.length > 0) {
     const ulush = kassaBezdatnyx / bezDate.length;
@@ -178,10 +164,19 @@ function taqsimla(rows: Row[], bugun: Date): TaqsimResult {
     });
   }
 
-  // Sanali — kaskad: eng yaqindan boshlab to'liq yopib ketadi
-  const withDate = items
-    .filter(function(i) { return i.hasDate && !i.tolanganReal; })
-    .sort(function(a, b) { return a.kunQoldi - b.kunQoldi; });
+  // Sanali — agar priorityId bo'lsa, birinchi o'sha oladi
+  const withDate = items.filter(function(i) { return i.hasDate && !i.tolanganReal; });
+
+  if (priorityId) {
+    // Prioritetli bucket birinchi
+    withDate.sort(function(a, b) {
+      if (a.id === priorityId) return -1;
+      if (b.id === priorityId) return 1;
+      return a.kunQoldi - b.kunQoldi;
+    });
+  } else {
+    withDate.sort(function(a, b) { return a.kunQoldi - b.kunQoldi; });
+  }
 
   let qolganBudjet = kassaDatli;
   withDate.forEach(function(item) {
@@ -192,14 +187,15 @@ function taqsimla(rows: Row[], bugun: Date): TaqsimResult {
     qolganBudjet -= ajratildi;
   });
 
-  // 6) Foiz
+  // 6) Foiz — real va kassa alohida
   items.forEach(function(i) {
-    const jami = i.tolanganSumma + i.toplangan;
-    i.foiz = Math.min(100, Math.round((jami / i.kerak) * 100));
+    i.foizReal = Math.min(100, Math.round((i.tolanganSumma / i.kerak) * 100));
+    i.foizKassa = Math.min(100 - i.foizReal, Math.round((i.toplangan / i.kerak) * 100));
+    i.foiz = Math.min(100, i.foizReal + i.foizKassa);
     i.yetarli = i.foiz >= 100;
   });
 
-  // 7) Sort: HAR DOIM targetKun bo'yicha, sanasiz oxirida
+  // 7) Sort: targetKun bo'yicha, sanasiz oxirida
   items.sort(function(a, b) {
     if (a.hasDate && !b.hasDate) return -1;
     if (!a.hasDate && b.hasDate) return 1;
@@ -207,12 +203,7 @@ function taqsimla(rows: Row[], bugun: Date): TaqsimResult {
     return 0;
   });
 
-  return {
-    items: items,
-    kunlikKirim: kunlikKirim,
-    tahlilOylar: tahlilOylar,
-    qolgan: kassa,
-  };
+  return { items, kunlikKirim, tahlilOylar, qolgan: kassa };
 }
 
 const fmt = (n: number) => Math.round(Math.abs(n)).toLocaleString("ru-RU") + " so'm";
@@ -303,6 +294,17 @@ export function Moliya() {
   const [tolovLoading, setTolovLoading] = useState<number | null>(null);
   const [taqsimOpen, setTaqsimOpen] = useState(false);
   const [tahlilOpen, setTahlilOpen] = useState(false);
+  const [priorityId, setPriorityId] = useState<string | null>(function() {
+    try { return localStorage.getItem(PRIORITY_KEY); } catch { return null; }
+  });
+
+  function setPriority(id: string | null) {
+    setPriorityId(id);
+    try {
+      if (id) localStorage.setItem(PRIORITY_KEY, id);
+      else localStorage.removeItem(PRIORITY_KEY);
+    } catch {}
+  }
 
   const fetchData = () => {
     setLoading(true);
@@ -433,7 +435,7 @@ export function Moliya() {
   const yunusobodExpenses = periodFiltered.filter(function(r) { return r.summa < 0 && r.filial === "Yunusobod"; }).reduce(function(s, r) { return s + Math.abs(r.summa); }, 0);
   const yunusobodProfit   = yunusobodRevenue - yunusobodExpenses;
 
-  const taqsim = taqsimla(rows, now);
+  const taqsim = taqsimla(rows, now, priorityId);
   const yetarliSon = taqsim.items.filter(function(i) { return i.tolanganReal || i.foiz >= 100; }).length;
   const xatarliSon = taqsim.items.filter(function(i) { return !i.tolanganReal && i.foiz < 100 && i.hasDate && i.kunQoldi <= 3; }).length;
 
@@ -604,6 +606,11 @@ export function Moliya() {
               </button>
             </div>
             <div className="flex items-center gap-1.5 flex-wrap">
+              {priorityId && (
+                <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-orange-100 text-orange-700 text-xs font-medium">
+                  <Target className="h-3 w-3" />Qo'lda prioritet
+                </span>
+              )}
               {xatarliSon > 0 && (
                 <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-red-100 text-red-700 text-xs font-medium">
                   <AlertTriangle className="h-3 w-3" />{xatarliSon} xatar
@@ -621,61 +628,118 @@ export function Moliya() {
         {taqsimOpen && tahlilOpen && (
           <div className="mx-5 mb-3 p-4 rounded-xl border border-blue-200 bg-blue-50 text-xs text-blue-900">
             <p className="font-semibold mb-2">Nima asosida taqsimlanyapti?</p>
-            <p className="mb-2">Kassaning 14% sanasiz xarajatlarga (Soliq, Marketing, Ofis, AI, Ehson, Zaxira) teng taqsimlanadi. Qolgan 86% sanali xarajatlarga kaskad usulida: eng yaqin xarajat to'liq yopiladi, ortiqcha pul keyingisiga o'tadi.</p>
-            <p className="mb-1">🟢 Yashil + chiziqli = haqiqatda to'langan (Google Sheets dan).</p>
-            <p className="mb-1">🟢 Yashil (chiziqsiz) = kassada yetarli pul bor (100%).</p>
-            <p className="text-blue-700">🔴 Qizil = 3 kun yoki kamroq qoldi, hali to'lanmagan.</p>
+            <p className="mb-2">Kassaning 14% sanasiz xarajatlarga teng taqsimlanadi. 86% sanali xarajatlarga kaskad usulida.</p>
+            <p className="mb-1">🟢 To'q yashil = haqiqatda to'langan · 🟩 Och yashil = kassadan zaxiralangan</p>
+            <p className="mb-1">🎯 Qo'lda prioritet = barcha 86% o'sha xarajatga boradi</p>
+            <p className="text-blue-700">🔴 Qizil = 3 kun yoki kamroq qoldi</p>
           </div>
         )}
 
         {taqsimOpen && (
           <div className="px-5 pb-5">
+            {priorityId && (
+              <div className="mb-3 p-3 rounded-xl border border-orange-200 bg-orange-50 flex items-center justify-between">
+                <span className="text-xs text-orange-700 font-medium flex items-center gap-1.5">
+                  <Target className="h-3.5 w-3.5" />
+                  Prioritet rejimi yoqilgan — barcha pul bitta xarajatga yo'naltirilmoqda
+                </span>
+                <button onClick={function() { setPriority(null); }} className="text-xs text-orange-600 hover:text-orange-800 font-semibold px-2 py-1 rounded-lg hover:bg-orange-100 transition">
+                  Bekor qilish
+                </button>
+              </div>
+            )}
             <div className="space-y-2">
               {taqsim.items.map(function(v) {
                 const isGreen = v.tolanganReal || v.foiz >= 100;
                 const isXatar = !v.tolanganReal && v.foiz < 100 && v.hasDate && v.kunQoldi <= 3;
-                const bgClass = isGreen
-                  ? "border-emerald-200 bg-emerald-50"
-                  : isXatar
-                    ? "border-red-200 bg-red-50"
-                    : "border-border bg-background";
+                const bgClass = v.isPriority
+                  ? "border-orange-300 bg-orange-50"
+                  : isGreen
+                    ? "border-emerald-200 bg-emerald-50"
+                    : isXatar
+                      ? "border-red-200 bg-red-50"
+                      : "border-border bg-background";
 
                 return (
                   <div key={v.id} className={cn("p-3 rounded-xl border", bgClass)}>
                     <div className="flex items-center justify-between mb-1.5">
                       <div className="flex items-center gap-2 min-w-0">
-                        {isGreen
-                          ? <CheckCircle2 className="h-3.5 w-3.5 text-emerald-500 shrink-0" />
-                          : <Clock className={cn("h-3.5 w-3.5 shrink-0", isXatar ? "text-red-500" : "text-muted-foreground")} />}
+                        {v.isPriority
+                          ? <Target className="h-3.5 w-3.5 text-orange-500 shrink-0" />
+                          : isGreen
+                            ? <CheckCircle2 className="h-3.5 w-3.5 text-emerald-500 shrink-0" />
+                            : <Clock className={cn("h-3.5 w-3.5 shrink-0", isXatar ? "text-red-500" : "text-muted-foreground")} />}
                         <span className={cn(
                           "font-medium text-sm truncate",
                           v.tolanganReal ? "line-through text-emerald-600" :
-                          isGreen ? "text-emerald-700" : ""
+                          isGreen ? "text-emerald-700" :
+                          v.isPriority ? "text-orange-700 font-semibold" : ""
                         )}>{v.nomi}</span>
-                        {v.tolanganReal && (
-                          <span className="text-xs text-emerald-600 font-semibold shrink-0 ml-1">To'landi</span>
-                        )}
-                        {!v.tolanganReal && isGreen && (
-                          <span className="text-xs text-emerald-600 font-semibold shrink-0 ml-1">Kassada bor</span>
+                        {v.tolanganReal && <span className="text-xs text-emerald-600 font-semibold shrink-0 ml-1">To'landi</span>}
+                        {!v.tolanganReal && isGreen && <span className="text-xs text-emerald-600 font-semibold shrink-0 ml-1">Kassada bor</span>}
+                        {v.isPriority && !v.tolanganReal && <span className="text-xs text-orange-600 font-semibold shrink-0 ml-1">Prioritet</span>}
+                      </div>
+                      <div className="flex items-center gap-2 shrink-0 ml-2">
+                        <span className="text-xs text-muted-foreground whitespace-nowrap">
+                          {v.hasDate ? (v.targetKun === 31 ? "Oy oxiri" : v.targetKun + "-kun") : "Oy davomida"}
+                          {v.hasDate ? " · " + v.kunQoldi + " kun qoldi" : ""}
+                        </span>
+                        {!v.tolanganReal && (
+                          <button
+                            onClick={function() { setPriority(v.isPriority ? null : v.id); }}
+                            className={cn(
+                              "h-6 w-6 rounded-md flex items-center justify-center transition",
+                              v.isPriority
+                                ? "bg-orange-500 text-white"
+                                : "bg-secondary text-muted-foreground hover:bg-orange-100 hover:text-orange-600"
+                            )}
+                            title={v.isPriority ? "Prioritetni olib tashlash" : "Prioritet qilish"}
+                          >
+                            <Target className="h-3 w-3" />
+                          </button>
                         )}
                       </div>
-                      <span className="text-xs text-muted-foreground whitespace-nowrap ml-2">
-                        {v.hasDate ? (v.targetKun === 31 ? "Oy oxiri" : v.targetKun + "-kun") : "Oy davomida"}
-                        {v.hasDate ? " · " + v.kunQoldi + " kun qoldi" : ""}
-                      </span>
                     </div>
-                    <div className="h-1.5 rounded-full bg-secondary overflow-hidden mb-1">
-                      <div className={cn("h-full rounded-full transition-all",
-                        isGreen ? "bg-emerald-500" :
-                        isXatar ? "bg-red-500" : "bg-primary")}
-                        style={{ width: v.foiz + "%" }} />
+
+                    {/* Ikki rangli progress bar */}
+                    <div className="h-2 rounded-full bg-secondary overflow-hidden mb-1">
+                      <div className="h-full flex">
+                        {/* To'q yashil: haqiqiy to'langan */}
+                        {v.foizReal > 0 && (
+                          <div
+                            className="h-full bg-emerald-600 transition-all"
+                            style={{ width: v.foizReal + "%" }}
+                          />
+                        )}
+                        {/* Och yashil: kassadan zaxiralangan */}
+                        {v.foizKassa > 0 && (
+                          <div
+                            className="h-full bg-emerald-300 transition-all"
+                            style={{ width: v.foizKassa + "%" }}
+                          />
+                        )}
+                      </div>
                     </div>
+
                     <div className="flex items-center justify-between text-xs">
-                      <span className="num text-muted-foreground">
-                        {fmtFull(v.tolanganSumma + v.toplangan)} / {fmtFull(v.kerak)} so'm
+                      <span className="num text-muted-foreground flex items-center gap-2">
+                        {v.tolanganSumma > 0 && (
+                          <span className="inline-flex items-center gap-1">
+                            <span className="inline-block h-2 w-2 rounded-sm bg-emerald-600" />
+                            {fmtFull(v.tolanganSumma)}
+                          </span>
+                        )}
+                        {v.toplangan > 0 && !v.tolanganReal && (
+                          <span className="inline-flex items-center gap-1">
+                            <span className="inline-block h-2 w-2 rounded-sm bg-emerald-300" />
+                            {fmtFull(v.toplangan)}
+                          </span>
+                        )}
+                        <span className="text-muted-foreground">/ {fmtFull(v.kerak)} so'm</span>
                       </span>
                       <span className={cn("font-semibold",
                         isGreen ? "text-emerald-600" :
+                        v.isPriority ? "text-orange-600" :
                         isXatar ? "text-red-500" :
                         "text-muted-foreground")}>
                         {v.foiz}%{!isGreen ? " · " + fmtFull(v.kerak - v.tolanganSumma - v.toplangan) + " kerak" : " ✓"}
