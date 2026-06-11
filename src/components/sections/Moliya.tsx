@@ -17,23 +17,23 @@ const PRIORITY_KEY = "moliya_priority_id";
 
 interface Bucket { id: string; nomi: string; summa: number; kun: number; chiqimTuri: string; hasDate: boolean; }
 const BUCKETS: Bucket[] = [
-  { id: "ikrom",     nomi: "Ikrom Bekturdiyev (sherik)",  summa: 15000000, kun: 3,  chiqimTuri: "Mavsumiy sherik",   hasDate: true  },
-  { id: "oqit_op",   nomi: "O'qituvchilar + operatorlar", summa: 38000000, kun: 4,  chiqimTuri: "Oylik",             hasDate: true  },
-  { id: "rahbar_7",  nomi: "Rahbarlar oyligi (7-kun)",    summa: 20000000, kun: 7,  chiqimTuri: "Foyda",             hasDate: true  },
-  { id: "ar_novza",  nomi: "Novza filial arendasi",       summa: 18000000, kun: 7,  chiqimTuri: "Arenda Novza",      hasDate: true  },
-  { id: "ar_yunus",  nomi: "Yunusobod filial arendasi",   summa: 9000000,  kun: 9,  chiqimTuri: "Arenda Yunusobod",  hasDate: true  },
-  { id: "doniyor",   nomi: "Doniyor aka (sherik)",        summa: 20000000, kun: 10, chiqimTuri: "Mavsumiy sherik",   hasDate: true  },
-  { id: "rahbar_14", nomi: "Rahbarlar oyligi (14-kun)",   summa: 20000000, kun: 14, chiqimTuri: "Foyda",             hasDate: true  },
-  { id: "rop",       nomi: "Rop oyligi",                  summa: 7000000,  kun: 15, chiqimTuri: "Oylik",             hasDate: true  },
-  { id: "operator2", nomi: "2 operator oyligi",           summa: 10000000, kun: 20, chiqimTuri: "Oylik",             hasDate: true  },
-  { id: "rahbar_21", nomi: "Rahbarlar oyligi (21-kun)",   summa: 20000000, kun: 21, chiqimTuri: "Foyda",             hasDate: true  },
-  { id: "rahbar_28", nomi: "Rahbarlar oyligi (28-kun)",   summa: 20000000, kun: 28, chiqimTuri: "Foyda",             hasDate: true  },
-  { id: "soliq",     nomi: "Soliq",                       summa: 5000000,  kun: 31, chiqimTuri: "Soliq",             hasDate: false },
-  { id: "marketing", nomi: "Marketing",                   summa: 10000000, kun: 31, chiqimTuri: "Marketing",         hasDate: false },
-  { id: "ofis",      nomi: "Ofis xarajatlari",            summa: 6000000,  kun: 31, chiqimTuri: "Ofis harajat",      hasDate: false },
-  { id: "ai",        nomi: "AI xarajatlari",              summa: 3000000,  kun: 31, chiqimTuri: "AI harajatlari",    hasDate: false },
-  { id: "ehson",     nomi: "Ehson / Xayriya",             summa: 1000000,  kun: 31, chiqimTuri: "Ehson/Xayriya",    hasDate: false },
-  { id: "podushka",  nomi: "Moliyaviy yostiq (zaxira)",   summa: 5000000,  kun: 31, chiqimTuri: "",                  hasDate: false },
+  { id: "ikrom",     nomi: "Ikrom Bekturdiyev (sherik)",  summa: 15000000, kun: 3,  chiqimTuri: "Mavsumiy sherik Ikrom aka",   hasDate: true  },
+  { id: "oqit_op",   nomi: "O'qituvchilar + operatorlar", summa: 38000000, kun: 4,  chiqimTuri: "Oylik",                       hasDate: true  },
+  { id: "rahbar_7",  nomi: "Rahbarlar oyligi (7-kun)",    summa: 20000000, kun: 7,  chiqimTuri: "Foyda",                       hasDate: true  },
+  { id: "ar_novza",  nomi: "Novza filial arendasi",       summa: 18000000, kun: 7,  chiqimTuri: "Arenda Novza",                hasDate: true  },
+  { id: "ar_yunus",  nomi: "Yunusobod filial arendasi",   summa: 8500000,  kun: 9,  chiqimTuri: "Arenda Yunusobod",            hasDate: true  },
+  { id: "doniyor",   nomi: "Doniyor aka (sherik)",        summa: 20000000, kun: 10, chiqimTuri: "Mavsumiy sherik doniyor aka", hasDate: true  },
+  { id: "rahbar_14", nomi: "Rahbarlar oyligi (14-kun)",   summa: 20000000, kun: 14, chiqimTuri: "Foyda",                       hasDate: true  },
+  { id: "rop",       nomi: "Rop oyligi",                  summa: 7000000,  kun: 15, chiqimTuri: "Oylik",                       hasDate: true  },
+  { id: "operator2", nomi: "2 operator oyligi",           summa: 10000000, kun: 20, chiqimTuri: "Oylik",                       hasDate: true  },
+  { id: "rahbar_21", nomi: "Rahbarlar oyligi (21-kun)",   summa: 20000000, kun: 21, chiqimTuri: "Foyda",                       hasDate: true  },
+  { id: "rahbar_28", nomi: "Rahbarlar oyligi (28-kun)",   summa: 20000000, kun: 28, chiqimTuri: "Foyda",                       hasDate: true  },
+  { id: "soliq",     nomi: "Soliq",                       summa: 5000000,  kun: 31, chiqimTuri: "Soliq",                       hasDate: false },
+  { id: "marketing", nomi: "Marketing",                   summa: 10000000, kun: 31, chiqimTuri: "Marketing",                   hasDate: false },
+  { id: "ofis",      nomi: "Ofis xarajatlari",            summa: 6000000,  kun: 31, chiqimTuri: "Ofis harajat",                hasDate: false },
+  { id: "ai",        nomi: "AI xarajatlari",              summa: 3000000,  kun: 31, chiqimTuri: "AI harajatlari",              hasDate: false },
+  { id: "ehson",     nomi: "Ehson / Xayriya",             summa: 1000000,  kun: 31, chiqimTuri: "Ehson/Xayriya",              hasDate: false },
+  { id: "podushka",  nomi: "Moliyaviy yostiq (zaxira)",   summa: 5000000,  kun: 31, chiqimTuri: "",                            hasDate: false },
 ];
 
 function findClosestBucket(buckets: Bucket[], txKun: number): Bucket {
@@ -61,7 +61,6 @@ interface TaqsimResult {
 }
 
 function taqsimla(rows: Row[], bugun: Date, priorityId: string | null): TaqsimResult {
-  // 1) Kunlik kirim
   const oylar: { oy: number; yil: number }[] = [];
   for (let i = 1; i <= 2; i++) {
     const d = new Date(bugun.getFullYear(), bugun.getMonth() - i, 1);
@@ -93,12 +92,10 @@ function taqsimla(rows: Row[], bugun: Date, priorityId: string | null): TaqsimRe
   }
   const kunlikKirim = kunSoni > 0 ? Math.round(jamiKirim / kunSoni) : 0;
 
-  // 2) Kassa
   const kassaKirim = rows.filter(function(r) { return r.summa > 0; }).reduce(function(s, r) { return s + r.summa; }, 0);
   const kassaChiqim = rows.filter(function(r) { return r.summa < 0; }).reduce(function(s, r) { return s + Math.abs(r.summa); }, 0);
   const kassa = Math.max(0, kassaKirim - kassaChiqim);
 
-  // 3) Joriy oy to'lovlari
   const joriyOy = bugun.getMonth();
   const joriyYil = bugun.getFullYear();
   const bucketTolangan: Record<string, number> = {};
@@ -126,37 +123,25 @@ function taqsimla(rows: Row[], bugun: Date, priorityId: string | null): TaqsimRe
     bucketTolangan[closest.id] = (bucketTolangan[closest.id] || 0) + Math.abs(r.summa);
   });
 
-  // 4) Items
   const items: TaqsimItem[] = BUCKETS.map(function(b) {
     let targetSana: Date;
     let kechikkan = false;
-
     if (b.kun === 31) {
-      // Sanasiz yoki oy oxiri — har doim joriy oy oxiri
       targetSana = new Date(bugun.getFullYear(), bugun.getMonth() + 1, 0);
     } else {
       const buOyda = new Date(bugun.getFullYear(), bugun.getMonth(), b.kun);
-      // Bugun o'tib ketganmi?
       if (buOyda <= bugun) {
-        // Joriy oyda sana o'tgan — kechikkan yoki to'langan
         targetSana = buOyda;
-        kechikkan = true; // to'lanmagan bo'lsa kechikkan
+        kechikkan = true;
       } else {
         targetSana = buOyda;
         kechikkan = false;
       }
     }
-
-    const kunQoldi = kechikkan
-      ? 0
-      : Math.max(1, Math.ceil((targetSana.getTime() - bugun.getTime()) / 86400000));
-
+    const kunQoldi = kechikkan ? 0 : Math.max(1, Math.ceil((targetSana.getTime() - bugun.getTime()) / 86400000));
     const tolanganSumma = Math.min(b.summa, bucketTolangan[b.id] || 0);
     const tolanganReal = tolanganSumma >= b.summa * 0.95;
-
-    // Agar to'langan bo'lsa — kechikkan emas
     if (tolanganReal) kechikkan = false;
-
     return {
       id: b.id, nomi: b.nomi, kerak: b.summa,
       toplangan: 0, foiz: 0, foizReal: 0, foizKassa: 0,
@@ -169,11 +154,9 @@ function taqsimla(rows: Row[], bugun: Date, priorityId: string | null): TaqsimRe
     };
   });
 
-  // 5) Taqsimlash
   const kassaBezdatnyx = kassa * 0.14;
   const kassaDatli = kassa * 0.86;
 
-  // Sanasiz
   const bezDate = items.filter(function(i) { return !i.hasDate && !i.tolanganReal; });
   if (bezDate.length > 0) {
     const ulush = kassaBezdatnyx / bezDate.length;
@@ -183,9 +166,7 @@ function taqsimla(rows: Row[], bugun: Date, priorityId: string | null): TaqsimRe
     });
   }
 
-  // Sanali — prioritet yoki kunQoldi bo'yicha kaskad
   const withDate = items.filter(function(i) { return i.hasDate && !i.tolanganReal; });
-
   if (priorityId) {
     withDate.sort(function(a, b) {
       if (a.id === priorityId) return -1;
@@ -195,7 +176,6 @@ function taqsimla(rows: Row[], bugun: Date, priorityId: string | null): TaqsimRe
       return a.kunQoldi - b.kunQoldi;
     });
   } else {
-    // Kechikkanlar birinchi, keyin kunQoldi bo'yicha
     withDate.sort(function(a, b) {
       if (a.kechikkan && !b.kechikkan) return -1;
       if (!a.kechikkan && b.kechikkan) return 1;
@@ -212,7 +192,6 @@ function taqsimla(rows: Row[], bugun: Date, priorityId: string | null): TaqsimRe
     qolganBudjet -= ajratildi;
   });
 
-  // 6) Foiz
   items.forEach(function(i) {
     i.foizReal = Math.min(100, Math.round((i.tolanganSumma / i.kerak) * 100));
     i.foizKassa = Math.min(100 - i.foizReal, Math.round((i.toplangan / i.kerak) * 100));
@@ -220,7 +199,6 @@ function taqsimla(rows: Row[], bugun: Date, priorityId: string | null): TaqsimRe
     i.yetarli = i.foiz >= 100;
   });
 
-  // 7) Sort: targetKun bo'yicha, sanasiz oxirida
   items.sort(function(a, b) {
     if (a.hasDate && !b.hasDate) return -1;
     if (!a.hasDate && b.hasDate) return 1;
@@ -711,9 +689,7 @@ export function Moliya() {
                       </div>
                       <div className="flex items-center gap-2 shrink-0 ml-2">
                         <span className="text-xs text-muted-foreground whitespace-nowrap">
-                          {v.hasDate
-                            ? (v.targetKun === 31 ? "Oy oxiri" : v.targetKun + "-kun")
-                            : "Oy davomida"}
+                          {v.hasDate ? (v.targetKun === 31 ? "Oy oxiri" : v.targetKun + "-kun") : "Oy davomida"}
                           {v.hasDate && !v.kechikkan && " · " + v.kunQoldi + " kun qoldi"}
                           {v.hasDate && v.kechikkan && !v.tolanganReal && " · to'lanmagan"}
                         </span>
@@ -722,9 +698,7 @@ export function Moliya() {
                             onClick={function() { setPriority(v.isPriority ? null : v.id); }}
                             className={cn(
                               "h-6 w-6 rounded-md flex items-center justify-center transition",
-                              v.isPriority
-                                ? "bg-orange-500 text-white"
-                                : "bg-secondary text-muted-foreground hover:bg-orange-100 hover:text-orange-600"
+                              v.isPriority ? "bg-orange-500 text-white" : "bg-secondary text-muted-foreground hover:bg-orange-100 hover:text-orange-600"
                             )}
                             title={v.isPriority ? "Prioritetni olib tashlash" : "Prioritet qilish"}
                           >
@@ -924,7 +898,7 @@ export function Moliya() {
             <div className="flex rounded-lg border border-border overflow-hidden text-sm font-medium">
               {["Barchasi", "Kirim", "Chiqim"].map(function(v) {
                 return (
-                  <button key={v} onClick={function() { setFilterKirim(v); }} className={cn("flex-1 py-2 px-2 transition border-r border-border last:border-0 text-xs", filterKirim === v ? (v === "Kirim" ? "bg-emerald-600 text-white" : v === "Chiqim" ? "bg-red-500 text-white" : "bg-primary text-primary-foreground") : "bg-background text-muted-foreground hover:text-foreground")}>{v}</button>
+                  <button key={v} onClick={function() { setFilterKirim(v); }} className={cn("flex-1 py-2 px-2 transition border-r border-border last:border-0 text:xs", filterKirim === v ? (v === "Kirim" ? "bg-emerald-600 text-white" : v === "Chiqim" ? "bg-red-500 text-white" : "bg-primary text-primary-foreground") : "bg-background text-muted-foreground hover:text-foreground")}>{v}</button>
                 );
               })}
             </div>
