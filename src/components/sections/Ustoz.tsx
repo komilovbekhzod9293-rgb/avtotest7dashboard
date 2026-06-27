@@ -5,7 +5,7 @@ import { cn } from "@/lib/utils";
 
 const SHEET_DAVO = "14nKtubJjuMJhQ9NQO8ORIfFGYAbBVKYrKDZpB96vc6Q";
 const API_KEY    = "AIzaSyB4kyYep05877BBpI9Rfv0SNcFhHVGBF5E";
-const RANGE_DAVO = "%D0%9B%D0%B8%D1%81%D1%821!A:M";
+const RANGE_DAVO = "%D0%9B%D0%B8%D1%81%D1%821!A:N";
 const WEBHOOK    = "https://n8n.srv1215497.hstgr.cloud/webhook/davomat";
 
 const VAQTLAR = ["10:00","13:00","15:00","19:00","21:00"];
@@ -62,6 +62,7 @@ interface DavRow {
   pravaOlishSanasi:          string;
   imtihondanYiqilganSanasi:  string;
   chetlatildi:               string;
+  chetlatildiSanasi:         string;
 }
 
 interface Student {
@@ -76,6 +77,7 @@ interface Student {
   pravaOlishSanasi:          string;
   imtihondanYiqilganSanasi:  string;
   chetlatildi:               string;
+  chetlatildiSanasi:         string;
   rows:                      DavRow[];
 }
 
@@ -122,6 +124,7 @@ export function Ustoz() {
   const [editYiqildi,  setEditYiqildi]  = useState(false);
   const [editYiqildiSana, setEditYiqildiSana] = useState(todayInput());
   const [editChetlatildi, setEditChetlatildi] = useState(false);
+  const [editChetlatildiSana, setEditChetlatildiSana] = useState(todayInput());
   const [editLoading,  setEditLoading]  = useState(false);
   const [editResult,   setEditResult]   = useState<string | null>(null);
 
@@ -154,6 +157,7 @@ export function Ustoz() {
             pravaOlishSanasi:         r[10] ?? "",
             imtihondanYiqilganSanasi: r[11] ?? "",
             chetlatildi:              r[12] ?? "",
+            chetlatildiSanasi:        r[13] ?? "",
           }));
         setAllRows(parsed);
       })
@@ -179,6 +183,7 @@ export function Ustoz() {
           pravaOlishSanasi:         r.pravaOlishSanasi,
           imtihondanYiqilganSanasi: r.imtihondanYiqilganSanasi,
           chetlatildi:              r.chetlatildi,
+          chetlatildiSanasi:        r.chetlatildiSanasi,
           rows:                     [],
         };
       }
@@ -189,6 +194,7 @@ export function Ustoz() {
       if (r.pravaOlishSanasi)          map[r.telefon].pravaOlishSanasi          = r.pravaOlishSanasi;
       if (r.imtihondanYiqilganSanasi)  map[r.telefon].imtihondanYiqilganSanasi  = r.imtihondanYiqilganSanasi;
       if (r.chetlatildi)               map[r.telefon].chetlatildi               = r.chetlatildi;
+      if (r.chetlatildiSanasi)         map[r.telefon].chetlatildiSanasi         = r.chetlatildiSanasi;
       if (r.sana)                      map[r.telefon].rows.push(r);
     });
     return Object.values(map);
@@ -242,6 +248,7 @@ export function Ustoz() {
     setEditYiqildi(student.imtihondanYiqildi?.trim().toLowerCase() === "ha");
     setEditYiqildiSana(toInputDate(student.imtihondanYiqilganSanasi) || todayInput());
     setEditChetlatildi(student.chetlatildi?.trim().toLowerCase() === "ha");
+    setEditChetlatildiSana(toInputDate(student.chetlatildiSanasi) || todayInput());
     setEditResult(null);
   }
 
@@ -262,6 +269,7 @@ export function Ustoz() {
           imtihondan_yiqildi:        editYiqildi ? "Ha" : "",
           imtihondan_yiqilgan_sana:  editYiqildi ? toSheetDate(editYiqildiSana) : "",
           chetlatildi:               editChetlatildi ? "Ha" : "",
+          chetlatildi_sanasi:        editChetlatildi ? toSheetDate(editChetlatildiSana) : "",
         }),
       });
       setEditResult("✅ Saqlandi!");
@@ -566,7 +574,7 @@ export function Ustoz() {
                             )}
                             {s.chetlatildi?.trim().toLowerCase() === "ha" && (
                               <span className="text-xs px-2 py-0.5 rounded-full bg-foreground/10 text-foreground font-medium">
-                                Kontrakt uzildi
+                                Kontrakt uzildi: {s.chetlatildiSanasi || "—"}
                               </span>
                             )}
                             {markedToday && (
@@ -733,7 +741,7 @@ export function Ustoz() {
                               <span className="px-2 py-0.5 rounded-full text-xs font-medium bg-red-500/10 text-red-600 border border-red-500/20">Yiqildi: {s.imtihondanYiqilganSanasi || "—"}</span>
                             )}
                             {s.chetlatildi?.trim().toLowerCase() === "ha" && (
-                              <span className="px-2 py-0.5 rounded-full text-xs font-medium bg-foreground/10 text-foreground border border-border">Kontrakt uzildi</span>
+                              <span className="px-2 py-0.5 rounded-full text-xs font-medium bg-foreground/10 text-foreground border border-border">Kontrakt uzildi: {s.chetlatildiSanasi || "—"}</span>
                             )}
                           </div>
                         </td>
@@ -813,15 +821,28 @@ export function Ustoz() {
                 )}
               </div>
 
-              <label className="flex items-center gap-3 cursor-pointer">
-                <div onClick={() => setEditChetlatildi(!editChetlatildi)}
-                  className={cn("w-10 h-6 rounded-full transition relative cursor-pointer",
-                    editChetlatildi ? "bg-foreground" : "bg-secondary border border-border")}>
-                  <div className={cn("absolute top-1 w-4 h-4 rounded-full bg-white transition-all",
-                    editChetlatildi ? "left-5" : "left-1")} />
-                </div>
-                <span className="text-sm font-medium">Chetlatildi (kontrakt uzildi)</span>
-              </label>
+              <div className="space-y-2">
+                <label className="flex items-center gap-3 cursor-pointer">
+                  <div onClick={() => {
+                      const next = !editChetlatildi;
+                      setEditChetlatildi(next);
+                      if (next && !editChetlatildiSana) setEditChetlatildiSana(todayInput());
+                    }}
+                    className={cn("w-10 h-6 rounded-full transition relative cursor-pointer",
+                      editChetlatildi ? "bg-foreground" : "bg-secondary border border-border")}>
+                    <div className={cn("absolute top-1 w-4 h-4 rounded-full bg-white transition-all",
+                      editChetlatildi ? "left-5" : "left-1")} />
+                  </div>
+                  <span className="text-sm font-medium">Chetlatildi (kontrakt uzildi)</span>
+                </label>
+                {editChetlatildi && (
+                  <div>
+                    <label className="text-xs text-muted-foreground mb-1 block">Kontrakt uzilgan sana</label>
+                    <input type="date" value={editChetlatildiSana} onChange={e => setEditChetlatildiSana(e.target.value)}
+                      className="w-full px-3 py-2 rounded-lg border border-border bg-background text-sm" />
+                  </div>
+                )}
+              </div>
 
               <div className="flex items-center gap-3 pt-2">
                 <button onClick={submitEdit} disabled={editLoading}
