@@ -6,6 +6,7 @@ import { cn } from "@/lib/utils";
 const SUPABASE_URL = "https://ziqzprosgzevkdfwyotl.supabase.co";
 const SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InppcXpwcm9zZ3pldmtkZnd5b3RsIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjYzNDAwMzAsImV4cCI6MjA4MTkxNjAzMH0.3-4COwffhK2ZU0kU-bnlCWPytsEzRxpMu3SkGg8m7BU";
 const WEBHOOK = "https://n8n.srv1215497.hstgr.cloud/webhook/admin";
+const ADD_WEBHOOK = "https://n8n.srv1215497.hstgr.cloud/webhook/add";
 
 function formatDate(raw: string): string {
   if (!raw) return "—";
@@ -91,7 +92,7 @@ export function OnlineDostup() {
     if (!addPhone) { setAddResult("❌ Telefon raqamini kiriting"); return; }
     setAddLoading(true); setAddResult(null);
     try {
-      await fetch(WEBHOOK, {
+      await fetch(ADD_WEBHOOK, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
