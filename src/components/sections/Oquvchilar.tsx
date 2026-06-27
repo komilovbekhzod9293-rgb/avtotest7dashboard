@@ -5,7 +5,7 @@ import { cn } from "@/lib/utils";
 
 const SHEET_DAVO = "14nKtubJjuMJhQ9NQO8ORIfFGYAbBVKYrKDZpB96vc6Q";
 const API_KEY    = "AIzaSyB4kyYep05877BBpI9Rfv0SNcFhHVGBF5E";
-const RANGE_DAVO = "%D0%9B%D0%B8%D1%81%D1%821!A:L";
+const RANGE_DAVO = "%D0%9B%D0%B8%D1%81%D1%821!A:M";
 const WEBHOOK    = "https://n8n.srv1215497.hstgr.cloud/webhook/davomat";
 
 const VAQTLAR = ["10:00","13:00","15:00","19:00","21:00"];
@@ -48,32 +48,34 @@ function sameDay(a: Date, b: Date) {
 }
 
 interface DavRow {
-  ism:                    string;
-  telefon:                string;
-  filial:                 string;
-  smena:                  string;
-  sana:                   string;
-  holat:                  string;
-  imtihon:                string;
-  pravaOldi:              string;
-  darsBoshlanishSanasi:   string;
-  imtihondanYiqildi:      string;
-  pravaOlishSanasi:       string;
-  chetlatildi:            string;
+  ism:                       string;
+  telefon:                   string;
+  filial:                    string;
+  smena:                     string;
+  sana:                      string;
+  holat:                     string;
+  imtihon:                   string;
+  pravaOldi:                 string;
+  darsBoshlanishSanasi:      string;
+  imtihondanYiqildi:         string;
+  pravaOlishSanasi:          string;
+  imtihondanYiqilganSanasi:  string;
+  chetlatildi:               string;
 }
 
 interface Student {
-  ism:                    string;
-  telefon:                string;
-  filial:                 string;
-  smena:                  string;
-  pravaOldi:              string;
-  imtihon:                string;
-  darsBoshlanishSanasi:   string;
-  imtihondanYiqildi:      string;
-  pravaOlishSanasi:       string;
-  chetlatildi:            string;
-  rows:                   DavRow[];
+  ism:                       string;
+  telefon:                   string;
+  filial:                    string;
+  smena:                     string;
+  pravaOldi:                 string;
+  imtihon:                   string;
+  darsBoshlanishSanasi:      string;
+  imtihondanYiqildi:         string;
+  pravaOlishSanasi:          string;
+  imtihondanYiqilganSanasi:  string;
+  chetlatildi:               string;
+  rows:                      DavRow[];
 }
 
 type Tab = "davomat" | "jadval";
@@ -119,12 +121,13 @@ export function Oquvchilar() {
             smena:                r[3] ?? "",
             sana:                 r[4] ?? "",
             holat:                r[5] ?? "",
-            imtihon:               r[6] ?? "",
-            pravaOldi:             r[7] ?? "",
-            darsBoshlanishSanasi:  r[8] ?? "",
-            imtihondanYiqildi:     r[9] ?? "",
-            pravaOlishSanasi:      r[10] ?? "",
-            chetlatildi:           r[11] ?? "",
+            imtihon:                  r[6] ?? "",
+            pravaOldi:                r[7] ?? "",
+            darsBoshlanishSanasi:     r[8] ?? "",
+            imtihondanYiqildi:        r[9] ?? "",
+            pravaOlishSanasi:         r[10] ?? "",
+            imtihondanYiqilganSanasi: r[11] ?? "",
+            chetlatildi:              r[12] ?? "",
           }));
         setAllRows(parsed);
       })
@@ -146,18 +149,20 @@ export function Oquvchilar() {
           pravaOldi:             r.pravaOldi,
           imtihon:               r.imtihon,
           darsBoshlanishSanasi:  r.darsBoshlanishSanasi,
-          imtihondanYiqildi:     r.imtihondanYiqildi,
-          pravaOlishSanasi:      r.pravaOlishSanasi,
-          chetlatildi:           r.chetlatildi,
-          rows:                  [],
+          imtihondanYiqildi:        r.imtihondanYiqildi,
+          pravaOlishSanasi:         r.pravaOlishSanasi,
+          imtihondanYiqilganSanasi: r.imtihondanYiqilganSanasi,
+          chetlatildi:              r.chetlatildi,
+          rows:                     [],
         };
       }
       if (r.pravaOldi)            map[r.telefon].pravaOldi            = r.pravaOldi;
       if (r.imtihon)              map[r.telefon].imtihon              = r.imtihon;
-      if (r.darsBoshlanishSanasi) map[r.telefon].darsBoshlanishSanasi = r.darsBoshlanishSanasi;
-      if (r.imtihondanYiqildi)    map[r.telefon].imtihondanYiqildi     = r.imtihondanYiqildi;
-      if (r.pravaOlishSanasi)     map[r.telefon].pravaOlishSanasi      = r.pravaOlishSanasi;
-      if (r.chetlatildi)          map[r.telefon].chetlatildi           = r.chetlatildi;
+      if (r.darsBoshlanishSanasi)      map[r.telefon].darsBoshlanishSanasi      = r.darsBoshlanishSanasi;
+      if (r.imtihondanYiqildi)         map[r.telefon].imtihondanYiqildi         = r.imtihondanYiqildi;
+      if (r.pravaOlishSanasi)          map[r.telefon].pravaOlishSanasi          = r.pravaOlishSanasi;
+      if (r.imtihondanYiqilganSanasi)  map[r.telefon].imtihondanYiqilganSanasi  = r.imtihondanYiqilganSanasi;
+      if (r.chetlatildi)               map[r.telefon].chetlatildi               = r.chetlatildi;
       if (r.sana)                 map[r.telefon].rows.push(r);
     });
     return Object.values(map);
@@ -179,8 +184,8 @@ export function Oquvchilar() {
     setEditImtihon(toInputDate(student.imtihon));
     setEditPrava(student.pravaOldi?.toLowerCase() === "oldi");
     setEditPravaSana(toInputDate(student.pravaOlishSanasi) || todayInput());
-    setEditYiqildi(!!student.imtihondanYiqildi && student.imtihondanYiqildi.trim().toLowerCase() !== "");
-    setEditYiqildiSana(toInputDate(student.imtihondanYiqildi) || todayInput());
+    setEditYiqildi(student.imtihondanYiqildi?.trim().toLowerCase() === "ha");
+    setEditYiqildiSana(toInputDate(student.imtihondanYiqilganSanasi) || todayInput());
     setEditChetlatildi(!!student.chetlatildi && student.chetlatildi.trim().toLowerCase() === "ha");
     setEditResult(null);
   }
@@ -396,9 +401,9 @@ export function Oquvchilar() {
                                 Imtihon: {s.imtihon}
                               </span>
                             )}
-                            {s.imtihondanYiqildi && (
+                            {s.imtihondanYiqildi?.trim().toLowerCase() === "ha" && (
                               <span className="text-xs px-2 py-0.5 rounded-full bg-red-500/10 text-red-600 font-medium">
-                                Yiqildi: {s.imtihondanYiqildi}
+                                Yiqildi: {s.imtihondanYiqilganSanasi || "—"}
                               </span>
                             )}
                             {s.chetlatildi?.trim().toLowerCase() === "ha" && (
@@ -553,8 +558,8 @@ export function Oquvchilar() {
                             ) : (
                               <span className="px-2 py-0.5 rounded-full text-xs font-medium bg-secondary text-muted-foreground border border-border">O'qiyapti</span>
                             )}
-                            {s.imtihondanYiqildi && (
-                              <span className="px-2 py-0.5 rounded-full text-xs font-medium bg-red-500/10 text-red-600 border border-red-500/20">Yiqildi</span>
+                            {s.imtihondanYiqildi?.trim().toLowerCase() === "ha" && (
+                              <span className="px-2 py-0.5 rounded-full text-xs font-medium bg-red-500/10 text-red-600 border border-red-500/20">Yiqildi: {s.imtihondanYiqilganSanasi || "—"}</span>
                             )}
                             {s.chetlatildi?.trim().toLowerCase() === "ha" && (
                               <span className="px-2 py-0.5 rounded-full text-xs font-medium bg-foreground/10 text-foreground border border-border">Chetlatildi</span>
