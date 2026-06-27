@@ -66,12 +66,12 @@ function inputToDate(s: string): Date | null {
 
 function defaultFrom(): string {
   const now = new Date();
-  return toInputDate(new Date(now.getFullYear(), now.getMonth() - 1, 1));
+  return toInputDate(new Date(now.getFullYear(), now.getMonth(), 1));
 }
 
 function defaultTo(): string {
   const now = new Date();
-  return toInputDate(new Date(now.getFullYear(), now.getMonth(), 1));
+  return toInputDate(new Date(now.getFullYear(), now.getMonth() + 1, 1));
 }
 
 interface Row {
