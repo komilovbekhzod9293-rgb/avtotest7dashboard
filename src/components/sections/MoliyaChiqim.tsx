@@ -84,6 +84,13 @@ interface Row {
   turi:         string;
 }
 
+function normalizeOnlineOfline(raw: string): string {
+  const v = raw.trim();
+  if (v === "Offline") return "Ofline";
+  if (v === "Induvidual") return "Individual";
+  return v || "Boshqa";
+}
+
 function parseSumma(raw: string): number {
   const str = raw.trim();
   const isNeg = str.includes("-");
@@ -290,7 +297,7 @@ export function MoliyaChiqim() {
             summa:        parseSumma(r[5] ?? ""),
             kirimChiqim:  (r[6] ?? "").trim(),
             chiqimTuri:   (r[8] ?? "").trim() || "Boshqa",
-            onlineOfline: (r[3] ?? "").trim() || "Boshqa",
+            onlineOfline: normalizeOnlineOfline(r[3] ?? ""),
             turi:         (r[4] ?? "").trim() || "Boshqa",
           }));
         setRows(parsed);
