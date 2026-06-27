@@ -1,6 +1,5 @@
 import { useState, useEffect } from "react";
 import { Sidebar, type SectionId } from "@/components/dashboard/Sidebar";
-import { SotuvAnalizi } from "@/components/sections/SotuvAnalizi";
 import { Moliya } from "@/components/sections/Moliya";
 import { MoliyaChiqim } from "@/components/sections/MoliyaChiqim";
 import { Oquvchilar } from "@/components/sections/Oquvchilar";
@@ -21,7 +20,7 @@ type UstozSection = "davomat" | "online";
 
 const Index = () => {
   const [role, setRole]                 = useState<Role | null>(null);
-  const [active, setActive]             = useState<SectionId>("sotuv");
+  const [active, setActive]             = useState<SectionId>("moliya");
   const [adminSection, setAdminSection] = useState<AdminSection>("baza");
   const [ustozSection, setUstozSection] = useState<UstozSection>("davomat");
   const [loading, setLoading]           = useState(true);
@@ -48,18 +47,16 @@ const Index = () => {
   // ── BOSHLIQ ──────────────────────────────────────────
   if (role === "boshliq") {
     const mobileItems: { id: SectionId; icon: typeof Phone; label: string }[] = [
-      { id: "sotuv",        icon: Phone,         label: "Sotuv"    },
       { id: "moliya",       icon: Wallet,         label: "Moliya"   },
-      { id: "moliyachiqim", icon: TrendingDown,   label: "Chiqim"   },
+      { id: "moliyachiqim", icon: TrendingDown,   label: "Tahlil"   },
       { id: "oquvchilar",   icon: GraduationCap,  label: "O'quvchi" },
       { id: "hodimlar",     icon: Users,          label: "Hodim"    },
       { id: "taklif",       icon: MessageSquare,  label: "Taklif"   },
       { id: "online",       icon: Wifi,           label: "Online"   },
     ];
     const contextLabel: Record<SectionId, string> = {
-      sotuv:        "Sotuv Analizi",
       moliya:       "Moliya",
-      moliyachiqim: "Moliya Chiqim Analizi",
+      moliyachiqim: "Moliya Analizi",
       oquvchilar:   "O'quvchilar",
       hodimlar:     "Hodimlar",
       taklif:       "Taklif va Shikoyatlar",
@@ -77,7 +74,6 @@ const Index = () => {
             </button>
           </div>
           <main className="flex-1 px-5 md:px-8 py-8 pb-24 lg:pb-12 max-w-[1400px] w-full mx-auto">
-            {active === "sotuv"        && <SotuvAnalizi />}
             {active === "moliya"       && <Moliya />}
             {active === "moliyachiqim" && <MoliyaChiqim />}
             {active === "oquvchilar"   && <Oquvchilar />}

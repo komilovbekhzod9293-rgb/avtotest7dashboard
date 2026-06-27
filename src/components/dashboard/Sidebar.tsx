@@ -2,12 +2,11 @@ import { Phone, Wallet, GraduationCap, Users, Search, Settings, LogOut, MessageS
 import logo from "@/assets/logo.webp";
 import { cn } from "@/lib/utils";
 
-export type SectionId = "sotuv" | "moliya" | "moliyachiqim" | "oquvchilar" | "hodimlar" | "taklif" | "online";
+export type SectionId = "moliya" | "moliyachiqim" | "oquvchilar" | "hodimlar" | "taklif" | "online";
 
 const items: { id: SectionId; label: string; icon: typeof Phone; sub: string }[] = [
-  { id: "sotuv",        label: "Sotuv Analizi",        icon: Phone,         sub: "Qo'ng'iroqlar va sotuvlar"  },
   { id: "moliya",       label: "Moliya",                icon: Wallet,        sub: "Daromad va xarajat"         },
-  { id: "moliyachiqim", label: "Moliya Chiqim Analizi", icon: TrendingDown,  sub: "Xarajatlar tahlili"         },
+  { id: "moliyachiqim", label: "Moliya Analizi",        icon: TrendingDown,  sub: "Kirim / Chiqim"             },
   { id: "oquvchilar",   label: "O'quvchilar",           icon: GraduationCap, sub: "Imtihon va davomat"         },
   { id: "hodimlar",     label: "Hodimlar",              icon: Users,         sub: "Davomat va samaradorlik"    },
   { id: "taklif",       label: "Taklif va Shikoyatlar", icon: MessageSquare, sub: "Mijozlardan kelgan fikrlar" },

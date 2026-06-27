@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { Header } from "@/components/dashboard/Header";
-import { Loader2, AlertCircle } from "lucide-react";
+import { Loader2, AlertCircle, ChevronDown, ChevronUp } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Cell, Pie, PieChart, ResponsiveContainer, Tooltip } from "recharts";
 
@@ -9,16 +9,33 @@ const SHEET_NAME = "moliya";
 const API_KEY   = "AIzaSyB4kyYep05877BBpI9Rfv0SNcFhHVGBF5E";
 
 const CHIQIM_COLORS: Record<string, string> = {
-  "Marketing":      "hsl(230 70% 55%)",
-  "Suniy Intelekt": "hsl(270 60% 55%)",
-  "Oylik":          "hsl(142 60% 45%)",
-  "Soliq":          "hsl(38 92% 50%)",
-  "Arenda":         "hsl(200 70% 50%)",
-  "Ofis harajat":   "hsl(160 50% 45%)",
-  "KPI":            "hsl(25 85% 55%)",
-  "Bonus":          "hsl(340 70% 55%)",
-  "Pul qaytildi":   "hsl(0 70% 55%)",
-  "Boshqa":         "hsl(220 9% 60%)",
+  "Marketing":                    "hsl(230 70% 55%)",
+  "AI harajatlari":               "hsl(270 60% 55%)",
+  "Oylik":                        "hsl(142 60% 45%)",
+  "Soliq":                        "hsl(38 92% 50%)",
+  "Arenda Novza":                 "hsl(200 70% 50%)",
+  "Arenda Yunusobod":             "hsl(190 60% 40%)",
+  "Ofis harajat":                 "hsl(160 50% 45%)",
+  "KPI":                          "hsl(25 85% 55%)",
+  "Bonus":                        "hsl(340 70% 55%)",
+  "Pul qaytildi":                 "hsl(0 70% 55%)",
+  "Foyda":                        "hsl(95 55% 45%)",
+  "Mavsumiy sherik doniyor aka":  "hsl(30 60% 35%)",
+  "Ehson/Xayriya":                "hsl(0 0% 55%)",
+  "Mavsumiy sherik Ikrom aka":    "hsl(150 55% 30%)",
+  "Invest Texnika":               "hsl(265 50% 40%)",
+  "Invest ai":                    "hsl(220 15% 25%)",
+  "Invest Remont":                "hsl(45 80% 55%)",
+  "Boshqa":                       "hsl(220 9% 60%)",
+};
+
+const KIRIM_COLORS: Record<string, string> = {
+  "Online":     "hsl(230 70% 55%)",
+  "Ofline":     "hsl(160 50% 45%)",
+  "Individual": "hsl(270 60% 55%)",
+  "Rus tili":   "hsl(0 70% 55%)",
+  "Kirim":      "hsl(142 60% 45%)",
+  "Boshqa":     "hsl(220 9% 60%)",
 };
 
 const fmt = (n: number) => Math.round(Math.abs(n)).toLocaleString("ru-RU") + " so'm";
@@ -52,10 +69,12 @@ function defaultTo(): string {
 }
 
 interface Row {
-  sana:       string;
-  filial:     string;
-  summa:      number;
-  chiqimTuri: string;
+  sana:         string;
+  filial:       string;
+  summa:        number;
+  kirimChiqim:  string;
+  chiqimTuri:   string;
+  onlineOfline: string;
 }
 
 function parseSumma(raw: string): number {
@@ -66,13 +85,17 @@ function parseSumma(raw: string): number {
   return isNeg ? -num : num;
 }
 
+type View = "chiqim" | "kirim";
+
 export function MoliyaChiqim() {
-  const [rows,    setRows]    = useState<Row[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [error,   setError]   = useState<string | null>(null);
-  const [from,    setFrom]    = useState(defaultFrom());
-  const [to,      setTo]      = useState(defaultTo());
-  const [filial,  setFilial]  = useState("Barchasi");
+  const [rows,     setRows]     = useState<Row[]>([]);
+  const [loading,  setLoading]  = useState(true);
+  const [error,    setError]    = useState<string | null>(null);
+  const [from,     setFrom]     = useState(defaultFrom());
+  const [to,       setTo]       = useState(defaultTo());
+  const [filial,   setFilial]   = useState("Barchasi");
+  const [view,     setView]     = useState<View>("chiqim");
+  const [expanded, setExpanded] = useState<string | null>(null);
 
   useEffect(() => {
     setLoading(true);
@@ -81,14 +104,15 @@ export function MoliyaChiqim() {
       .then(data => {
         const all: string[][] = data.values ?? [];
         const parsed: Row[] = all.slice(1)
-          .filter(r => r[0] && r[5] && r[6]?.toLowerCase().includes("chiq"))
+          .filter(r => r[0] && r[5])
           .map(r => ({
-            sana:       r[0] ?? "",
-            filial:     r[2] ?? "",
-            summa:      parseSumma(r[5] ?? ""),
-            chiqimTuri: (r[8] ?? "").trim() || "Boshqa",
-          }))
-          .filter(r => r.summa < 0);
+            sana:         r[0] ?? "",
+            filial:       r[2] ?? "",
+            summa:        parseSumma(r[5] ?? ""),
+            kirimChiqim:  (r[6] ?? "").trim(),
+            chiqimTuri:   (r[8] ?? "").trim() || "Boshqa",
+            onlineOfline: (r[3] ?? "").trim() || "Boshqa",
+          }));
         setRows(parsed);
       })
       .catch(e => setError(e.message))
@@ -110,7 +134,7 @@ export function MoliyaChiqim() {
   const fromDate = inputToDate(from);
   const toDate   = inputToDate(to);
 
-  const filtered = rows.filter(r => {
+  const baseFiltered = rows.filter(r => {
     const d = parseDate(r.sana);
     if (!d) return false;
     if (fromDate && d < fromDate) return false;
@@ -119,10 +143,18 @@ export function MoliyaChiqim() {
     return true;
   });
 
-  // Группировка по chiqimTuri
+  const isChiqim = view === "chiqim";
+
+  const filtered = isChiqim
+    ? baseFiltered.filter(r => r.kirimChiqim.toLowerCase().includes("chiq") && r.summa < 0)
+    : baseFiltered.filter(r => r.kirimChiqim.toLowerCase().includes("kirim") && r.summa > 0);
+
+  const groupKey = (r: Row) => isChiqim ? r.chiqimTuri : r.onlineOfline;
+  const COLORS = isChiqim ? CHIQIM_COLORS : KIRIM_COLORS;
+
   const grouped: Record<string, number> = {};
   filtered.forEach(r => {
-    const key = r.chiqimTuri || "Boshqa";
+    const key = groupKey(r) || "Boshqa";
     grouped[key] = (grouped[key] ?? 0) + Math.abs(r.summa);
   });
 
@@ -134,12 +166,34 @@ export function MoliyaChiqim() {
   const pieData = sorted.map(([name, value]) => ({
     name,
     value,
-    color: CHIQIM_COLORS[name] ?? CHIQIM_COLORS["Boshqa"],
+    color: COLORS[name] ?? COLORS["Boshqa"],
   }));
+
+  const totalLabel = isChiqim ? "Jami chiqim" : "Jami kirim";
+  const totalColorClasses = isChiqim
+    ? "border-red-500/20 bg-red-500/5"
+    : "border-green-500/20 bg-green-500/5";
+  const totalTextClasses = isChiqim ? "text-red-700" : "text-green-700";
+  const totalAmountClasses = isChiqim ? "text-red-600" : "text-green-600";
+  const totalSubClasses = isChiqim ? "text-red-500" : "text-green-500";
 
   return (
     <div>
-      <Header title="Moliya Chiqim Analizi" subtitle="Xarajatlar tahlili kategoriyalar bo'yicha" />
+      <Header title="Moliya Analizi" subtitle="Kirim / Chiqim" />
+
+      {/* Tab almashtirish */}
+      <div className="flex rounded-lg border border-border overflow-hidden text-sm font-medium mb-4 w-fit">
+        {([
+          ["chiqim", "Chiqim analizi"],
+          ["kirim",  "Kirim analizi"],
+        ] as [View, string][]).map(([id, label]) => (
+          <button key={id} onClick={() => { setView(id); setExpanded(null); }}
+            className={cn("px-4 py-2 transition border-r border-border last:border-0",
+              view === id ? "bg-primary text-primary-foreground" : "bg-background text-muted-foreground hover:text-foreground")}>
+            {label}
+          </button>
+        ))}
+      </div>
 
       {/* Фильтры */}
       <div className="bg-card rounded-2xl border border-border p-5 mb-6">
@@ -171,15 +225,15 @@ export function MoliyaChiqim() {
 
       {sorted.length === 0 ? (
         <div className="bg-card rounded-2xl border border-border p-16 text-center text-muted-foreground text-sm">
-          Bu davr uchun chiqimlar yo'q
+          {isChiqim ? "Bu davr uchun chiqimlar yo'q" : "Bu davr uchun kirimlar yo'q"}
         </div>
       ) : (
         <>
           {/* Итого */}
-          <div className="bg-card rounded-2xl border border-red-500/20 bg-red-500/5 p-5 mb-6">
-            <p className="text-sm font-medium text-red-700 mb-1">Jami chiqim</p>
-            <p className="text-3xl font-bold text-red-600">{fmt(total)}</p>
-            <p className="text-xs text-red-500 mt-1">{sorted.length} ta kategoriya · {filtered.length} ta tranzaksiya</p>
+          <div className={cn("bg-card rounded-2xl border p-5 mb-6", totalColorClasses)}>
+            <p className={cn("text-sm font-medium mb-1", totalTextClasses)}>{totalLabel}</p>
+            <p className={cn("text-3xl font-bold", totalAmountClasses)}>{fmt(total)}</p>
+            <p className={cn("text-xs mt-1", totalSubClasses)}>{sorted.length} ta kategoriya · {filtered.length} ta tranzaksiya</p>
           </div>
 
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
@@ -191,23 +245,52 @@ export function MoliyaChiqim() {
               <div className="divide-y divide-border">
                 {sorted.map(([name, summa]) => {
                   const pct = total > 0 ? (summa / total * 100).toFixed(1) : "0";
-                  const color = CHIQIM_COLORS[name] ?? CHIQIM_COLORS["Boshqa"];
+                  const color = COLORS[name] ?? COLORS["Boshqa"];
+                  const isOpen = expanded === name;
+                  const categoryRows = isChiqim
+                    ? filtered.filter(r => r.chiqimTuri === name).sort((a, b) => (parseDate(a.sana)?.getTime() ?? 0) - (parseDate(b.sana)?.getTime() ?? 0))
+                    : [];
                   return (
-                    <div key={name} className="px-5 py-3.5 flex items-center gap-3">
-                      <div className="h-3 w-3 rounded-full shrink-0" style={{ background: color }} />
-                      <div className="flex-1 min-w-0">
-                        <div className="flex items-center justify-between mb-1">
-                          <span className="text-sm font-medium">{name}</span>
-                          <span className="text-xs text-muted-foreground">{pct}%</span>
+                    <div key={name}>
+                      <button
+                        onClick={() => isChiqim && setExpanded(isOpen ? null : name)}
+                        className={cn("w-full px-5 py-3.5 flex items-center gap-3 text-left", isChiqim && "hover:bg-secondary/40 transition")}
+                      >
+                        <div className="h-3 w-3 rounded-full shrink-0" style={{ background: color }} />
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center justify-between mb-1">
+                            <span className="text-sm font-medium">{name}</span>
+                            <span className="text-xs text-muted-foreground">{pct}%</span>
+                          </div>
+                          <div className="h-1.5 rounded-full bg-secondary overflow-hidden">
+                            <div className="h-full rounded-full transition-all"
+                              style={{ width: `${pct}%`, background: color }} />
+                          </div>
+                          <div className="text-xs font-semibold mt-1" style={{ color }}>
+                            {fmt(summa)}
+                          </div>
                         </div>
-                        <div className="h-1.5 rounded-full bg-secondary overflow-hidden">
-                          <div className="h-full rounded-full transition-all"
-                            style={{ width: `${pct}%`, background: color }} />
+                        {isChiqim && (
+                          isOpen ? <ChevronUp className="h-4 w-4 text-muted-foreground shrink-0" /> : <ChevronDown className="h-4 w-4 text-muted-foreground shrink-0" />
+                        )}
+                      </button>
+                      {isChiqim && isOpen && (
+                        <div className="bg-secondary/30 px-5 py-3">
+                          <p className="text-xs text-muted-foreground mb-2">{name} — {categoryRows.length} ta tranzaksiya, qanday hisoblangani:</p>
+                          <div className="space-y-1">
+                            {categoryRows.map((r, i) => (
+                              <div key={i} className="flex items-center justify-between text-xs">
+                                <span className="text-muted-foreground">{r.sana}{filial === "Barchasi" ? ` · ${r.filial}` : ""}</span>
+                                <span className="font-medium">{fmt(r.summa)}</span>
+                              </div>
+                            ))}
+                          </div>
+                          <div className="flex items-center justify-between text-xs font-semibold mt-2 pt-2 border-t border-border">
+                            <span>Jami</span>
+                            <span style={{ color }}>{fmt(summa)}</span>
+                          </div>
                         </div>
-                        <div className="text-xs font-semibold mt-1" style={{ color }}>
-                          {fmt(summa)}
-                        </div>
-                      </div>
+                      )}
                     </div>
                   );
                 })}
@@ -257,7 +340,7 @@ export function MoliyaChiqim() {
                 <tbody className="divide-y divide-border">
                   {sorted.map(([name, summa]) => {
                     const pct = total > 0 ? (summa / total * 100).toFixed(1) : "0";
-                    const color = CHIQIM_COLORS[name] ?? CHIQIM_COLORS["Boshqa"];
+                    const color = COLORS[name] ?? COLORS["Boshqa"];
                     return (
                       <tr key={name} className="hover:bg-secondary/40 transition">
                         <td className="px-4 py-3">
@@ -266,8 +349,8 @@ export function MoliyaChiqim() {
                             <span className="font-medium">{name}</span>
                           </div>
                         </td>
-                        <td className="px-4 py-3 text-right font-semibold text-red-500">
-                          -{fmt(summa)}
+                        <td className={cn("px-4 py-3 text-right font-semibold", isChiqim ? "text-red-500" : "text-green-600")}>
+                          {isChiqim ? "-" : "+"}{fmt(summa)}
                         </td>
                         <td className="px-4 py-3 text-right text-muted-foreground">
                           {pct}%
@@ -277,7 +360,9 @@ export function MoliyaChiqim() {
                   })}
                   <tr className="bg-secondary/50 font-semibold">
                     <td className="px-4 py-3">Jami</td>
-                    <td className="px-4 py-3 text-right text-red-600">-{fmt(total)}</td>
+                    <td className={cn("px-4 py-3 text-right", isChiqim ? "text-red-600" : "text-green-600")}>
+                      {isChiqim ? "-" : "+"}{fmt(total)}
+                    </td>
                     <td className="px-4 py-3 text-right">100%</td>
                   </tr>
                 </tbody>

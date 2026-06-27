@@ -1,4 +1,5 @@
-import { Bell, Calendar } from "lucide-react";
+import { Bell, Calendar, Sun, Moon } from "lucide-react";
+import { useTheme } from "next-themes";
 
 interface Props {
   title: string;
@@ -7,6 +8,7 @@ interface Props {
 
 export function Header({ title, subtitle }: Props) {
   const today = new Date().toLocaleDateString("uz-UZ", { day: "numeric", month: "long", year: "numeric" });
+  const { theme, setTheme } = useTheme();
   return (
     <header className="flex items-start justify-between gap-4 mb-8">
       <div>
@@ -18,6 +20,13 @@ export function Header({ title, subtitle }: Props) {
           <Calendar className="h-4 w-4" />
           <span className="num">{today}</span>
         </div>
+        <button
+          onClick={() => setTheme(theme === "dark" ? "light" : "dark")}
+          className="h-9 w-9 rounded-lg bg-card border border-border flex items-center justify-center text-muted-foreground hover:text-foreground transition"
+          title="Mavzuni almashtirish"
+        >
+          {theme === "dark" ? <Sun className="h-4 w-4" /> : <Moon className="h-4 w-4" />}
+        </button>
         <button className="h-9 w-9 rounded-lg bg-card border border-border flex items-center justify-center text-muted-foreground hover:text-foreground transition relative">
           <Bell className="h-4 w-4" />
           <span className="absolute top-2 right-2 h-1.5 w-1.5 rounded-full bg-brand" />
