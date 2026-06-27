@@ -5,17 +5,18 @@ import { MoliyaChiqim } from "@/components/sections/MoliyaChiqim";
 import { Oquvchilar } from "@/components/sections/Oquvchilar";
 import { Hodimlar } from "@/components/sections/Hodimlar";
 import { Baza } from "@/components/sections/Baza";
+import { OquvchiQoshish } from "@/components/sections/OquvchiQoshish";
 import { OnlineDostup } from "@/components/sections/OnlineDostup";
 import { Ustoz } from "@/components/sections/Ustoz";
 import { TaklifShikoyat } from "@/components/sections/TaklifShikoyat";
 import { Login } from "@/components/Login";
 import logo from "@/assets/logo.webp";
 import { AssistantChat } from "@/components/dashboard/AssistantChat";
-import { Phone, Wallet, GraduationCap, Users, LogOut, Database, Wifi, MessageSquare, TrendingDown } from "lucide-react";
+import { Phone, Wallet, GraduationCap, Users, LogOut, Database, Wifi, MessageSquare, TrendingDown, UserPlus } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 type Role = "boshliq" | "admin" | "ustoz";
-type AdminSection = "baza" | "online";
+type AdminSection = "baza" | "online" | "qoshish";
 type UstozSection = "davomat" | "online";
 
 const Index = () => {
@@ -122,6 +123,12 @@ const Index = () => {
               <Wifi className="h-4 w-4 shrink-0" />
               <div><div>Online Dostup</div><div className="text-xs opacity-70">Ruxsat berilgan raqamlar</div></div>
             </button>
+            <button onClick={() => setAdminSection("qoshish")}
+              className={cn("w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition text-left",
+                adminSection === "qoshish" ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:text-foreground hover:bg-secondary")}>
+              <UserPlus className="h-4 w-4 shrink-0" />
+              <div><div>O'quvchi qo'shish</div><div className="text-xs opacity-70">Darsga yangi o'quvchi</div></div>
+            </button>
           </nav>
           <div className="px-3 py-4 border-t border-border">
             <button onClick={handleLogout}
@@ -140,8 +147,9 @@ const Index = () => {
             </button>
           </div>
           <main className="flex-1 px-5 md:px-8 py-8 pb-24 lg:pb-12 max-w-[1400px] w-full mx-auto">
-            {adminSection === "baza"   && <Baza />}
-            {adminSection === "online" && <OnlineDostup />}
+            {adminSection === "baza"    && <Baza />}
+            {adminSection === "online"  && <OnlineDostup />}
+            {adminSection === "qoshish" && <OquvchiQoshish />}
           </main>
           <nav className="lg:hidden fixed bottom-0 inset-x-0 bg-card border-t border-border flex">
             <button onClick={() => setAdminSection("baza")}
@@ -153,6 +161,11 @@ const Index = () => {
               className={cn("flex-1 flex flex-col items-center gap-1 py-2.5 text-[11px] font-medium transition",
                 adminSection === "online" ? "text-primary" : "text-muted-foreground")}>
               <Wifi className="h-5 w-5" />Online
+            </button>
+            <button onClick={() => setAdminSection("qoshish")}
+              className={cn("flex-1 flex flex-col items-center gap-1 py-2.5 text-[11px] font-medium transition",
+                adminSection === "qoshish" ? "text-primary" : "text-muted-foreground")}>
+              <UserPlus className="h-5 w-5" />Qo'shish
             </button>
           </nav>
         </div>
