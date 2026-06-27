@@ -5,7 +5,7 @@ import { cn } from "@/lib/utils";
 
 const SHEET_DAVO = "14nKtubJjuMJhQ9NQO8ORIfFGYAbBVKYrKDZpB96vc6Q";
 const API_KEY    = "AIzaSyB4kyYep05877BBpI9Rfv0SNcFhHVGBF5E";
-const RANGE_DAVO = "%D0%9B%D0%B8%D1%81%D1%821!A:I";
+const RANGE_DAVO = "%D0%9B%D0%B8%D1%81%D1%821!A:M";
 const WEBHOOK    = "https://n8n.srv1215497.hstgr.cloud/webhook/davomat";
 
 const VAQTLAR = ["10:00","13:00","15:00","19:00","21:00"];
@@ -40,31 +40,47 @@ function sameDay(a: Date, b: Date) {
          a.getFullYear() === b.getFullYear();
 }
 
+function parseSheetDate(sheet: string): Date | null {
+  const parts = (sheet || "").trim().split(".");
+  if (parts.length < 3) return null;
+  const d = new Date(parseInt(parts[2]), parseInt(parts[1]) - 1, parseInt(parts[0]));
+  return isNaN(d.getTime()) ? null : d;
+}
+
 interface DavRow {
-  rowIndex:             number;
-  ism:                  string;
-  telefon:              string;
-  filial:               string;
-  smena:                string;
-  sana:                 string;
-  holat:                string;
-  imtihon:              string;
-  pravaOldi:            string;
-  darsBoshlanishSanasi: string;
+  rowIndex:                  number;
+  ism:                       string;
+  telefon:                   string;
+  filial:                    string;
+  smena:                     string;
+  sana:                      string;
+  holat:                     string;
+  imtihon:                   string;
+  pravaOldi:                 string;
+  darsBoshlanishSanasi:      string;
+  imtihondanYiqildi:         string;
+  pravaOlishSanasi:          string;
+  imtihondanYiqilganSanasi:  string;
+  chetlatildi:               string;
 }
 
 interface Student {
-  ism:                  string;
-  telefon:              string;
-  filial:               string;
-  smena:                string;
-  pravaOldi:            string;
-  imtihon:              string;
-  darsBoshlanishSanasi: string;
-  rows:                 DavRow[];
+  ism:                       string;
+  telefon:                   string;
+  filial:                    string;
+  smena:                     string;
+  pravaOldi:                 string;
+  imtihon:                   string;
+  darsBoshlanishSanasi:      string;
+  imtihondanYiqildi:         string;
+  pravaOlishSanasi:          string;
+  imtihondanYiqilganSanasi:  string;
+  chetlatildi:               string;
+  rows:                      DavRow[];
 }
 
 type Tab = "davomat" | "jadval";
+type Period = "bugun" | "hafta" | "oy" | "barchasi";
 
 function Toggle({ left, right, value, onChange }: {
   left: string; right: string; value: string; onChange: (v: string) => void;
@@ -86,6 +102,9 @@ export function Ustoz() {
   const [search,   setSearch]   = useState("");
   const [filterSmena,  setFilterSmena]  = useState("Barchasi");
   const [filterFilial, setFilterFilial] = useState("Barchasi");
+  const [period,     setPeriod]     = useState<Period>("barchasi");
+  const [jadvalFrom, setJadvalFrom] = useState("");
+  const [jadvalTo,   setJadvalTo]   = useState("");
 
   const [showAdd,    setShowAdd]    = useState(false);
   const [addIsm,     setAddIsm]     = useState("");
@@ -99,6 +118,10 @@ export function Ustoz() {
   const [editStudent,  setEditStudent]  = useState<Student | null>(null);
   const [editImtihon,  setEditImtihon]  = useState("");
   const [editPrava,    setEditPrava]    = useState(false);
+  const [editPravaSana, setEditPravaSana] = useState(todayInput());
+  const [editYiqildi,  setEditYiqildi]  = useState(false);
+  const [editYiqildiSana, setEditYiqildiSana] = useState(todayInput());
+  const [editChetlatildi, setEditChetlatildi] = useState(false);
   const [editLoading,  setEditLoading]  = useState(false);
   const [editResult,   setEditResult]   = useState<string | null>(null);
 
@@ -117,16 +140,20 @@ export function Ustoz() {
         const parsed: DavRow[] = rows.slice(1)
           .filter(r => r[0])
           .map((r, i) => ({
-            rowIndex:             i + 2,
-            ism:                  r[0] ?? "",
-            telefon:              r[1] ?? "",
-            filial:               r[2] ?? "",
-            smena:                r[3] ?? "",
-            sana:                 r[4] ?? "",
-            holat:                r[5] ?? "",
-            imtihon:              r[6] ?? "",
-            pravaOldi:            r[7] ?? "",
-            darsBoshlanishSanasi: r[8] ?? "",
+            rowIndex:                 i + 2,
+            ism:                      r[0] ?? "",
+            telefon:                  r[1] ?? "",
+            filial:                   r[2] ?? "",
+            smena:                    r[3] ?? "",
+            sana:                     r[4] ?? "",
+            holat:                    r[5] ?? "",
+            imtihon:                  r[6] ?? "",
+            pravaOldi:                r[7] ?? "",
+            darsBoshlanishSanasi:     r[8] ?? "",
+            imtihondanYiqildi:        r[9] ?? "",
+            pravaOlishSanasi:         r[10] ?? "",
+            imtihondanYiqilganSanasi: r[11] ?? "",
+            chetlatildi:              r[12] ?? "",
           }));
         setAllRows(parsed);
       })
@@ -141,20 +168,28 @@ export function Ustoz() {
     rows.forEach(r => {
       if (!map[r.telefon]) {
         map[r.telefon] = {
-          ism:                  r.ism,
-          telefon:              r.telefon,
-          filial:               r.filial,
-          smena:                r.smena,
-          pravaOldi:            r.pravaOldi,
-          imtihon:              r.imtihon,
-          darsBoshlanishSanasi: r.darsBoshlanishSanasi,
-          rows:                 [],
+          ism:                      r.ism,
+          telefon:                  r.telefon,
+          filial:                   r.filial,
+          smena:                    r.smena,
+          pravaOldi:                r.pravaOldi,
+          imtihon:                  r.imtihon,
+          darsBoshlanishSanasi:     r.darsBoshlanishSanasi,
+          imtihondanYiqildi:        r.imtihondanYiqildi,
+          pravaOlishSanasi:         r.pravaOlishSanasi,
+          imtihondanYiqilganSanasi: r.imtihondanYiqilganSanasi,
+          chetlatildi:              r.chetlatildi,
+          rows:                     [],
         };
       }
-      if (r.pravaOldi)            map[r.telefon].pravaOldi            = r.pravaOldi;
-      if (r.imtihon)              map[r.telefon].imtihon              = r.imtihon;
-      if (r.darsBoshlanishSanasi) map[r.telefon].darsBoshlanishSanasi = r.darsBoshlanishSanasi;
-      if (r.sana)                 map[r.telefon].rows.push(r);
+      if (r.pravaOldi)                 map[r.telefon].pravaOldi                 = r.pravaOldi;
+      if (r.imtihon)                   map[r.telefon].imtihon                   = r.imtihon;
+      if (r.darsBoshlanishSanasi)      map[r.telefon].darsBoshlanishSanasi      = r.darsBoshlanishSanasi;
+      if (r.imtihondanYiqildi)         map[r.telefon].imtihondanYiqildi         = r.imtihondanYiqildi;
+      if (r.pravaOlishSanasi)          map[r.telefon].pravaOlishSanasi          = r.pravaOlishSanasi;
+      if (r.imtihondanYiqilganSanasi)  map[r.telefon].imtihondanYiqilganSanasi  = r.imtihondanYiqilganSanasi;
+      if (r.chetlatildi)               map[r.telefon].chetlatildi               = r.chetlatildi;
+      if (r.sana)                      map[r.telefon].rows.push(r);
     });
     return Object.values(map);
   }
@@ -203,6 +238,10 @@ export function Ustoz() {
     setEditStudent(student);
     setEditImtihon(toInputDate(student.imtihon));
     setEditPrava(student.pravaOldi?.toLowerCase() === "oldi");
+    setEditPravaSana(toInputDate(student.pravaOlishSanasi) || todayInput());
+    setEditYiqildi(student.imtihondanYiqildi?.trim().toLowerCase() === "ha");
+    setEditYiqildiSana(toInputDate(student.imtihondanYiqilganSanasi) || todayInput());
+    setEditChetlatildi(student.chetlatildi?.trim().toLowerCase() === "ha");
     setEditResult(null);
   }
 
@@ -214,11 +253,15 @@ export function Ustoz() {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          action:     "edit_student",
-          ism:        editStudent.ism,
-          telefon:    editStudent.telefon,
-          imtihon:    toSheetDate(editImtihon),
-          prava_oldi: editPrava ? "Oldi" : "",
+          action:                    "edit_student",
+          ism:                       editStudent.ism,
+          telefon:                   editStudent.telefon,
+          imtihon:                   toSheetDate(editImtihon),
+          prava_oldi:                editPrava ? "Oldi" : "",
+          prava_olish_sanasi:        editPrava ? toSheetDate(editPravaSana) : "",
+          imtihondan_yiqildi:        editYiqildi ? "Ha" : "",
+          imtihondan_yiqilgan_sana:  editYiqildi ? toSheetDate(editYiqildiSana) : "",
+          chetlatildi:               editChetlatildi ? "Ha" : "",
         }),
       });
       setEditResult("✅ Saqlandi!");
@@ -294,15 +337,33 @@ export function Ustoz() {
 
   const totalToday = davomatStudents.filter(s => isMarkedToday(s.telefon)).length;
 
+  const now      = new Date();
+  const periodFrom = (() => {
+    if (period === "bugun") return new Date(now.getFullYear(), now.getMonth(), now.getDate());
+    if (period === "hafta") return new Date(now.getFullYear(), now.getMonth(), now.getDate() - 6);
+    if (period === "oy")    return new Date(now.getFullYear(), now.getMonth(), 1);
+    return null;
+  })();
+  const customFrom = jadvalFrom ? new Date(jadvalFrom) : null;
+  const customTo   = jadvalTo   ? new Date(jadvalTo)   : null;
+
   const filteredStudents = allStudents.filter(s => {
     const q = search.toLowerCase();
     if (q && !s.ism.toLowerCase().includes(q) && !s.telefon.includes(q)) return false;
     if (filterSmena  !== "Barchasi" && s.smena  !== filterSmena)  return false;
     if (filterFilial !== "Barchasi" && s.filial !== filterFilial) return false;
+    const d = parseSheetDate(s.darsBoshlanishSanasi);
+    if (customFrom || customTo) {
+      if (!d) return false;
+      if (customFrom && d < customFrom) return false;
+      if (customTo   && d > customTo)   return false;
+    } else if (periodFrom) {
+      if (!d) return false;
+      if (d < periodFrom) return false;
+    }
     return true;
   });
 
-  const now      = new Date();
   const tomorrow = new Date(now); tomorrow.setDate(now.getDate() + 1);
   const dayAfter = new Date(now); dayAfter.setDate(now.getDate() + 2);
   const targetDay = imtihonFilter === "Ertaga" ? tomorrow : dayAfter;
@@ -498,6 +559,16 @@ export function Ustoz() {
                                 Imtihon: {s.imtihon}
                               </span>
                             )}
+                            {s.imtihondanYiqildi?.trim().toLowerCase() === "ha" && (
+                              <span className="text-xs px-2 py-0.5 rounded-full bg-red-500/10 text-red-600 font-medium">
+                                Yiqildi: {s.imtihondanYiqilganSanasi || "—"}
+                              </span>
+                            )}
+                            {s.chetlatildi?.trim().toLowerCase() === "ha" && (
+                              <span className="text-xs px-2 py-0.5 rounded-full bg-foreground/10 text-foreground font-medium">
+                                Kontrakt uzildi
+                              </span>
+                            )}
                             {markedToday && (
                               <span className={cn("text-xs px-2 py-0.5 rounded-full font-medium",
                                 markedToday === "Bor" ? "bg-emerald-500/10 text-emerald-600" : "bg-red-500/10 text-red-500")}>
@@ -550,6 +621,31 @@ export function Ustoz() {
               onChange={e => setSearch(e.target.value)}
               className="w-full pl-9 pr-4 py-2 rounded-lg border border-border bg-card text-sm" />
           </div>
+
+          <div className="bg-card rounded-2xl border border-border p-4 mb-4">
+            <div className="flex flex-wrap items-center gap-2 mb-3">
+              {([["bugun","Bugun"],["hafta","Hafta"],["oy","Oy"],["barchasi","Barchasi"]] as [Period,string][]).map(([id,label]) => (
+                <button key={id} onClick={() => { setPeriod(id); setJadvalFrom(""); setJadvalTo(""); }}
+                  className={cn("px-3 py-1.5 rounded-lg text-xs font-medium transition",
+                    period === id && !jadvalFrom && !jadvalTo ? "bg-primary text-primary-foreground" : "bg-secondary text-muted-foreground hover:text-foreground")}>
+                  {label}
+                </button>
+              ))}
+            </div>
+            <div className="grid grid-cols-2 gap-3 max-w-sm">
+              <div>
+                <label className="text-xs text-muted-foreground mb-1 block">Dan</label>
+                <input type="date" value={jadvalFrom} onChange={e => setJadvalFrom(e.target.value)}
+                  className="w-full px-3 py-2 rounded-lg border border-border bg-background text-sm" />
+              </div>
+              <div>
+                <label className="text-xs text-muted-foreground mb-1 block">Gacha</label>
+                <input type="date" value={jadvalTo} onChange={e => setJadvalTo(e.target.value)}
+                  className="w-full px-3 py-2 rounded-lg border border-border bg-background text-sm" />
+              </div>
+            </div>
+          </div>
+
           <div className="flex flex-wrap gap-2 mb-3">
             {["Barchasi", ...VAQTLAR].map(v => (
               <button key={v} onClick={() => setFilterSmena(v)}
@@ -627,11 +723,19 @@ export function Ustoz() {
                         </td>
                         <td className="px-4 py-3 text-muted-foreground text-xs">{s.imtihon || "—"}</td>
                         <td className="px-4 py-3">
-                          {s.pravaOldi?.toLowerCase() === "oldi" ? (
-                            <span className="px-2 py-0.5 rounded-full text-xs font-medium bg-emerald-500/10 text-emerald-600 border border-emerald-500/20">Prava oldi</span>
-                          ) : (
-                            <span className="px-2 py-0.5 rounded-full text-xs font-medium bg-secondary text-muted-foreground border border-border">O'qiyapti</span>
-                          )}
+                          <div className="flex flex-wrap gap-1">
+                            {s.pravaOldi?.toLowerCase() === "oldi" ? (
+                              <span className="px-2 py-0.5 rounded-full text-xs font-medium bg-emerald-500/10 text-emerald-600 border border-emerald-500/20">Prava oldi</span>
+                            ) : (
+                              <span className="px-2 py-0.5 rounded-full text-xs font-medium bg-secondary text-muted-foreground border border-border">O'qiyapti</span>
+                            )}
+                            {s.imtihondanYiqildi?.trim().toLowerCase() === "ha" && (
+                              <span className="px-2 py-0.5 rounded-full text-xs font-medium bg-red-500/10 text-red-600 border border-red-500/20">Yiqildi: {s.imtihondanYiqilganSanasi || "—"}</span>
+                            )}
+                            {s.chetlatildi?.trim().toLowerCase() === "ha" && (
+                              <span className="px-2 py-0.5 rounded-full text-xs font-medium bg-foreground/10 text-foreground border border-border">Kontrakt uzildi</span>
+                            )}
+                          </div>
                         </td>
                       </tr>
                     );
@@ -663,9 +767,13 @@ export function Ustoz() {
                 <input type="date" value={editImtihon} onChange={e => setEditImtihon(e.target.value)}
                   className="w-full px-3 py-2 rounded-lg border border-border bg-background text-sm" />
               </div>
-              <div>
+              <div className="space-y-2">
                 <label className="flex items-center gap-3 cursor-pointer">
-                  <div onClick={() => setEditPrava(!editPrava)}
+                  <div onClick={() => {
+                      const next = !editPrava;
+                      setEditPrava(next);
+                      if (next && !editPravaSana) setEditPravaSana(todayInput());
+                    }}
                     className={cn("w-10 h-6 rounded-full transition relative cursor-pointer",
                       editPrava ? "bg-emerald-500" : "bg-secondary border border-border")}>
                     <div className={cn("absolute top-1 w-4 h-4 rounded-full bg-white transition-all",
@@ -673,7 +781,48 @@ export function Ustoz() {
                   </div>
                   <span className="text-sm font-medium">Prava oldi</span>
                 </label>
+                {editPrava && (
+                  <div>
+                    <label className="text-xs text-muted-foreground mb-1 block">Prava olish sanasi</label>
+                    <input type="date" value={editPravaSana} onChange={e => setEditPravaSana(e.target.value)}
+                      className="w-full px-3 py-2 rounded-lg border border-border bg-background text-sm" />
+                  </div>
+                )}
               </div>
+
+              <div className="space-y-2">
+                <label className="flex items-center gap-3 cursor-pointer">
+                  <div onClick={() => {
+                      const next = !editYiqildi;
+                      setEditYiqildi(next);
+                      if (next && !editYiqildiSana) setEditYiqildiSana(todayInput());
+                    }}
+                    className={cn("w-10 h-6 rounded-full transition relative cursor-pointer",
+                      editYiqildi ? "bg-red-500" : "bg-secondary border border-border")}>
+                    <div className={cn("absolute top-1 w-4 h-4 rounded-full bg-white transition-all",
+                      editYiqildi ? "left-5" : "left-1")} />
+                  </div>
+                  <span className="text-sm font-medium">Imtihondan yiqildi</span>
+                </label>
+                {editYiqildi && (
+                  <div>
+                    <label className="text-xs text-muted-foreground mb-1 block">Yiqilgan sana</label>
+                    <input type="date" value={editYiqildiSana} onChange={e => setEditYiqildiSana(e.target.value)}
+                      className="w-full px-3 py-2 rounded-lg border border-border bg-background text-sm" />
+                  </div>
+                )}
+              </div>
+
+              <label className="flex items-center gap-3 cursor-pointer">
+                <div onClick={() => setEditChetlatildi(!editChetlatildi)}
+                  className={cn("w-10 h-6 rounded-full transition relative cursor-pointer",
+                    editChetlatildi ? "bg-foreground" : "bg-secondary border border-border")}>
+                  <div className={cn("absolute top-1 w-4 h-4 rounded-full bg-white transition-all",
+                    editChetlatildi ? "left-5" : "left-1")} />
+                </div>
+                <span className="text-sm font-medium">Chetlatildi (kontrakt uzildi)</span>
+              </label>
+
               <div className="flex items-center gap-3 pt-2">
                 <button onClick={submitEdit} disabled={editLoading}
                   className="px-6 py-2 bg-primary text-primary-foreground rounded-lg text-sm font-medium hover:opacity-90 transition disabled:opacity-50 inline-flex items-center gap-2">
