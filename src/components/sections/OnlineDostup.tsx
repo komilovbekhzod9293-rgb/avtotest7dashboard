@@ -146,12 +146,14 @@ export function OnlineDostup() {
     finally { setDeleteLoading(false); setDeleteId(null); }
   }
 
+  const digits = (s: string) => s.replace(/\D/g, "");
+
   const displayed = phones.filter(p =>
-    search ? p.telefon_raqami.includes(search) : true
+    search ? digits(p.telefon_raqami).includes(digits(search)) : true
   );
 
   const searchResult = search
-    ? phones.find(p => p.telefon_raqami.includes(search))
+    ? phones.find(p => digits(p.telefon_raqami).includes(digits(search)))
     : null;
 
   if (loading) return (
