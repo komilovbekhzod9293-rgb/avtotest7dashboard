@@ -4,7 +4,7 @@ import { Loader2, AlertCircle, Plus, X, Search, Trash2, Pencil } from "lucide-re
 import { cn } from "@/lib/utils";
 
 const SUPABASE_URL = "https://ziqzprosgzevkdfwyotl.supabase.co";
-const SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InppcXpwcm9zZ3pldmtkZnd5b3RsIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjYzNDAwMzAsImV4cCI6MjA4MTkxNjAzMH0.3-4COwffhK2ZU0kU-bnlCWPytsEzRxpMu3SkGg8m7BU";
+const SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InppcXpwcm9zZ3pldmtkZnd5b3RsIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc2NjM0MDAzMCwiZXhwIjoyMDgxOTE2MDMwfQ.vv56u5cQ0VToYDhyYGpbt2phr7PAwAbmtheY2h25yyQ";
 const WEBHOOK = "https://n8n.srv1215497.hstgr.cloud/webhook/admin";
 const ADD_WEBHOOK = "https://n8n.srv1215497.hstgr.cloud/webhook/add";
 
