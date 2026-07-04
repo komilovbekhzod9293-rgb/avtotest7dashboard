@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { Header } from "@/components/dashboard/Header";
-import { TrendingUp, Loader2, AlertCircle, Plus, X, CheckCircle2, Clock, CalendarClock, Globe, ChevronDown, ChevronUp, AlertTriangle, Info, Target } from "lucide-react";
+import { TrendingUp, Loader2, AlertCircle, Plus, X, CheckCircle2, Clock, CalendarClock, Globe, ChevronDown, ChevronUp, AlertTriangle, Info } from "lucide-react";
 import { Area, AreaChart, CartesianGrid, Cell, Pie, PieChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
 import { cn } from "@/lib/utils";
 
@@ -13,7 +13,6 @@ const REJADAGI_WEBHOOK = "https://n8n.srv1215497.hstgr.cloud/webhook/rasxodqoshi
 const ONLINE_WEBHOOK = "https://n8n.srv1215497.hstgr.cloud/webhook/add";
 const UZ_MONTHS = ["Yan","Fev","Mar","Apr","May","Iyn","Iyl","Avg","Sen","Okt","Noy","Dek"];
 const EXPENSE_COLORS = ["hsl(222 47% 11%)","hsl(220 9% 46%)","hsl(230 70% 55%)","hsl(38 92% 50%)","hsl(220 13% 78%)"];
-const PRIORITY_KEY = "moliya_priority_id";
 
 interface Bucket { id: string; nomi: string; summa: number; kun: number; chiqimTuri: string; hasDate: boolean; }
 const BUCKETS: Bucket[] = [
@@ -54,13 +53,12 @@ interface TaqsimItem {
   kechikkan: boolean;
   yetarli: boolean; tolanganReal: boolean;
   tolanganSumma: number; hasDate: boolean;
-  isPriority: boolean;
 }
 interface TaqsimResult {
   items: TaqsimItem[]; kunlikKirim: number; tahlilOylar: string[]; qolgan: number;
 }
 
-function taqsimla(rows: Row[], bugun: Date, priorityId: string | null): TaqsimResult {
+function taqsimla(rows: Row[], bugun: Date): TaqsimResult {
   const oylar: { oy: number; yil: number }[] = [];
   for (let i = 1; i <= 2; i++) {
     const d = new Date(bugun.getFullYear(), bugun.getMonth() - i, 1);
@@ -150,7 +148,6 @@ function taqsimla(rows: Row[], bugun: Date, priorityId: string | null): TaqsimRe
       yetarli: false, tolanganReal: tolanganReal,
       tolanganSumma: tolanganSumma,
       hasDate: b.hasDate,
-      isPriority: priorityId === b.id,
     };
   });
 
@@ -167,21 +164,11 @@ function taqsimla(rows: Row[], bugun: Date, priorityId: string | null): TaqsimRe
   }
 
   const withDate = items.filter(function(i) { return i.hasDate && !i.tolanganReal; });
-  if (priorityId) {
-    withDate.sort(function(a, b) {
-      if (a.id === priorityId) return -1;
-      if (b.id === priorityId) return 1;
-      if (a.kechikkan && !b.kechikkan) return -1;
-      if (!a.kechikkan && b.kechikkan) return 1;
-      return a.kunQoldi - b.kunQoldi;
-    });
-  } else {
-    withDate.sort(function(a, b) {
-      if (a.kechikkan && !b.kechikkan) return -1;
-      if (!a.kechikkan && b.kechikkan) return 1;
-      return a.kunQoldi - b.kunQoldi;
-    });
-  }
+  withDate.sort(function(a, b) {
+    if (a.kechikkan && !b.kechikkan) return -1;
+    if (!a.kechikkan && b.kechikkan) return 1;
+    return a.kunQoldi - b.kunQoldi;
+  });
 
   let qolganBudjet = kassaDatli;
   withDate.forEach(function(item) {
@@ -297,17 +284,6 @@ export function Moliya() {
   const [tolovLoading, setTolovLoading] = useState<number | null>(null);
   const [taqsimOpen, setTaqsimOpen] = useState(false);
   const [tahlilOpen, setTahlilOpen] = useState(false);
-  const [priorityId, setPriorityId] = useState<string | null>(function() {
-    try { return localStorage.getItem(PRIORITY_KEY); } catch { return null; }
-  });
-
-  function setPriority(id: string | null) {
-    setPriorityId(id);
-    try {
-      if (id) localStorage.setItem(PRIORITY_KEY, id);
-      else localStorage.removeItem(PRIORITY_KEY);
-    } catch {}
-  }
 
   const fetchData = () => {
     setLoading(true);
@@ -438,7 +414,7 @@ export function Moliya() {
   const yunusobodExpenses = periodFiltered.filter(function(r) { return r.summa < 0 && r.filial === "Yunusobod"; }).reduce(function(s, r) { return s + Math.abs(r.summa); }, 0);
   const yunusobodProfit   = yunusobodRevenue - yunusobodExpenses;
 
-  const taqsim = taqsimla(rows, now, priorityId);
+  const taqsim = taqsimla(rows, now);
   const yetarliSon = taqsim.items.filter(function(i) { return i.tolanganReal || i.foiz >= 100; }).length;
   const xatarliSon = taqsim.items.filter(function(i) { return !i.tolanganReal && i.foiz < 100 && i.hasDate && (i.kunQoldi <= 3 || i.kechikkan); }).length;
 
@@ -609,11 +585,6 @@ export function Moliya() {
               </span>
             </div>
             <div className="flex items-center gap-1.5 flex-wrap">
-              {priorityId && (
-                <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-orange-100 text-orange-700 text-xs font-medium">
-                  <Target className="h-3 w-3" />Qo'lda prioritet
-                </span>
-              )}
               {xatarliSon > 0 && (
                 <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-red-100 text-red-700 text-xs font-medium">
                   <AlertTriangle className="h-3 w-3" />{xatarliSon} xatar
@@ -633,54 +604,36 @@ export function Moliya() {
             <p className="font-semibold mb-2">Nima asosida taqsimlanyapti?</p>
             <p className="mb-2">Kassaning 14% sanasiz xarajatlarga teng taqsimlanadi. 86% sanali xarajatlarga kaskad usulida.</p>
             <p className="mb-1">🟢 To'q yashil = haqiqatda to'langan · 🟩 Och yashil = kassadan zaxiralangan</p>
-            <p className="mb-1">🎯 Qo'lda prioritet = barcha 86% o'sha xarajatga boradi</p>
             <p className="text-blue-700">🔴 Kechikmoqda = sana o'tib ketgan, hali to'lanmagan</p>
           </div>
         )}
 
         {taqsimOpen && (
           <div className="px-5 pb-5">
-            {priorityId && (
-              <div className="mb-3 p-3 rounded-xl border border-orange-200 bg-orange-50 flex items-center justify-between">
-                <span className="text-xs text-orange-700 font-medium flex items-center gap-1.5">
-                  <Target className="h-3.5 w-3.5" />
-                  Prioritet rejimi yoqilgan — barcha pul bitta xarajatga yo'naltirilmoqda
-                </span>
-                <button onClick={function() { setPriority(null); }} className="text-xs text-orange-600 hover:text-orange-800 font-semibold px-2 py-1 rounded-lg hover:bg-orange-100 transition">
-                  Bekor qilish
-                </button>
-              </div>
-            )}
             <div className="space-y-2">
               {taqsim.items.map(function(v) {
                 const isGreen = v.tolanganReal || v.foiz >= 100;
                 const isXatar = !v.tolanganReal && v.foiz < 100 && v.hasDate && (v.kunQoldi <= 3 || v.kechikkan);
-                const bgClass = v.isPriority && !v.tolanganReal
-                  ? "border-orange-300 bg-orange-50"
-                  : isGreen
-                    ? "border-emerald-200 bg-emerald-50"
-                    : isXatar
-                      ? "border-red-200 bg-red-50"
-                      : "border-border bg-background";
+                const bgClass = isGreen
+                  ? "border-emerald-200 bg-emerald-50"
+                  : isXatar
+                    ? "border-red-200 bg-red-50"
+                    : "border-border bg-background";
 
                 return (
                   <div key={v.id} className={cn("p-3 rounded-xl border", bgClass)}>
                     <div className="flex items-center justify-between mb-1.5">
                       <div className="flex items-center gap-2 min-w-0">
-                        {v.isPriority && !v.tolanganReal
-                          ? <Target className="h-3.5 w-3.5 text-orange-500 shrink-0" />
-                          : isGreen
-                            ? <CheckCircle2 className="h-3.5 w-3.5 text-emerald-500 shrink-0" />
-                            : <Clock className={cn("h-3.5 w-3.5 shrink-0", isXatar ? "text-red-500" : "text-muted-foreground")} />}
+                        {isGreen
+                          ? <CheckCircle2 className="h-3.5 w-3.5 text-emerald-500 shrink-0" />
+                          : <Clock className={cn("h-3.5 w-3.5 shrink-0", isXatar ? "text-red-500" : "text-muted-foreground")} />}
                         <span className={cn(
                           "font-medium text-sm truncate",
                           v.tolanganReal ? "line-through text-emerald-600" :
-                          isGreen ? "text-emerald-700" :
-                          v.isPriority ? "text-orange-700 font-semibold" : ""
+                          isGreen ? "text-emerald-700" : ""
                         )}>{v.nomi}</span>
                         {v.tolanganReal && <span className="text-xs text-emerald-600 font-semibold shrink-0 ml-1">To'landi</span>}
                         {!v.tolanganReal && isGreen && <span className="text-xs text-emerald-600 font-semibold shrink-0 ml-1">Kassada bor</span>}
-                        {v.isPriority && !v.tolanganReal && <span className="text-xs text-orange-600 font-semibold shrink-0 ml-1">Prioritet</span>}
                         {v.kechikkan && !v.tolanganReal && (
                           <span className="text-xs text-red-600 font-semibold shrink-0 ml-1 inline-flex items-center gap-0.5">
                             <AlertTriangle className="h-3 w-3" />Kechikmoqda
@@ -693,18 +646,6 @@ export function Moliya() {
                           {v.hasDate && !v.kechikkan && " · " + v.kunQoldi + " kun qoldi"}
                           {v.hasDate && v.kechikkan && !v.tolanganReal && " · to'lanmagan"}
                         </span>
-                        {!v.tolanganReal && (
-                          <button
-                            onClick={function() { setPriority(v.isPriority ? null : v.id); }}
-                            className={cn(
-                              "h-6 w-6 rounded-md flex items-center justify-center transition",
-                              v.isPriority ? "bg-orange-500 text-white" : "bg-secondary text-muted-foreground hover:bg-orange-100 hover:text-orange-600"
-                            )}
-                            title={v.isPriority ? "Prioritetni olib tashlash" : "Prioritet qilish"}
-                          >
-                            <Target className="h-3 w-3" />
-                          </button>
-                        )}
                       </div>
                     </div>
 
@@ -737,7 +678,6 @@ export function Moliya() {
                       </span>
                       <span className={cn("font-semibold",
                         isGreen ? "text-emerald-600" :
-                        v.isPriority ? "text-orange-600" :
                         isXatar ? "text-red-500" :
                         "text-muted-foreground")}>
                         {v.foiz}%{!isGreen ? " · " + fmtFull(v.kerak - v.tolanganSumma - v.toplangan) + " kerak" : " ✓"}

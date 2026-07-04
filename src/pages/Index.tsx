@@ -11,7 +11,6 @@ import { Ustoz } from "@/components/sections/Ustoz";
 import { TaklifShikoyat } from "@/components/sections/TaklifShikoyat";
 import { Login } from "@/components/Login";
 import logo from "@/assets/logo.webp";
-import { AssistantChat } from "@/components/dashboard/AssistantChat";
 import { Phone, Wallet, GraduationCap, Users, LogOut, Database, Wifi, MessageSquare, TrendingDown, UserPlus } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -82,7 +81,6 @@ const Index = () => {
             {active === "taklif"       && <TaklifShikoyat />}
             {active === "online"       && <OnlineDostup />}
           </main>
-          <AssistantChat key={active} context={contextLabel[active]} />
           <nav className="lg:hidden fixed bottom-0 inset-x-0 bg-card border-t border-border flex overflow-x-auto">
             {mobileItems.map((it) => {
               const Icon = it.icon;
