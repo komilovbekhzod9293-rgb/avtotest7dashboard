@@ -600,13 +600,13 @@ export function Moliya() {
       </div>
 
       <div className="bg-card rounded-2xl border border-border shadow-soft mb-6 overflow-hidden">
-        <button onClick={function() { setTaqsimOpen(function(v) { return !v; }); }} className="w-full flex items-center justify-between px-5 py-4 hover:bg-secondary/40 transition">
+        <div onClick={function() { setTaqsimOpen(function(v) { return !v; }); }} className="w-full flex items-center justify-between px-5 py-4 hover:bg-secondary/40 transition cursor-pointer">
           <div className="flex items-center gap-3 flex-wrap">
             <div className="flex items-center gap-2">
               <span className="font-semibold text-sm">Pul taqsimoti</span>
-              <button onClick={function(e) { e.stopPropagation(); setTahlilOpen(function(v) { return !v; }); setTaqsimOpen(true); }} className="h-5 w-5 rounded-full bg-muted flex items-center justify-center hover:bg-primary hover:text-primary-foreground transition">
+              <span onClick={function(e) { e.stopPropagation(); setTahlilOpen(function(v) { return !v; }); setTaqsimOpen(true); }} className="h-5 w-5 rounded-full bg-muted flex items-center justify-center hover:bg-primary hover:text-primary-foreground transition cursor-pointer">
                 <Info className="h-3 w-3" />
-              </button>
+              </span>
             </div>
             <div className="flex items-center gap-1.5 flex-wrap">
               {priorityId && (
@@ -626,7 +626,7 @@ export function Moliya() {
             </div>
           </div>
           {taqsimOpen ? <ChevronUp className="h-4 w-4 text-muted-foreground shrink-0" /> : <ChevronDown className="h-4 w-4 text-muted-foreground shrink-0" />}
-        </button>
+        </div>
 
         {taqsimOpen && tahlilOpen && (
           <div className="mx-5 mb-3 p-4 rounded-xl border border-blue-200 bg-blue-50 text-xs text-blue-900">
