@@ -26,6 +26,7 @@ const CHIQIM_COLORS: Record<string, string> = {
   "Invest Texnika":               "hsl(265 50% 40%)",
   "Invest ai":                    "hsl(220 15% 25%)",
   "Invest Remont":                "hsl(45 80% 55%)",
+  "Invest Future":                "hsl(280 65% 50%)",
   "Boshqa":                       "hsl(220 9% 60%)",
 };
 
