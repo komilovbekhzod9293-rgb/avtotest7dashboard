@@ -136,12 +136,14 @@ export function OnlineDostup() {
   async function submitDelete(id: number) {
     setDeleteId(id); setDeleteLoading(true);
     try {
-      await fetch(WEBHOOK, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ action: "delete_phone", id }),
+      await fetch(`${SUPABASE_URL}/rest/v1/allowed_phones?id=eq.${id}`, {
+        method: "DELETE",
+        headers: {
+          "apikey": SUPABASE_KEY,
+          "Authorization": `Bearer ${SUPABASE_KEY}`,
+        },
       });
-      setTimeout(() => fetchPhones(), 2000);
+      fetchPhones();
     } catch {}
     finally { setDeleteLoading(false); setDeleteId(null); }
   }
