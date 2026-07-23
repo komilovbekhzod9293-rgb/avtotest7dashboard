@@ -202,7 +202,8 @@ export function Ustoz() {
 
   const allStudents    = buildStudents(allRows);
   const activeStudents = allStudents.filter(s =>
-    !s.pravaOldi || s.pravaOldi.trim().toLowerCase() !== "oldi"
+    (!s.pravaOldi || s.pravaOldi.trim().toLowerCase() !== "oldi") &&
+    s.chetlatildi?.trim().toLowerCase() !== "ha"
   );
 
   function isMarkedToday(telefon: string): string | null {
