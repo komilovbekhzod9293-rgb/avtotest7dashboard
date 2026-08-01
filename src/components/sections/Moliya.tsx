@@ -448,9 +448,10 @@ export function Moliya() {
 
   const pravaOnPeriod = payments.filter(function(p) {
     const d = toTashkent(p.created_at);
-    if (period === "kun") return d.toDateString() === now.toDateString();
-    if (period === "hafta") { const diff = (now.getTime() - d.getTime()) / (1000*60*60*24); return diff >= 0 && diff < 7; }
-    if (period === "oy") return d.getMonth() === now.getMonth() && d.getFullYear() === now.getFullYear();
+    const nowT = toTashkent(now.toISOString());
+    if (period === "kun") return d.getUTCFullYear() === nowT.getUTCFullYear() && d.getUTCMonth() === nowT.getUTCMonth() && d.getUTCDate() === nowT.getUTCDate();
+    if (period === "hafta") { const diff = (nowT.getTime() - d.getTime()) / (1000*60*60*24); return diff >= 0 && diff < 7; }
+    if (period === "oy") return d.getUTCMonth() === nowT.getUTCMonth() && d.getUTCFullYear() === nowT.getUTCFullYear();
     return true;
   });
   const pravaOnRevenue = pravaOnPeriod.reduce(function(s, p) { return s + Math.round(p.amount / 100); }, 0);
@@ -904,7 +905,7 @@ export function Moliya() {
                           <tr><td colSpan={5} className="px-4 py-10 text-center text-muted-foreground">To'lovlar topilmadi</td></tr>
                         ) : filtered.map(function(p, i) {
                           const d = toTashkent(p.created_at);
-                          const dateStr = d.getDate().toString().padStart(2,"0") + "." + (d.getMonth()+1).toString().padStart(2,"0") + "." + d.getFullYear() + " " + d.getHours().toString().padStart(2,"0") + ":" + d.getMinutes().toString().padStart(2,"0");
+                          const dateStr = d.getUTCDate().toString().padStart(2,"0") + "." + (d.getUTCMonth()+1).toString().padStart(2,"0") + "." + d.getUTCFullYear() + " " + d.getUTCHours().toString().padStart(2,"0") + ":" + d.getUTCMinutes().toString().padStart(2,"0");
                           const name = (p.first_name || p.last_name) ? ((p.first_name || "") + " " + (p.last_name || "")).trim() : "—";
                           return (
                             <tr key={p.id} className="hover:bg-secondary/40 transition">
