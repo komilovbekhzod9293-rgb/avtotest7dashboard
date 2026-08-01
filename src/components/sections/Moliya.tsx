@@ -235,7 +235,14 @@ type Period = "kun" | "hafta" | "oy" | "barchasi";
 interface Row { sana: string; ism: string; filial: string; onlineOfline: string; turi: string; summa: number; kirimChiqim: string; izoh: string; chiqimTuri: string; }
 interface RejadagiRow { nomi: string; sana: string; summa: number; status: string; izoh: string; }
 interface Payment { id: string; phone: string; tariff: string; amount: number; status: string; first_name: string | null; last_name: string | null; created_at: string; }
-function isOnlineRow(r: Row): boolean { return r.onlineOfline === "Online"; }
+const EKVAYRING_START = new Date(2026, 6, 24); // 24 iyul 2026 — ekvayring boshlangan sana
+function isOnlineRow(r: Row): boolean {
+  if (r.onlineOfline !== "Online") return false;
+  const p = r.sana.split(".");
+  if (p.length < 3) return false;
+  const d = new Date(parseInt(p[2]), parseInt(p[1]) - 1, parseInt(p[0]));
+  return d >= EKVAYRING_START;
+}
 function toTashkent(iso: string): Date { return new Date(new Date(iso).getTime() + 5 * 3600000); }
 
 function Toggle({ left, right, value, onChange, leftColor, rightColor }: {

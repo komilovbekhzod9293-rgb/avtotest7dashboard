@@ -333,9 +333,17 @@ export function MoliyaChiqim() {
 
   const isChiqim = view === "chiqim";
 
+  const EKVAYRING_START = new Date(2026, 6, 24);
+  function isPravaOnRow(r: Row): boolean {
+    if (r.onlineOfline !== "Online") return false;
+    const p = r.sana.split(".");
+    if (p.length < 3) return false;
+    const d = new Date(parseInt(p[2]), parseInt(p[1]) - 1, parseInt(p[0]));
+    return d >= EKVAYRING_START;
+  }
   const filtered = isChiqim
-    ? baseFiltered.filter(r => r.kirimChiqim.toLowerCase().includes("chiq") && r.summa < 0 && r.onlineOfline !== "Online")
-    : baseFiltered.filter(r => r.kirimChiqim.toLowerCase().includes("kirim") && r.summa > 0 && r.onlineOfline !== "Online");
+    ? baseFiltered.filter(r => r.kirimChiqim.toLowerCase().includes("chiq") && r.summa < 0 && !isPravaOnRow(r))
+    : baseFiltered.filter(r => r.kirimChiqim.toLowerCase().includes("kirim") && r.summa > 0 && !isPravaOnRow(r));
 
   return (
     <div>
