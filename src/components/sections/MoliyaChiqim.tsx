@@ -334,8 +334,8 @@ export function MoliyaChiqim() {
   const isChiqim = view === "chiqim";
 
   const filtered = isChiqim
-    ? baseFiltered.filter(r => r.kirimChiqim.toLowerCase().includes("chiq") && r.summa < 0)
-    : baseFiltered.filter(r => r.kirimChiqim.toLowerCase().includes("kirim") && r.summa > 0);
+    ? baseFiltered.filter(r => r.kirimChiqim.toLowerCase().includes("chiq") && r.summa < 0 && r.onlineOfline !== "Online")
+    : baseFiltered.filter(r => r.kirimChiqim.toLowerCase().includes("kirim") && r.summa > 0 && r.onlineOfline !== "Online");
 
   return (
     <div>

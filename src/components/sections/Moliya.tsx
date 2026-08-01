@@ -11,6 +11,8 @@ const WEBHOOK_URL = "https://n8n.srv1215497.hstgr.cloud/webhook/moliya";
 const REJADAGI_SHEET_ID = "1pgMDVt57G6TFkHfSZDCLY8bH1R-39a1rVhQb_Be9-Kc";
 const REJADAGI_WEBHOOK = "https://n8n.srv1215497.hstgr.cloud/webhook/rasxodqoshish";
 const ONLINE_WEBHOOK = "https://n8n.srv1215497.hstgr.cloud/webhook/add";
+const SUPABASE_URL = "https://ziqzprosgzevkdfwyotl.supabase.co";
+const SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InppcXpwcm9zZ3pldmtkZnd5b3RsIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc2NjM0MDAzMCwiZXhwIjoyMDgxOTE2MDMwfQ.vv56u5cQ0VToYDhyYGpbt2phr7PAwAbmtheY2h25yyQ";
 const UZ_MONTHS = ["Yan","Fev","Mar","Apr","May","Iyn","Iyl","Avg","Sen","Okt","Noy","Dek"];
 const EXPENSE_COLORS = ["hsl(222 47% 11%)","hsl(220 9% 46%)","hsl(230 70% 55%)","hsl(38 92% 50%)","hsl(220 13% 78%)"];
 
@@ -230,8 +232,11 @@ function formatSummaInput(val: string): string {
 }
 
 type Period = "kun" | "hafta" | "oy" | "barchasi";
-interface Row { sana: string; ism: string; filial: string; turi: string; summa: number; kirimChiqim: string; izoh: string; chiqimTuri: string; }
+interface Row { sana: string; ism: string; filial: string; onlineOfline: string; turi: string; summa: number; kirimChiqim: string; izoh: string; chiqimTuri: string; }
 interface RejadagiRow { nomi: string; sana: string; summa: number; status: string; izoh: string; }
+interface Payment { id: string; phone: string; tariff: string; amount: number; status: string; first_name: string | null; last_name: string | null; created_at: string; }
+function isOnlineRow(r: Row): boolean { return r.onlineOfline === "Online"; }
+function toTashkent(iso: string): Date { return new Date(new Date(iso).getTime() + 5 * 3600000); }
 
 function Toggle({ left, right, value, onChange, leftColor, rightColor }: {
   left: string; right: string; value: string; onChange: (v: string) => void; leftColor?: string; rightColor?: string;
@@ -285,6 +290,12 @@ export function Moliya() {
   const [tolovLoading, setTolovLoading] = useState<number | null>(null);
   const [taqsimOpen, setTaqsimOpen] = useState(false);
   const [tahlilOpen, setTahlilOpen] = useState(false);
+  const [payments, setPayments] = useState<Payment[]>([]);
+  const [paymentsLoading, setPaymentsLoading] = useState(false);
+  const [modalPravaOn, setModalPravaOn] = useState(false);
+  const [poFilterFrom, setPoFilterFrom] = useState("");
+  const [poFilterTo, setPoFilterTo] = useState("");
+  const [poFilterTariff, setPoFilterTariff] = useState("Barchasi");
 
   const fetchData = () => {
     setLoading(true);
@@ -295,8 +306,8 @@ export function Moliya() {
         const dataRows = allRows.slice(1);
         setRows(dataRows.filter(function(r) { return r.length >= 6 && r[0] && r[5]; }).map(function(r) {
           return {
-            sana: r[0] || "", ism: r[1] || "", filial: r[2] || "", turi: r[4] || "",
-            summa: parseSumma(r[5]), kirimChiqim: r[6] || "", izoh: r[7] || "",
+            sana: r[0] || "", ism: r[1] || "", filial: r[2] || "", onlineOfline: r[3] || "",
+            turi: r[4] || "", summa: parseSumma(r[5]), kirimChiqim: r[6] || "", izoh: r[7] || "",
             chiqimTuri: r[8] || "",
           };
         }));
@@ -328,7 +339,18 @@ export function Moliya() {
       .finally(function() { setRejadagiLoading(false); });
   };
 
-  useEffect(function() { fetchData(); fetchRejadagi(); }, []);
+  const fetchPayments = () => {
+    setPaymentsLoading(true);
+    fetch(`${SUPABASE_URL}/rest/v1/payments?status=eq.success&order=created_at.desc`, {
+      headers: { "apikey": SUPABASE_KEY, "Authorization": `Bearer ${SUPABASE_KEY}` },
+    })
+    .then(function(r) { return r.json(); })
+    .then(function(data) { setPayments(Array.isArray(data) ? data : []); })
+    .catch(function() {})
+    .finally(function() { setPaymentsLoading(false); });
+  };
+
+  useEffect(function() { fetchData(); fetchRejadagi(); fetchPayments(); }, []);
 
   async function submitForm() {
     if (!formIsm || !formSumma) { setFormResult("Ism va summani kiriting"); return; }
@@ -403,19 +425,31 @@ export function Moliya() {
     return true;
   });
 
-  const totalRevenue  = periodFiltered.filter(function(r) { return r.summa > 0; }).reduce(function(s, r) { return s + r.summa; }, 0);
-  const totalExpenses = periodFiltered.filter(function(r) { return r.summa < 0; }).reduce(function(s, r) { return s + Math.abs(r.summa); }, 0);
+  const offlineRows = periodFiltered.filter(function(r) { return !isOnlineRow(r); });
+
+  const totalRevenue  = offlineRows.filter(function(r) { return r.summa > 0; }).reduce(function(s, r) { return s + r.summa; }, 0);
+  const totalExpenses = offlineRows.filter(function(r) { return r.summa < 0; }).reduce(function(s, r) { return s + Math.abs(r.summa); }, 0);
   const totalProfit   = totalRevenue - totalExpenses;
   const margin        = totalRevenue > 0 ? ((totalProfit / totalRevenue) * 100).toFixed(1) : "0.0";
 
-  const novzaRevenue    = periodFiltered.filter(function(r) { return r.summa > 0 && r.filial === "Novza"; }).reduce(function(s, r) { return s + r.summa; }, 0);
-  const novzaExpenses   = periodFiltered.filter(function(r) { return r.summa < 0 && r.filial === "Novza"; }).reduce(function(s, r) { return s + Math.abs(r.summa); }, 0);
+  const novzaRevenue    = offlineRows.filter(function(r) { return r.summa > 0 && r.filial === "Novza"; }).reduce(function(s, r) { return s + r.summa; }, 0);
+  const novzaExpenses   = offlineRows.filter(function(r) { return r.summa < 0 && r.filial === "Novza"; }).reduce(function(s, r) { return s + Math.abs(r.summa); }, 0);
   const novzaProfit     = novzaRevenue - novzaExpenses;
-  const yunusobodRevenue  = periodFiltered.filter(function(r) { return r.summa > 0 && r.filial === "Yunusobod"; }).reduce(function(s, r) { return s + r.summa; }, 0);
-  const yunusobodExpenses = periodFiltered.filter(function(r) { return r.summa < 0 && r.filial === "Yunusobod"; }).reduce(function(s, r) { return s + Math.abs(r.summa); }, 0);
+  const yunusobodRevenue  = offlineRows.filter(function(r) { return r.summa > 0 && r.filial === "Yunusobod"; }).reduce(function(s, r) { return s + r.summa; }, 0);
+  const yunusobodExpenses = offlineRows.filter(function(r) { return r.summa < 0 && r.filial === "Yunusobod"; }).reduce(function(s, r) { return s + Math.abs(r.summa); }, 0);
   const yunusobodProfit   = yunusobodRevenue - yunusobodExpenses;
 
-  const taqsim = taqsimla(rows, now);
+  const pravaOnPeriod = payments.filter(function(p) {
+    const d = toTashkent(p.created_at);
+    if (period === "kun") return d.toDateString() === now.toDateString();
+    if (period === "hafta") { const diff = (now.getTime() - d.getTime()) / (1000*60*60*24); return diff >= 0 && diff < 7; }
+    if (period === "oy") return d.getMonth() === now.getMonth() && d.getFullYear() === now.getFullYear();
+    return true;
+  });
+  const pravaOnRevenue = pravaOnPeriod.reduce(function(s, p) { return s + p.amount; }, 0);
+  const pravaOnCount   = pravaOnPeriod.length;
+
+  const taqsim = taqsimla(rows.filter(function(r) { return !isOnlineRow(r); }), now);
   const yetarliSon = taqsim.items.filter(function(i) { return i.tolanganReal || i.foiz >= 100; }).length;
   const xatarliSon = taqsim.items.filter(function(i) { return !i.tolanganReal && i.foiz < 100 && i.hasDate && (i.kunQoldi <= 3 || i.kechikkan); }).length;
 
@@ -429,7 +463,7 @@ export function Moliya() {
   });
 
   const monthMap: Record<string, { revenue: number; expenses: number }> = {};
-  periodFiltered.forEach(function(r) {
+  offlineRows.forEach(function(r) {
     const parts = r.sana.split(".");
     if (parts.length < 2) return;
     const key = UZ_MONTHS[parseInt(parts[1], 10) - 1] || r.sana;
@@ -443,7 +477,7 @@ export function Moliya() {
   });
 
   const filialMap: Record<string, number> = {};
-  periodFiltered.filter(function(r) { return r.summa < 0; }).forEach(function(r) {
+  offlineRows.filter(function(r) { return r.summa < 0; }).forEach(function(r) {
     const k = r.filial || "Boshqa";
     filialMap[k] = (filialMap[k] || 0) + Math.abs(r.summa);
   });
@@ -563,7 +597,7 @@ export function Moliya() {
         </div>
       </div>
 
-      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-6">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 mb-6">
         <div className={cn("rounded-2xl p-5 shadow-soft border cursor-pointer transition", novzaProfit < 0 ? "border-red-200 bg-gradient-to-br from-red-50 to-white hover:border-red-300" : "border-blue-100 bg-gradient-to-br from-blue-50 to-white hover:border-blue-300")} onClick={function() { setModalFilial("Novza"); }}>
           <p className={cn("text-sm font-medium mb-2", novzaProfit < 0 ? "text-red-700" : "text-blue-700")}>Novza — Sof foyda</p>
           <p className={cn("text-2xl font-bold num", novzaProfit < 0 ? "text-red-600" : "text-blue-900")}>{novzaProfit < 0 ? "-" : ""}{fmt(novzaProfit)}</p>
@@ -573,6 +607,13 @@ export function Moliya() {
           <p className={cn("text-sm font-medium mb-2", yunusobodProfit < 0 ? "text-red-700" : "text-blue-700")}>Yunusobod — Sof foyda</p>
           <p className={cn("text-2xl font-bold num", yunusobodProfit < 0 ? "text-red-600" : "text-blue-900")}>{yunusobodProfit < 0 ? "-" : ""}{fmt(yunusobodProfit)}</p>
           <p className={cn("text-xs mt-2", yunusobodProfit < 0 ? "text-red-500" : "text-blue-600")}>Batafsil ko'rish</p>
+        </div>
+        <div className="rounded-2xl p-5 shadow-soft border border-violet-200 bg-gradient-to-br from-violet-50 to-white hover:border-violet-300 cursor-pointer transition" onClick={function() { setModalPravaOn(true); }}>
+          <p className="text-sm font-medium mb-2 text-violet-700">Prava-On — Daromad</p>
+          <p className="text-2xl font-bold num text-violet-900">{fmt(pravaOnRevenue)}</p>
+          <p className="text-xs mt-2 text-violet-600">
+            {paymentsLoading ? "Yuklanmoqda…" : pravaOnCount + " ta to'lov · Batafsil ko'rish"}
+          </p>
         </div>
       </div>
 
@@ -768,12 +809,118 @@ export function Moliya() {
                 <p className={cn("text-xl font-bold num", modalData.profit < 0 ? "text-red-600" : "text-blue-900")}>{modalData.profit < 0 ? "-" : ""}{fmt(modalData.profit)}</p>
               </div>
               <div className={cn("rounded-xl p-4 border", totalProfit < 0 ? "border-red-100 bg-red-50" : "border-purple-100 bg-purple-50")}>
-                <p className={cn("text-xs font-medium mb-1", totalProfit < 0 ? "text-red-700" : "text-purple-700")}>Umumiy sof foyda (2 filial)</p>
+                <p className={cn("text-xs font-medium mb-1", totalProfit < 0 ? "text-red-700" : "text-purple-700")}>Umumiy sof foyda (offline filiallar)</p>
                 <p className={cn("text-xl font-bold num", totalProfit < 0 ? "text-red-600" : "text-purple-900")}>{totalProfit < 0 ? "-" : ""}{fmt(totalProfit)}</p>
                 <p className={cn("text-xs mt-1", totalProfit < 0 ? "text-red-500" : "text-purple-600")}>
                   Novza: {novzaProfit < 0 ? "-" : ""}{fmt(novzaProfit)} + Yunusobod: {yunusobodProfit < 0 ? "-" : ""}{fmt(yunusobodProfit)}
                 </p>
               </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {modalPravaOn && (
+        <div className="fixed inset-0 bg-foreground/30 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+          <div className="bg-card rounded-2xl border border-border shadow-elevated w-full max-w-2xl max-h-[90vh] flex flex-col">
+            <div className="flex items-center justify-between px-5 py-4 border-b border-border">
+              <div>
+                <h3 className="font-semibold text-lg">Prava-On — To'lovlar</h3>
+                <p className="text-xs text-muted-foreground mt-0.5">Supabase · faqat muvaffaqiyatli to'lovlar</p>
+              </div>
+              <button onClick={function() { setModalPravaOn(false); }} className="h-8 w-8 rounded-lg hover:bg-secondary flex items-center justify-center"><X className="h-4 w-4" /></button>
+            </div>
+            <div className="px-5 py-4 border-b border-border flex flex-wrap gap-3">
+              <div>
+                <label className="text-xs text-muted-foreground mb-1 block">Tarif</label>
+                <div className="flex rounded-lg border border-border overflow-hidden text-xs font-medium">
+                  {["Barchasi", "standard", "pro", "max"].map(function(t) {
+                    return (
+                      <button key={t} onClick={function() { setPoFilterTariff(t); }}
+                        className={cn("px-3 py-1.5 transition border-r border-border last:border-0 capitalize",
+                          poFilterTariff === t ? "bg-primary text-primary-foreground" : "bg-background text-muted-foreground hover:text-foreground")}>
+                        {t === "Barchasi" ? "Barchasi" : t.charAt(0).toUpperCase() + t.slice(1)}
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+              <div>
+                <label className="text-xs text-muted-foreground mb-1 block">Dan</label>
+                <input type="date" value={poFilterFrom} onChange={function(e) { setPoFilterFrom(e.target.value); }}
+                  className="px-3 py-1.5 rounded-lg border border-border bg-background text-xs" />
+              </div>
+              <div>
+                <label className="text-xs text-muted-foreground mb-1 block">Gacha</label>
+                <input type="date" value={poFilterTo} onChange={function(e) { setPoFilterTo(e.target.value); }}
+                  className="px-3 py-1.5 rounded-lg border border-border bg-background text-xs" />
+              </div>
+              {(poFilterFrom || poFilterTo || poFilterTariff !== "Barchasi") && (
+                <div className="self-end">
+                  <button onClick={function() { setPoFilterFrom(""); setPoFilterTo(""); setPoFilterTariff("Barchasi"); }}
+                    className="px-3 py-1.5 rounded-lg bg-secondary text-xs text-muted-foreground hover:text-foreground">
+                    Tozalash
+                  </button>
+                </div>
+              )}
+            </div>
+            <div className="overflow-y-auto flex-1">
+              {(() => {
+                const fromD = poFilterFrom ? new Date(poFilterFrom) : null;
+                const toD   = poFilterTo   ? new Date(poFilterTo + "T23:59:59") : null;
+                const filtered = payments.filter(function(p) {
+                  const d = toTashkent(p.created_at);
+                  if (poFilterTariff !== "Barchasi" && p.tariff !== poFilterTariff) return false;
+                  if (fromD && d < fromD) return false;
+                  if (toD   && d > toD)   return false;
+                  return true;
+                });
+                const total = filtered.reduce(function(s, p) { return s + p.amount; }, 0);
+                return (
+                  <>
+                    <div className="px-5 py-3 bg-violet-50 border-b border-border flex items-center justify-between">
+                      <span className="text-sm text-violet-700 font-medium">{filtered.length} ta to'lov</span>
+                      <span className="num font-bold text-violet-900">{fmt(total)}</span>
+                    </div>
+                    <table className="w-full text-sm">
+                      <thead>
+                        <tr className="text-left text-xs text-muted-foreground uppercase tracking-wider bg-secondary/50 border-b border-border">
+                          <th className="px-4 py-3 font-medium">#</th>
+                          <th className="px-4 py-3 font-medium">Sana (Toshkent)</th>
+                          <th className="px-4 py-3 font-medium">Ism Familiya</th>
+                          <th className="px-4 py-3 font-medium">Tarif</th>
+                          <th className="px-4 py-3 font-medium text-right">Summa</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-border">
+                        {filtered.length === 0 ? (
+                          <tr><td colSpan={5} className="px-4 py-10 text-center text-muted-foreground">To'lovlar topilmadi</td></tr>
+                        ) : filtered.map(function(p, i) {
+                          const d = toTashkent(p.created_at);
+                          const dateStr = d.getDate().toString().padStart(2,"0") + "." + (d.getMonth()+1).toString().padStart(2,"0") + "." + d.getFullYear() + " " + d.getHours().toString().padStart(2,"0") + ":" + d.getMinutes().toString().padStart(2,"0");
+                          const name = (p.first_name || p.last_name) ? ((p.first_name || "") + " " + (p.last_name || "")).trim() : p.phone;
+                          return (
+                            <tr key={p.id} className="hover:bg-secondary/40 transition">
+                              <td className="px-4 py-3 text-muted-foreground text-xs">{i + 1}</td>
+                              <td className="px-4 py-3 num text-xs text-muted-foreground">{dateStr}</td>
+                              <td className="px-4 py-3 font-medium">{name}</td>
+                              <td className="px-4 py-3">
+                                <span className={cn("px-2 py-0.5 rounded-full text-xs font-medium border",
+                                  p.tariff === "max"      ? "bg-amber-500/10 text-amber-700 border-amber-500/20" :
+                                  p.tariff === "pro"      ? "bg-violet-500/10 text-violet-700 border-violet-500/20" :
+                                                            "bg-secondary text-muted-foreground border-border")}>
+                                  {p.tariff}
+                                </span>
+                              </td>
+                              <td className="px-4 py-3 text-right num font-semibold text-emerald-600">+{fmt(p.amount)}</td>
+                            </tr>
+                          );
+                        })}
+                      </tbody>
+                    </table>
+                  </>
+                );
+              })()}
             </div>
           </div>
         </div>
