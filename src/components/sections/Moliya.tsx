@@ -453,7 +453,7 @@ export function Moliya() {
     if (period === "oy") return d.getMonth() === now.getMonth() && d.getFullYear() === now.getFullYear();
     return true;
   });
-  const pravaOnRevenue = pravaOnPeriod.reduce(function(s, p) { return s + p.amount; }, 0);
+  const pravaOnRevenue = pravaOnPeriod.reduce(function(s, p) { return s + Math.round(p.amount / 100); }, 0);
   const pravaOnCount   = pravaOnPeriod.length;
 
   const taqsim = taqsimla(rows.filter(function(r) { return !isOnlineRow(r); }), now);
@@ -882,7 +882,7 @@ export function Moliya() {
                   if (toD   && d > toD)   return false;
                   return true;
                 });
-                const total = filtered.reduce(function(s, p) { return s + p.amount; }, 0);
+                const total = filtered.reduce(function(s, p) { return s + Math.round(p.amount / 100); }, 0);
                 return (
                   <>
                     <div className="px-5 py-3 bg-violet-50 border-b border-border flex items-center justify-between">
@@ -919,7 +919,7 @@ export function Moliya() {
                                   {p.tariff}
                                 </span>
                               </td>
-                              <td className="px-4 py-3 text-right num font-semibold text-emerald-600">+{fmt(p.amount)}</td>
+                              <td className="px-4 py-3 text-right num font-semibold text-emerald-600">+{fmt(Math.round(p.amount / 100))}</td>
                             </tr>
                           );
                         })}
