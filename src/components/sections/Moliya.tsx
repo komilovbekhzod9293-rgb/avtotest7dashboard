@@ -892,17 +892,16 @@ export function Moliya() {
                     <table className="w-full text-sm">
                       <thead>
                         <tr className="text-left text-xs text-muted-foreground uppercase tracking-wider bg-secondary/50 border-b border-border">
-                          <th className="px-4 py-3 font-medium">#</th>
-                          <th className="px-4 py-3 font-medium">Sana (Toshkent)</th>
-                          <th className="px-4 py-3 font-medium">Ism Familiya</th>
-                          <th className="px-4 py-3 font-medium">Telefon</th>
+                          <th className="px-4 py-3 font-medium w-8">#</th>
+                          <th className="px-4 py-3 font-medium">Sana</th>
+                          <th className="px-4 py-3 font-medium">Ism / Telefon</th>
                           <th className="px-4 py-3 font-medium">Tarif</th>
                           <th className="px-4 py-3 font-medium text-right">Summa</th>
                         </tr>
                       </thead>
                       <tbody className="divide-y divide-border">
                         {filtered.length === 0 ? (
-                          <tr><td colSpan={6} className="px-4 py-10 text-center text-muted-foreground">To'lovlar topilmadi</td></tr>
+                          <tr><td colSpan={5} className="px-4 py-10 text-center text-muted-foreground">To'lovlar topilmadi</td></tr>
                         ) : filtered.map(function(p, i) {
                           const d = toTashkent(p.created_at);
                           const dateStr = d.getDate().toString().padStart(2,"0") + "." + (d.getMonth()+1).toString().padStart(2,"0") + "." + d.getFullYear() + " " + d.getHours().toString().padStart(2,"0") + ":" + d.getMinutes().toString().padStart(2,"0");
@@ -910,9 +909,11 @@ export function Moliya() {
                           return (
                             <tr key={p.id} className="hover:bg-secondary/40 transition">
                               <td className="px-4 py-3 text-muted-foreground text-xs">{i + 1}</td>
-                              <td className="px-4 py-3 num text-xs text-muted-foreground">{dateStr}</td>
-                              <td className="px-4 py-3 font-medium">{name}</td>
-                              <td className="px-4 py-3 text-xs text-muted-foreground">{p.phone}</td>
+                              <td className="px-4 py-3 num text-xs text-muted-foreground whitespace-nowrap">{dateStr}</td>
+                              <td className="px-4 py-3">
+                                <p className="font-medium text-sm">{name}</p>
+                                <p className="text-xs text-muted-foreground">{p.phone}</p>
+                              </td>
                               <td className="px-4 py-3">
                                 <span className={cn("px-2 py-0.5 rounded-full text-xs font-medium border",
                                   p.tariff === "max"      ? "bg-amber-500/10 text-amber-700 border-amber-500/20" :
