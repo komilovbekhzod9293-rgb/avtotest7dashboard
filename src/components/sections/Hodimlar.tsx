@@ -1,45 +1,69 @@
 import { useEffect, useState } from "react";
 import { Header } from "@/components/dashboard/Header";
-import { StatCard } from "@/components/dashboard/StatCard";
 import { Users, Clock, Award, Loader2, AlertCircle, Calculator } from "lucide-react";
 import { cn } from "@/lib/utils";
 
-const SHEET_ID = "1AzPhbdZD5FaeSNgVjShNuJDygZElrdFkMzsauaBIscE";
-const SHEET_NAME = "Hodimlar ish vaqti";
-const API_KEY = "AIzaSyB4kyYep05877BBpI9Rfv0SNcFhHVGBF5E";
+const SUPABASE_URL = "https://oxelasfefclpxxvpgjuo.supabase.co";
+const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im94ZWxhc2ZlZmNscHh4dnBnanVvIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODYxNzIwNDgsImV4cCI6MjEwMTc0ODA0OH0.OCiM-CEFNUXd5qlhqagOK_KYeofy21GIyDZA4hPYLUY";
+
+interface ShiftRaw {
+  employee_name: string | null;
+  filial: string | null;
+  start_time: string | null;
+  end_time: string | null;
+  duration_seconds: number | null;
+  status: string | null;
+  period_label: string | null;
+  needs_review: boolean | null;
+}
+
+interface EmployeeRaw {
+  name: string;
+  active: boolean;
+}
 
 interface HodimRow {
-  ism: string; sana: string; kelish: string; ketish: string; filial: string; soat: string;
+  ism: string;
+  sana: string;       // DD.MM.YYYY (Toshkent), yoki period_label agar aniq sana bo'lmasa
+  kelish: string;      // HH:MM yoki bo'sh
+  ketish: string;       // HH:MM yoki bo'sh
+  filial: string;
+  minutes: number;
+  startDate: Date | null; // filtrlash uchun (Toshkent vaqtiga surilgan Date, UTC getterlar bilan o'qiladi)
 }
 
-function parseMinutes(soat: string): number {
-  if (!soat) return 0;
-  const match = soat.match(/(\d+)ч\s*(\d+)?м?/);
-  if (!match) return 0;
-  return parseInt(match[1] || "0") * 60 + parseInt(match[2] || "0");
-}
+function pad(n: number): string { return String(n).padStart(2, "0"); }
 
-function parseRowDate(sana: string): Date | null {
-  const parts = sana.split(".");
-  if (parts.length < 3) return null;
-  return new Date(parseInt(parts[2]), parseInt(parts[1]) - 1, parseInt(parts[0]));
+// Supabase UTC vaqtini Toshkentga (+5) suradi. Keyin FAQAT getUTC* metodlar bilan o'qish kerak —
+// aks holda brauzer/tizim timezone'i qo'shimcha siljitib, xato vaqt ko'rsatadi (allaqachon bir marta shu xato bo'lgan).
+function toTashkent(iso: string): Date {
+  return new Date(new Date(iso).getTime() + 5 * 3600000);
 }
-
-function inputToSheetDate(input: string): string {
+function fmtDate(d: Date): string {
+  return `${pad(d.getUTCDate())}.${pad(d.getUTCMonth() + 1)}.${d.getUTCFullYear()}`;
+}
+function fmtTime(d: Date): string {
+  return `${pad(d.getUTCHours())}:${pad(d.getUTCMinutes())}`;
+}
+function dateKey(d: Date): number {
+  return d.getUTCFullYear() * 10000 + (d.getUTCMonth() + 1) * 100 + d.getUTCDate();
+}
+function inputDateKey(input: string): number | null {
   const parts = input.split("-");
-  if (parts.length < 3) return "";
-  return `${parts[2]}.${parts[1]}.${parts[0]}`;
+  if (parts.length < 3) return null;
+  return parseInt(parts[0]) * 10000 + parseInt(parts[1]) * 100 + parseInt(parts[2]);
 }
-
-function todayStr(): string {
-  const now = new Date();
-  return `${String(now.getDate()).padStart(2,"0")}.${String(now.getMonth()+1).padStart(2,"0")}.${now.getFullYear()}`;
+function formatMinutes(minutes: number): string {
+  const h = Math.floor(minutes / 60);
+  const m = Math.round(minutes % 60);
+  return `${h}ч ${m}м`;
 }
 
 type Period = "kun" | "hafta" | "oy" | "barchasi";
 
 export function Hodimlar() {
   const [rows, setRows] = useState<HodimRow[]>([]);
+  const [employeeNames, setEmployeeNames] = useState<string[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [period, setPeriod] = useState<Period>("kun");
@@ -52,15 +76,35 @@ export function Hodimlar() {
   const [calcResult, setCalcResult] = useState<string | null>(null);
 
   useEffect(() => {
-    const url = `https://sheets.googleapis.com/v4/spreadsheets/${SHEET_ID}/values/${encodeURIComponent(SHEET_NAME)}?key=${API_KEY}`;
-    fetch(url)
-      .then((res) => { if (!res.ok) throw new Error(`API xatosi: ${res.status}`); return res.json(); })
-      .then((data) => {
-        const [, ...dataRows] = data.values as string[][];
-        setRows(dataRows.filter((r) => r.length >= 5 && r[0]).map((r) => ({
-          ism: r[0] ?? "", sana: r[1] ?? "", kelish: r[2] ?? "",
-          ketish: r[3] ?? "", filial: r[4] ?? "", soat: r[5] ?? "",
-        })));
+    const headers = { apikey: SUPABASE_ANON_KEY, Authorization: `Bearer ${SUPABASE_ANON_KEY}` };
+
+    Promise.all([
+      fetch(`${SUPABASE_URL}/rest/v1/shifts?select=*&order=start_time.desc.nullslast`, { headers })
+        .then((res) => { if (!res.ok) throw new Error(`Shifts xatosi: ${res.status}`); return res.json(); }),
+      fetch(`${SUPABASE_URL}/rest/v1/employees?select=name,active&active=eq.true&order=name`, { headers })
+        .then((res) => { if (!res.ok) throw new Error(`Employees xatosi: ${res.status}`); return res.json(); }),
+    ])
+      .then(([shifts, employees]: [ShiftRaw[], EmployeeRaw[]]) => {
+        const mapped: HodimRow[] = shifts.map((r) => {
+          const startT = r.start_time ? toTashkent(r.start_time) : null;
+          const endT = r.end_time ? toTashkent(r.end_time) : null;
+          const minutes = r.duration_seconds != null
+            ? Math.round(r.duration_seconds / 60)
+            : (startT && endT ? Math.max(0, Math.round((endT.getTime() - startT.getTime()) / 60000)) : 0);
+          return {
+            ism: r.employee_name || "—",
+            sana: startT ? fmtDate(startT) : (r.period_label || ""),
+            kelish: startT ? fmtTime(startT) : "",
+            ketish: endT ? fmtTime(endT) : "",
+            filial: r.filial || "",
+            minutes,
+            startDate: startT,
+          };
+        });
+        setRows(mapped);
+        const fromEmployees = employees.map((e) => e.name);
+        const fromShifts = mapped.map((r) => r.ism).filter((n) => n !== "—");
+        setEmployeeNames([...new Set([...fromEmployees, ...fromShifts])].sort());
       })
       .catch((e) => setError(e.message))
       .finally(() => setLoading(false));
@@ -69,24 +113,25 @@ export function Hodimlar() {
   if (loading) return <div className="flex items-center justify-center h-64 gap-3 text-muted-foreground"><Loader2 className="h-5 w-5 animate-spin" /><span>Yuklanmoqda…</span></div>;
   if (error) return <div className="flex items-center justify-center h-64 gap-3 text-danger"><AlertCircle className="h-5 w-5" /><span>Xatolik: {error}</span></div>;
 
-  const now = new Date();
+  const nowT = toTashkent(new Date().toISOString());
+  const todayKey = dateKey(nowT);
+
   const filtered = rows.filter((r) => {
-    const d = parseRowDate(r.sana);
-    if (!d) return false;
-    if (period === "kun") return r.sana === todayStr();
-    if (period === "hafta") return (now.getTime() - d.getTime()) / (1000*60*60*24) >= 0 && (now.getTime() - d.getTime()) / (1000*60*60*24) < 7;
-    if (period === "oy") return d.getMonth() === now.getMonth() && d.getFullYear() === now.getFullYear();
+    if (period === "barchasi") return true;
+    if (!r.startDate) return false;
+    if (period === "kun") return dateKey(r.startDate) === todayKey;
+    if (period === "hafta") { const diff = (nowT.getTime() - r.startDate.getTime()) / (1000 * 60 * 60 * 24); return diff >= 0 && diff < 7; }
+    if (period === "oy") return r.startDate.getUTCMonth() === nowT.getUTCMonth() && r.startDate.getUTCFullYear() === nowT.getUTCFullYear();
     return true;
   });
 
-  const withTime = filtered.filter(r => r.soat);
-  const avgMinutes = withTime.length > 0 ? withTime.reduce((s, r) => s + parseMinutes(r.soat), 0) / withTime.length : 0;
+  const withTime = filtered.filter(r => r.minutes > 0);
+  const avgMinutes = withTime.length > 0 ? withTime.reduce((s, r) => s + r.minutes, 0) / withTime.length : 0;
   const avgH = Math.floor(avgMinutes / 60);
   const avgM = Math.round(avgMinutes % 60);
-  const mostHours = [...filtered].filter(r => r.soat).sort((a, b) => parseMinutes(b.soat) - parseMinutes(a.soat))[0];
+  const mostHours = [...filtered].filter(r => r.minutes > 0).sort((a, b) => b.minutes - a.minutes)[0];
   const novzaCount = filtered.filter(r => r.filial.includes("Novza")).length;
   const yunusobodCount = filtered.filter(r => r.filial.includes("Yunusobod")).length;
-  const uniqueNames = [...new Set(rows.map(r => r.ism))].filter(Boolean);
 
   function calcOylik() {
     if (!calcIsm || !calcFrom || !calcTo || !calcStavka || !calcNorma) {
@@ -100,12 +145,9 @@ export function Hodimlar() {
       return;
     }
 
-    const fromSheet = inputToSheetDate(calcFrom);
-    const toSheet = inputToSheetDate(calcTo);
-    const fromDate = parseRowDate(fromSheet);
-    const toDate = parseRowDate(toSheet);
-
-    if (!fromDate || !toDate) {
+    const fromKey = inputDateKey(calcFrom);
+    const toKey = inputDateKey(calcTo);
+    if (fromKey === null || toKey === null) {
       setCalcResult("Sanani to'g'ri kiriting");
       return;
     }
@@ -114,22 +156,21 @@ export function Hodimlar() {
     const monthNormaMinutes = 26 * normaHour * 60;
     const minutePrice = stavka / monthNormaMinutes;
 
-    // Отработанные минуты за период
+    // Отработанные минуты за период (faqat aniq sanasi bor yozuvlar)
     const workedRows = rows.filter(r => {
-      if (r.ism !== calcIsm) return false;
-      const d = parseRowDate(r.sana);
-      if (!d) return false;
-      return d >= fromDate && d <= toDate;
+      if (r.ism !== calcIsm || !r.startDate) return false;
+      const k = dateKey(r.startDate);
+      return k >= fromKey && k <= toKey;
     });
 
-    const workedMinutes = workedRows.reduce((s, r) => s + parseMinutes(r.soat), 0);
+    const workedMinutes = workedRows.reduce((s, r) => s + r.minutes, 0);
     const workedH = Math.floor(workedMinutes / 60);
     const workedM = workedMinutes % 60;
     const earned = Math.round(minutePrice * workedMinutes);
 
     setCalcResult(
       `👤 ${calcIsm}\n` +
-      `📅 ${fromSheet} — ${toSheet}\n` +
+      `📅 ${calcFrom.split("-").reverse().join(".")} — ${calcTo.split("-").reverse().join(".")}\n` +
       `📋 Topilgan yozuvlar: ${workedRows.length} ta kun\n` +
       `⏱ Jami ishlagan: ${workedH}ч ${workedM}м\n` +
       `📊 Oylik norma: 26 ish kuni × ${normaHour}s = ${Math.round(monthNormaMinutes/60)}s\n` +
@@ -182,7 +223,7 @@ export function Hodimlar() {
             <span className="text-sm text-emerald-700 font-medium">O'rt. ish vaqti</span>
             <div className="h-8 w-8 rounded-full bg-emerald-100 flex items-center justify-center"><Clock className="h-4 w-4 text-emerald-600" /></div>
           </div>
-          <p className="text-2xl font-bold text-emerald-900">{avgMinutes > 0 ? `${avgH}ч ${avgM}м` : "—"}</p>
+          <p className="text-2xl font-bold text-emerald-900">{avgMinutes > 0 ? formatMinutes(avgMinutes) : "—"}</p>
         </div>
 
         <div className="rounded-2xl p-5 shadow-soft border border-purple-100 bg-gradient-to-br from-purple-50 to-white">
@@ -200,7 +241,7 @@ export function Hodimlar() {
             <div className="h-8 w-8 rounded-full bg-amber-100 flex items-center justify-center"><Award className="h-4 w-4 text-amber-600" /></div>
           </div>
           <p className="text-2xl font-bold text-amber-900">{mostHours?.ism.split(" ")[0] ?? "—"}</p>
-          <p className="text-xs text-amber-600 mt-1">{mostHours?.soat ?? ""}</p>
+          <p className="text-xs text-amber-600 mt-1">{mostHours ? formatMinutes(mostHours.minutes) : ""}</p>
         </div>
       </div>
 
@@ -213,7 +254,7 @@ export function Hodimlar() {
               <select value={calcIsm} onChange={(e) => setCalcIsm(e.target.value)}
                 className="w-full px-3 py-2 rounded-lg border border-border bg-background text-sm">
                 <option value="">Tanlang</option>
-                {uniqueNames.map(n => <option key={n} value={n}>{n}</option>)}
+                {employeeNames.map(n => <option key={n} value={n}>{n}</option>)}
               </select>
             </div>
             <div>
@@ -284,7 +325,7 @@ export function Hodimlar() {
                   <td className="px-5 py-3.5 text-muted-foreground">{e.filial}</td>
                   <td className="px-5 py-3.5 num text-emerald-600 font-medium">{e.kelish || "—"}</td>
                   <td className="px-5 py-3.5 num text-red-500 font-medium">{e.ketish || "—"}</td>
-                  <td className="px-5 py-3.5 text-right num font-bold text-blue-700">{e.soat || "—"}</td>
+                  <td className="px-5 py-3.5 text-right num font-bold text-blue-700">{e.minutes > 0 ? formatMinutes(e.minutes) : "—"}</td>
                 </tr>
               ))}
             </tbody>
