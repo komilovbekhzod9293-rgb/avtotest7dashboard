@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { Header } from "@/components/dashboard/Header";
-import { TrendingUp, Loader2, AlertCircle, Plus, X, CheckCircle2, Clock, CalendarClock, Globe, ChevronDown, ChevronUp, AlertTriangle, Info } from "lucide-react";
+import { TrendingUp, Loader2, AlertCircle, Plus, X, CheckCircle2, Clock, CalendarClock, Globe, ChevronDown, ChevronUp, AlertTriangle, Info, Filter } from "lucide-react";
 import { Area, AreaChart, CartesianGrid, Cell, Pie, PieChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
 import { cn } from "@/lib/utils";
 
@@ -315,6 +315,8 @@ export function Moliya() {
   const [pravaOnTab, setPravaOnTab] = useState<"kirim" | "chiqim">("kirim");
   const [expFilterFrom, setExpFilterFrom] = useState("");
   const [expFilterTo, setExpFilterTo] = useState("");
+  const [showExpFilter, setShowExpFilter] = useState(false);
+  const [expSana, setExpSana] = useState(todayInputFormat());
 
   const fetchData = () => {
     setLoading(true);
@@ -388,11 +390,11 @@ export function Moliya() {
       const res = await fetch(`${SUPABASE_URL}/rest/v1/prava_on_expenses`, {
         method: "POST",
         headers: { "apikey": SUPABASE_KEY, "Authorization": `Bearer ${SUPABASE_KEY}`, "Content-Type": "application/json", "Prefer": "return=representation" },
-        body: JSON.stringify({ summa: summaNum, filial: expFilial, izoh: expIzoh || null }),
+        body: JSON.stringify({ summa: summaNum, filial: expFilial, izoh: expIzoh || null, created_at: expSana }),
       });
       if (!res.ok) throw new Error();
       setExpResult("Saqlandi!");
-      setExpSumma(""); setExpIzoh("");
+      setExpSumma(""); setExpIzoh(""); setExpSana(todayInputFormat());
       fetchPravaOnExpenses();
       setTimeout(function() { setShowExpForm(false); setExpResult(null); }, 1200);
     } catch { setExpResult("Xatolik yuz berdi"); }
@@ -1008,23 +1010,16 @@ export function Moliya() {
               </>
             ) : (
               <>
-                <div className="px-5 py-4 border-b border-border flex flex-wrap items-end gap-3">
-                  <div>
-                    <label className="text-xs text-muted-foreground mb-1 block">Dan</label>
-                    <input type="date" value={expFilterFrom} onChange={function(e) { setExpFilterFrom(e.target.value); }}
-                      className="px-3 py-1.5 rounded-lg border border-border bg-background text-xs" />
-                  </div>
-                  <div>
-                    <label className="text-xs text-muted-foreground mb-1 block">Gacha</label>
-                    <input type="date" value={expFilterTo} onChange={function(e) { setExpFilterTo(e.target.value); }}
-                      className="px-3 py-1.5 rounded-lg border border-border bg-background text-xs" />
-                  </div>
-                  {(expFilterFrom || expFilterTo) && (
-                    <button onClick={function() { setExpFilterFrom(""); setExpFilterTo(""); }}
-                      className="px-3 py-1.5 rounded-lg bg-secondary text-xs text-muted-foreground hover:text-foreground">
-                      Tozalash
-                    </button>
-                  )}
+                <div className="px-5 py-3 border-b border-border flex items-center gap-2">
+                  <button onClick={function() { setShowExpFilter(!showExpFilter); }}
+                    className={cn("h-8 w-8 rounded-lg flex items-center justify-center transition relative",
+                      showExpFilter || expFilterFrom || expFilterTo ? "bg-primary text-primary-foreground" : "bg-secondary text-muted-foreground hover:text-foreground")}
+                    title="Sana bo'yicha filtr">
+                    <Filter className="h-4 w-4" />
+                    {(expFilterFrom || expFilterTo) && !showExpFilter && (
+                      <span className="absolute -top-1 -right-1 h-2.5 w-2.5 rounded-full bg-red-500 border-2 border-card" />
+                    )}
+                  </button>
                   <button onClick={function() { setShowExpForm(!showExpForm); setExpResult(null); }}
                     className={cn("ml-auto px-4 py-1.5 rounded-lg text-xs font-medium transition inline-flex items-center gap-1",
                       showExpForm ? "bg-primary text-primary-foreground" : "bg-red-600 text-white hover:bg-red-700")}>
@@ -1033,9 +1028,35 @@ export function Moliya() {
                   </button>
                 </div>
 
+                {showExpFilter && (
+                  <div className="px-5 py-3 border-b border-border flex flex-wrap items-end gap-3 bg-secondary/30">
+                    <div>
+                      <label className="text-xs text-muted-foreground mb-1 block">Dan</label>
+                      <input type="date" value={expFilterFrom} onChange={function(e) { setExpFilterFrom(e.target.value); }}
+                        className="px-3 py-1.5 rounded-lg border border-border bg-background text-xs" />
+                    </div>
+                    <div>
+                      <label className="text-xs text-muted-foreground mb-1 block">Gacha</label>
+                      <input type="date" value={expFilterTo} onChange={function(e) { setExpFilterTo(e.target.value); }}
+                        className="px-3 py-1.5 rounded-lg border border-border bg-background text-xs" />
+                    </div>
+                    {(expFilterFrom || expFilterTo) && (
+                      <button onClick={function() { setExpFilterFrom(""); setExpFilterTo(""); }}
+                        className="px-3 py-1.5 rounded-lg bg-secondary text-xs text-muted-foreground hover:text-foreground">
+                        Tozalash
+                      </button>
+                    )}
+                  </div>
+                )}
+
                 {showExpForm && (
                   <div className="px-5 py-4 border-b border-border bg-secondary/30">
-                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 mb-3">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 mb-3">
+                      <div>
+                        <label className="text-xs text-muted-foreground mb-1 block">Sana</label>
+                        <input type="date" value={expSana} onChange={function(e) { setExpSana(e.target.value); }}
+                          className="w-full px-3 py-2 rounded-lg border border-border bg-background text-sm" />
+                      </div>
                       <div>
                         <label className="text-xs text-muted-foreground mb-1 block">Summa (so'm)</label>
                         <input type="text" placeholder="500000" value={expSumma}
