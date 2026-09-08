@@ -877,6 +877,25 @@ export function Moliya() {
               </div>
               <button onClick={function() { setModalPravaOn(false); }} className="h-8 w-8 rounded-lg hover:bg-secondary flex items-center justify-center"><X className="h-4 w-4" /></button>
             </div>
+
+            {(() => {
+              const allTimeIncome = payments.reduce(function(s, p) { return s + Math.round(p.amount / 100); }, 0);
+              const allTimeExpenses = pravaOnExpenses.reduce(function(s, e) { return s + Number(e.summa); }, 0);
+              const balance = allTimeIncome - allTimeExpenses;
+              return (
+                <div className="px-5 py-4 border-b border-border bg-violet-50/60 flex items-center justify-between flex-wrap gap-2">
+                  <div className="flex items-center gap-4 text-xs">
+                    <span className="text-emerald-600 font-medium">+{fmt(allTimeIncome)} kirim</span>
+                    <span className="text-red-600 font-medium">-{fmt(allTimeExpenses)} chiqim</span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <span className="text-xs text-muted-foreground">Qoldiq (barcha vaqt):</span>
+                    <span className={cn("text-lg font-bold num", balance < 0 ? "text-red-600" : "text-violet-900")}>{fmt(balance)}</span>
+                  </div>
+                </div>
+              );
+            })()}
+
             <div className="px-5 py-4 border-b border-border flex flex-wrap gap-3">
               <div>
                 <label className="text-xs text-muted-foreground mb-1 block">Tarif</label>
