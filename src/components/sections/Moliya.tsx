@@ -911,6 +911,76 @@ export function Moliya() {
                 </div>
               )}
             </div>
+
+            <div className="border-b-4 border-border">
+              <div className="px-5 py-3 bg-red-50 border-b border-border flex items-center justify-between flex-wrap gap-2">
+                <div className="flex items-center gap-2">
+                  <span className="text-sm text-red-700 font-medium">Chiqimlar</span>
+                  <span className="text-xs text-muted-foreground">
+                    {expLoading ? "yuklanmoqda…" : `${pravaOnExpenses.length} ta · jami ${fmt(pravaOnExpenses.reduce(function(s, e) { return s + Number(e.summa); }, 0))}`}
+                  </span>
+                </div>
+                <button onClick={function() { setShowExpForm(!showExpForm); setExpResult(null); }}
+                  className={cn("px-3 py-1.5 rounded-lg text-xs font-medium transition inline-flex items-center gap-1",
+                    showExpForm ? "bg-primary text-primary-foreground" : "bg-red-100 text-red-700 hover:bg-red-200")}>
+                  <Plus className="h-3.5 w-3.5" />
+                  Chiqim qo'shish
+                </button>
+              </div>
+
+              {showExpForm && (
+                <div className="px-5 py-4 border-b border-border bg-secondary/30">
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 mb-3">
+                    <div>
+                      <label className="text-xs text-muted-foreground mb-1 block">Summa (so'm)</label>
+                      <input type="text" placeholder="500000" value={expSumma}
+                        onChange={function(e) { setExpSumma(formatSummaInput(e.target.value)); }}
+                        className="w-full px-3 py-2 rounded-lg border border-border bg-background text-sm" />
+                    </div>
+                    <div>
+                      <label className="text-xs text-muted-foreground mb-1 block">Filial</label>
+                      <Toggle left="Novza" right="Yunusobod" value={expFilial} onChange={setExpFilial} />
+                    </div>
+                    <div>
+                      <label className="text-xs text-muted-foreground mb-1 block">Izoh (nimaga sarflandi)</label>
+                      <input type="text" placeholder="Masalan: server, reklama..." value={expIzoh}
+                        onChange={function(e) { setExpIzoh(e.target.value); }}
+                        className="w-full px-3 py-2 rounded-lg border border-border bg-background text-sm" />
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-3">
+                    <button onClick={submitPravaOnExpense} disabled={expSaving}
+                      className="px-5 py-2 bg-red-600 text-white rounded-lg text-sm font-medium hover:bg-red-700 transition disabled:opacity-50 inline-flex items-center gap-2">
+                      {expSaving ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
+                      Saqlash
+                    </button>
+                    {expResult && <span className="text-xs text-muted-foreground">{expResult}</span>}
+                  </div>
+                </div>
+              )}
+
+              {pravaOnExpenses.length > 0 && (
+                <div className="max-h-40 overflow-y-auto">
+                  <table className="w-full text-sm">
+                    <tbody className="divide-y divide-border">
+                      {pravaOnExpenses.map(function(e) {
+                        const d = toTashkent(e.created_at);
+                        const dateStr = d.getUTCDate().toString().padStart(2,"0") + "." + (d.getUTCMonth()+1).toString().padStart(2,"0") + "." + d.getUTCFullYear();
+                        return (
+                          <tr key={e.id} className="hover:bg-secondary/40 transition">
+                            <td className="px-4 py-2.5 num text-xs text-muted-foreground whitespace-nowrap">{dateStr}</td>
+                            <td className="px-4 py-2.5 text-xs text-muted-foreground">{e.filial || "—"}</td>
+                            <td className="px-4 py-2.5 text-xs text-muted-foreground">{e.izoh || "—"}</td>
+                            <td className="px-4 py-2.5 text-right num font-semibold text-red-600 whitespace-nowrap">-{fmt(Number(e.summa))}</td>
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+            </div>
+
             <div className="overflow-y-auto flex-1">
               {(() => {
                 const fromD = poFilterFrom ? new Date(poFilterFrom) : null;
@@ -968,73 +1038,6 @@ export function Moliya() {
                         })}
                       </tbody>
                     </table>
-
-                    <div className="border-t-4 border-border mt-2">
-                      <div className="px-5 py-3 bg-red-50 border-b border-border flex items-center justify-between flex-wrap gap-2">
-                        <div className="flex items-center gap-2">
-                          <span className="text-sm text-red-700 font-medium">Chiqimlar</span>
-                          <span className="text-xs text-muted-foreground">
-                            {expLoading ? "yuklanmoqda…" : `${pravaOnExpenses.length} ta · jami ${fmt(pravaOnExpenses.reduce(function(s, e) { return s + Number(e.summa); }, 0))}`}
-                          </span>
-                        </div>
-                        <button onClick={function() { setShowExpForm(!showExpForm); setExpResult(null); }}
-                          className={cn("px-3 py-1.5 rounded-lg text-xs font-medium transition inline-flex items-center gap-1",
-                            showExpForm ? "bg-primary text-primary-foreground" : "bg-red-100 text-red-700 hover:bg-red-200")}>
-                          <Plus className="h-3.5 w-3.5" />
-                          Chiqim qo'shish
-                        </button>
-                      </div>
-
-                      {showExpForm && (
-                        <div className="px-5 py-4 border-b border-border bg-secondary/30">
-                          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 mb-3">
-                            <div>
-                              <label className="text-xs text-muted-foreground mb-1 block">Summa (so'm)</label>
-                              <input type="text" placeholder="500000" value={expSumma}
-                                onChange={function(e) { setExpSumma(formatSummaInput(e.target.value)); }}
-                                className="w-full px-3 py-2 rounded-lg border border-border bg-background text-sm" />
-                            </div>
-                            <div>
-                              <label className="text-xs text-muted-foreground mb-1 block">Filial</label>
-                              <Toggle left="Novza" right="Yunusobod" value={expFilial} onChange={setExpFilial} />
-                            </div>
-                            <div>
-                              <label className="text-xs text-muted-foreground mb-1 block">Izoh (nimaga sarflandi)</label>
-                              <input type="text" placeholder="Masalan: server, reklama..." value={expIzoh}
-                                onChange={function(e) { setExpIzoh(e.target.value); }}
-                                className="w-full px-3 py-2 rounded-lg border border-border bg-background text-sm" />
-                            </div>
-                          </div>
-                          <div className="flex items-center gap-3">
-                            <button onClick={submitPravaOnExpense} disabled={expSaving}
-                              className="px-5 py-2 bg-red-600 text-white rounded-lg text-sm font-medium hover:bg-red-700 transition disabled:opacity-50 inline-flex items-center gap-2">
-                              {expSaving ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
-                              Saqlash
-                            </button>
-                            {expResult && <span className="text-xs text-muted-foreground">{expResult}</span>}
-                          </div>
-                        </div>
-                      )}
-
-                      <table className="w-full text-sm">
-                        <tbody className="divide-y divide-border">
-                          {pravaOnExpenses.length === 0 ? (
-                            <tr><td colSpan={4} className="px-4 py-6 text-center text-muted-foreground text-xs">Chiqimlar yo'q</td></tr>
-                          ) : pravaOnExpenses.map(function(e) {
-                            const d = toTashkent(e.created_at);
-                            const dateStr = d.getUTCDate().toString().padStart(2,"0") + "." + (d.getUTCMonth()+1).toString().padStart(2,"0") + "." + d.getUTCFullYear();
-                            return (
-                              <tr key={e.id} className="hover:bg-secondary/40 transition">
-                                <td className="px-4 py-2.5 num text-xs text-muted-foreground whitespace-nowrap">{dateStr}</td>
-                                <td className="px-4 py-2.5 text-xs text-muted-foreground">{e.filial || "—"}</td>
-                                <td className="px-4 py-2.5 text-xs text-muted-foreground">{e.izoh || "—"}</td>
-                                <td className="px-4 py-2.5 text-right num font-semibold text-red-600 whitespace-nowrap">-{fmt(Number(e.summa))}</td>
-                              </tr>
-                            );
-                          })}
-                        </tbody>
-                      </table>
-                    </div>
                   </>
                 );
               })()}
