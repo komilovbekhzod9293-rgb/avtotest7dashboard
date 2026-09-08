@@ -312,6 +312,9 @@ export function Moliya() {
   const [expIzoh, setExpIzoh] = useState("");
   const [expSaving, setExpSaving] = useState(false);
   const [expResult, setExpResult] = useState<string | null>(null);
+  const [pravaOnTab, setPravaOnTab] = useState<"kirim" | "chiqim">("kirim");
+  const [expFilterFrom, setExpFilterFrom] = useState("");
+  const [expFilterTo, setExpFilterTo] = useState("");
 
   const fetchData = () => {
     setLoading(true);
@@ -485,16 +488,11 @@ export function Moliya() {
   const yunusobodExpenses = offlineRows.filter(function(r) { return r.summa < 0 && r.filial === "Yunusobod"; }).reduce(function(s, r) { return s + Math.abs(r.summa); }, 0);
   const yunusobodProfit   = yunusobodRevenue - yunusobodExpenses;
 
-  const pravaOnPeriod = payments.filter(function(p) {
-    const d = toTashkent(p.created_at);
-    const nowT = toTashkent(now.toISOString());
-    if (period === "kun") return d.getUTCFullYear() === nowT.getUTCFullYear() && d.getUTCMonth() === nowT.getUTCMonth() && d.getUTCDate() === nowT.getUTCDate();
-    if (period === "hafta") { const diff = (nowT.getTime() - d.getTime()) / (1000*60*60*24); return diff >= 0 && diff < 7; }
-    if (period === "oy") return d.getUTCMonth() === nowT.getUTCMonth() && d.getUTCFullYear() === nowT.getUTCFullYear();
-    return true;
-  });
-  const pravaOnRevenue = pravaOnPeriod.reduce(function(s, p) { return s + Math.round(p.amount / 100); }, 0);
-  const pravaOnCount   = pravaOnPeriod.length;
+  // Kartochka har doim BARCHA VAQT bo'yicha, real qoldiq (kirim - chiqim) ko'rsatiladi — period filtriga bog'liq emas
+  const pravaOnAllTimeIncome   = payments.reduce(function(s, p) { return s + Math.round(p.amount / 100); }, 0);
+  const pravaOnAllTimeExpenses = pravaOnExpenses.reduce(function(s, e) { return s + Number(e.summa); }, 0);
+  const pravaOnRevenue = pravaOnAllTimeIncome - pravaOnAllTimeExpenses;
+  const pravaOnCount   = payments.length;
 
   const taqsim = taqsimla(rows.filter(function(r) { return !isOnlineRow(r); }), now);
   const yetarliSon = taqsim.items.filter(function(i) { return i.tolanganReal || i.foiz >= 100; }).length;
@@ -872,10 +870,23 @@ export function Moliya() {
           <div className="bg-card rounded-2xl border border-border shadow-elevated w-full max-w-2xl max-h-[90vh] flex flex-col">
             <div className="flex items-center justify-between px-5 py-4 border-b border-border">
               <div>
-                <h3 className="font-semibold text-lg">Prava-On — To'lovlar</h3>
+                <h3 className="font-semibold text-lg">Prava-On</h3>
                 <p className="text-xs text-muted-foreground mt-0.5">Supabase · faqat muvaffaqiyatli to'lovlar</p>
               </div>
               <button onClick={function() { setModalPravaOn(false); }} className="h-8 w-8 rounded-lg hover:bg-secondary flex items-center justify-center"><X className="h-4 w-4" /></button>
+            </div>
+
+            <div className="px-5 pt-4 flex gap-2">
+              <button onClick={function() { setPravaOnTab("kirim"); }}
+                className={cn("px-4 py-2 rounded-lg text-sm font-medium transition",
+                  pravaOnTab === "kirim" ? "bg-emerald-600 text-white" : "bg-secondary text-muted-foreground hover:text-foreground")}>
+                Kirim
+              </button>
+              <button onClick={function() { setPravaOnTab("chiqim"); }}
+                className={cn("px-4 py-2 rounded-lg text-sm font-medium transition",
+                  pravaOnTab === "chiqim" ? "bg-red-600 text-white" : "bg-secondary text-muted-foreground hover:text-foreground")}>
+                Chiqim
+              </button>
             </div>
 
             {(() => {
@@ -883,184 +894,227 @@ export function Moliya() {
               const allTimeExpenses = pravaOnExpenses.reduce(function(s, e) { return s + Number(e.summa); }, 0);
               const balance = allTimeIncome - allTimeExpenses;
               return (
-                <div className="px-5 py-4 border-b border-border bg-violet-50/60 flex items-center justify-between flex-wrap gap-2">
+                <div className="px-5 py-3 border-b border-border flex items-center justify-between flex-wrap gap-2">
                   <div className="flex items-center gap-4 text-xs">
-                    <span className="text-emerald-600 font-medium">+{fmt(allTimeIncome)} kirim</span>
-                    <span className="text-red-600 font-medium">-{fmt(allTimeExpenses)} chiqim</span>
+                    <span className="text-emerald-600 font-medium">+{fmt(allTimeIncome)} kirim (barcha vaqt)</span>
+                    <span className="text-red-600 font-medium">-{fmt(allTimeExpenses)} chiqim (barcha vaqt)</span>
                   </div>
                   <div className="flex items-center gap-2">
-                    <span className="text-xs text-muted-foreground">Qoldiq (barcha vaqt):</span>
-                    <span className={cn("text-lg font-bold num", balance < 0 ? "text-red-600" : "text-violet-900")}>{fmt(balance)}</span>
+                    <span className="text-xs text-muted-foreground">Qoldiq:</span>
+                    <span className={cn("text-sm font-bold num", balance < 0 ? "text-red-600" : "text-violet-900")}>{fmt(balance)}</span>
                   </div>
                 </div>
               );
             })()}
 
-            <div className="px-5 py-4 border-b border-border flex flex-wrap gap-3">
-              <div>
-                <label className="text-xs text-muted-foreground mb-1 block">Tarif</label>
-                <div className="flex rounded-lg border border-border overflow-hidden text-xs font-medium">
-                  {["Barchasi", "standard", "pro", "max"].map(function(t) {
-                    return (
-                      <button key={t} onClick={function() { setPoFilterTariff(t); }}
-                        className={cn("px-3 py-1.5 transition border-r border-border last:border-0 capitalize",
-                          poFilterTariff === t ? "bg-primary text-primary-foreground" : "bg-background text-muted-foreground hover:text-foreground")}>
-                        {t === "Barchasi" ? "Barchasi" : t.charAt(0).toUpperCase() + t.slice(1)}
-                      </button>
-                    );
-                  })}
-                </div>
-              </div>
-              <div>
-                <label className="text-xs text-muted-foreground mb-1 block">Dan</label>
-                <input type="date" value={poFilterFrom} onChange={function(e) { setPoFilterFrom(e.target.value); }}
-                  className="px-3 py-1.5 rounded-lg border border-border bg-background text-xs" />
-              </div>
-              <div>
-                <label className="text-xs text-muted-foreground mb-1 block">Gacha</label>
-                <input type="date" value={poFilterTo} onChange={function(e) { setPoFilterTo(e.target.value); }}
-                  className="px-3 py-1.5 rounded-lg border border-border bg-background text-xs" />
-              </div>
-              {(poFilterFrom || poFilterTo || poFilterTariff !== "Barchasi") && (
-                <div className="self-end">
-                  <button onClick={function() { setPoFilterFrom(""); setPoFilterTo(""); setPoFilterTariff("Barchasi"); }}
-                    className="px-3 py-1.5 rounded-lg bg-secondary text-xs text-muted-foreground hover:text-foreground">
-                    Tozalash
-                  </button>
-                </div>
-              )}
-            </div>
-
-            <div className="border-b-4 border-border">
-              <div className="px-5 py-3 bg-red-50 border-b border-border flex items-center justify-between flex-wrap gap-2">
-                <div className="flex items-center gap-2">
-                  <span className="text-sm text-red-700 font-medium">Chiqimlar</span>
-                  <span className="text-xs text-muted-foreground">
-                    {expLoading ? "yuklanmoqda…" : `${pravaOnExpenses.length} ta · jami ${fmt(pravaOnExpenses.reduce(function(s, e) { return s + Number(e.summa); }, 0))}`}
-                  </span>
-                </div>
-                <button onClick={function() { setShowExpForm(!showExpForm); setExpResult(null); }}
-                  className={cn("px-3 py-1.5 rounded-lg text-xs font-medium transition inline-flex items-center gap-1",
-                    showExpForm ? "bg-primary text-primary-foreground" : "bg-red-100 text-red-700 hover:bg-red-200")}>
-                  <Plus className="h-3.5 w-3.5" />
-                  Chiqim qo'shish
-                </button>
-              </div>
-
-              {showExpForm && (
-                <div className="px-5 py-4 border-b border-border bg-secondary/30">
-                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 mb-3">
-                    <div>
-                      <label className="text-xs text-muted-foreground mb-1 block">Summa (so'm)</label>
-                      <input type="text" placeholder="500000" value={expSumma}
-                        onChange={function(e) { setExpSumma(formatSummaInput(e.target.value)); }}
-                        className="w-full px-3 py-2 rounded-lg border border-border bg-background text-sm" />
-                    </div>
-                    <div>
-                      <label className="text-xs text-muted-foreground mb-1 block">Filial</label>
-                      <Toggle left="Novza" right="Yunusobod" value={expFilial} onChange={setExpFilial} />
-                    </div>
-                    <div>
-                      <label className="text-xs text-muted-foreground mb-1 block">Izoh (nimaga sarflandi)</label>
-                      <input type="text" placeholder="Masalan: server, reklama..." value={expIzoh}
-                        onChange={function(e) { setExpIzoh(e.target.value); }}
-                        className="w-full px-3 py-2 rounded-lg border border-border bg-background text-sm" />
-                    </div>
-                  </div>
-                  <div className="flex items-center gap-3">
-                    <button onClick={submitPravaOnExpense} disabled={expSaving}
-                      className="px-5 py-2 bg-red-600 text-white rounded-lg text-sm font-medium hover:bg-red-700 transition disabled:opacity-50 inline-flex items-center gap-2">
-                      {expSaving ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
-                      Saqlash
-                    </button>
-                    {expResult && <span className="text-xs text-muted-foreground">{expResult}</span>}
-                  </div>
-                </div>
-              )}
-
-              {pravaOnExpenses.length > 0 && (
-                <div className="max-h-40 overflow-y-auto">
-                  <table className="w-full text-sm">
-                    <tbody className="divide-y divide-border">
-                      {pravaOnExpenses.map(function(e) {
-                        const d = toTashkent(e.created_at);
-                        const dateStr = d.getUTCDate().toString().padStart(2,"0") + "." + (d.getUTCMonth()+1).toString().padStart(2,"0") + "." + d.getUTCFullYear();
+            {pravaOnTab === "kirim" ? (
+              <>
+                <div className="px-5 py-4 border-b border-border flex flex-wrap gap-3">
+                  <div>
+                    <label className="text-xs text-muted-foreground mb-1 block">Tarif</label>
+                    <div className="flex rounded-lg border border-border overflow-hidden text-xs font-medium">
+                      {["Barchasi", "standard", "pro", "max"].map(function(t) {
                         return (
-                          <tr key={e.id} className="hover:bg-secondary/40 transition">
-                            <td className="px-4 py-2.5 num text-xs text-muted-foreground whitespace-nowrap">{dateStr}</td>
-                            <td className="px-4 py-2.5 text-xs text-muted-foreground">{e.filial || "—"}</td>
-                            <td className="px-4 py-2.5 text-xs text-muted-foreground">{e.izoh || "—"}</td>
-                            <td className="px-4 py-2.5 text-right num font-semibold text-red-600 whitespace-nowrap">-{fmt(Number(e.summa))}</td>
-                          </tr>
+                          <button key={t} onClick={function() { setPoFilterTariff(t); }}
+                            className={cn("px-3 py-1.5 transition border-r border-border last:border-0 capitalize",
+                              poFilterTariff === t ? "bg-primary text-primary-foreground" : "bg-background text-muted-foreground hover:text-foreground")}>
+                            {t === "Barchasi" ? "Barchasi" : t.charAt(0).toUpperCase() + t.slice(1)}
+                          </button>
                         );
                       })}
-                    </tbody>
-                  </table>
-                </div>
-              )}
-            </div>
-
-            <div className="overflow-y-auto flex-1">
-              {(() => {
-                const fromD = poFilterFrom ? new Date(poFilterFrom) : null;
-                const toD   = poFilterTo   ? new Date(poFilterTo + "T23:59:59") : null;
-                const filtered = payments.filter(function(p) {
-                  const d = toTashkent(p.created_at);
-                  if (poFilterTariff !== "Barchasi" && p.tariff !== poFilterTariff) return false;
-                  if (fromD && d < fromD) return false;
-                  if (toD   && d > toD)   return false;
-                  return true;
-                });
-                const total = filtered.reduce(function(s, p) { return s + Math.round(p.amount / 100); }, 0);
-                return (
-                  <>
-                    <div className="px-5 py-3 bg-violet-50 border-b border-border flex items-center justify-between">
-                      <span className="text-sm text-violet-700 font-medium">{filtered.length} ta to'lov</span>
-                      <span className="num font-bold text-violet-900">{fmt(total)}</span>
                     </div>
-                    <table className="w-full text-sm">
-                      <thead>
-                        <tr className="text-left text-xs text-muted-foreground uppercase tracking-wider bg-secondary/50 border-b border-border">
-                          <th className="px-4 py-3 font-medium w-8">#</th>
-                          <th className="px-4 py-3 font-medium">Sana</th>
-                          <th className="px-4 py-3 font-medium">Ism / Telefon</th>
-                          <th className="px-4 py-3 font-medium">Tarif</th>
-                          <th className="px-4 py-3 font-medium text-right">Summa</th>
-                        </tr>
-                      </thead>
-                      <tbody className="divide-y divide-border">
-                        {filtered.length === 0 ? (
-                          <tr><td colSpan={5} className="px-4 py-10 text-center text-muted-foreground">To'lovlar topilmadi</td></tr>
-                        ) : filtered.map(function(p, i) {
-                          const d = toTashkent(p.created_at);
-                          const dateStr = d.getUTCDate().toString().padStart(2,"0") + "." + (d.getUTCMonth()+1).toString().padStart(2,"0") + "." + d.getUTCFullYear() + " " + d.getUTCHours().toString().padStart(2,"0") + ":" + d.getUTCMinutes().toString().padStart(2,"0");
-                          const name = (p.first_name || p.last_name) ? ((p.first_name || "") + " " + (p.last_name || "")).trim() : "—";
-                          return (
-                            <tr key={p.id} className="hover:bg-secondary/40 transition">
-                              <td className="px-4 py-3 text-muted-foreground text-xs">{i + 1}</td>
-                              <td className="px-4 py-3 num text-xs text-muted-foreground whitespace-nowrap">{dateStr}</td>
-                              <td className="px-4 py-3">
-                                <p className="font-medium text-sm">{name}</p>
-                                <p className="text-xs text-muted-foreground">{p.phone}</p>
-                              </td>
-                              <td className="px-4 py-3">
-                                <span className={cn("px-2 py-0.5 rounded-full text-xs font-medium border",
-                                  p.tariff === "max"      ? "bg-amber-500/10 text-amber-700 border-amber-500/20" :
-                                  p.tariff === "pro"      ? "bg-violet-500/10 text-violet-700 border-violet-500/20" :
-                                                            "bg-secondary text-muted-foreground border-border")}>
-                                  {p.tariff}
-                                </span>
-                              </td>
-                              <td className="px-4 py-3 text-right num font-semibold text-emerald-600">+{fmt(Math.round(p.amount / 100))}</td>
+                  </div>
+                  <div>
+                    <label className="text-xs text-muted-foreground mb-1 block">Dan</label>
+                    <input type="date" value={poFilterFrom} onChange={function(e) { setPoFilterFrom(e.target.value); }}
+                      className="px-3 py-1.5 rounded-lg border border-border bg-background text-xs" />
+                  </div>
+                  <div>
+                    <label className="text-xs text-muted-foreground mb-1 block">Gacha</label>
+                    <input type="date" value={poFilterTo} onChange={function(e) { setPoFilterTo(e.target.value); }}
+                      className="px-3 py-1.5 rounded-lg border border-border bg-background text-xs" />
+                  </div>
+                  {(poFilterFrom || poFilterTo || poFilterTariff !== "Barchasi") && (
+                    <div className="self-end">
+                      <button onClick={function() { setPoFilterFrom(""); setPoFilterTo(""); setPoFilterTariff("Barchasi"); }}
+                        className="px-3 py-1.5 rounded-lg bg-secondary text-xs text-muted-foreground hover:text-foreground">
+                        Tozalash
+                      </button>
+                    </div>
+                  )}
+                </div>
+
+                <div className="overflow-y-auto flex-1">
+                  {(() => {
+                    const fromD = poFilterFrom ? new Date(poFilterFrom) : null;
+                    const toD   = poFilterTo   ? new Date(poFilterTo + "T23:59:59") : null;
+                    const filtered = payments.filter(function(p) {
+                      const d = toTashkent(p.created_at);
+                      if (poFilterTariff !== "Barchasi" && p.tariff !== poFilterTariff) return false;
+                      if (fromD && d < fromD) return false;
+                      if (toD   && d > toD)   return false;
+                      return true;
+                    });
+                    const total = filtered.reduce(function(s, p) { return s + Math.round(p.amount / 100); }, 0);
+                    return (
+                      <>
+                        <div className="px-5 py-3 bg-violet-50 border-b border-border flex items-center justify-between">
+                          <span className="text-sm text-violet-700 font-medium">{filtered.length} ta to'lov</span>
+                          <span className="num font-bold text-violet-900">{fmt(total)}</span>
+                        </div>
+                        <table className="w-full text-sm">
+                          <thead>
+                            <tr className="text-left text-xs text-muted-foreground uppercase tracking-wider bg-secondary/50 border-b border-border">
+                              <th className="px-4 py-3 font-medium w-8">#</th>
+                              <th className="px-4 py-3 font-medium">Sana</th>
+                              <th className="px-4 py-3 font-medium">Ism / Telefon</th>
+                              <th className="px-4 py-3 font-medium">Tarif</th>
+                              <th className="px-4 py-3 font-medium text-right">Summa</th>
                             </tr>
-                          );
-                        })}
-                      </tbody>
-                    </table>
-                  </>
-                );
-              })()}
-            </div>
+                          </thead>
+                          <tbody className="divide-y divide-border">
+                            {filtered.length === 0 ? (
+                              <tr><td colSpan={5} className="px-4 py-10 text-center text-muted-foreground">To'lovlar topilmadi</td></tr>
+                            ) : filtered.map(function(p, i) {
+                              const d = toTashkent(p.created_at);
+                              const dateStr = d.getUTCDate().toString().padStart(2,"0") + "." + (d.getUTCMonth()+1).toString().padStart(2,"0") + "." + d.getUTCFullYear() + " " + d.getUTCHours().toString().padStart(2,"0") + ":" + d.getUTCMinutes().toString().padStart(2,"0");
+                              const name = (p.first_name || p.last_name) ? ((p.first_name || "") + " " + (p.last_name || "")).trim() : "—";
+                              return (
+                                <tr key={p.id} className="hover:bg-secondary/40 transition">
+                                  <td className="px-4 py-3 text-muted-foreground text-xs">{i + 1}</td>
+                                  <td className="px-4 py-3 num text-xs text-muted-foreground whitespace-nowrap">{dateStr}</td>
+                                  <td className="px-4 py-3">
+                                    <p className="font-medium text-sm">{name}</p>
+                                    <p className="text-xs text-muted-foreground">{p.phone}</p>
+                                  </td>
+                                  <td className="px-4 py-3">
+                                    <span className={cn("px-2 py-0.5 rounded-full text-xs font-medium border",
+                                      p.tariff === "max"      ? "bg-amber-500/10 text-amber-700 border-amber-500/20" :
+                                      p.tariff === "pro"      ? "bg-violet-500/10 text-violet-700 border-violet-500/20" :
+                                                                "bg-secondary text-muted-foreground border-border")}>
+                                      {p.tariff}
+                                    </span>
+                                  </td>
+                                  <td className="px-4 py-3 text-right num font-semibold text-emerald-600">+{fmt(Math.round(p.amount / 100))}</td>
+                                </tr>
+                              );
+                            })}
+                          </tbody>
+                        </table>
+                      </>
+                    );
+                  })()}
+                </div>
+              </>
+            ) : (
+              <>
+                <div className="px-5 py-4 border-b border-border flex flex-wrap items-end gap-3">
+                  <div>
+                    <label className="text-xs text-muted-foreground mb-1 block">Dan</label>
+                    <input type="date" value={expFilterFrom} onChange={function(e) { setExpFilterFrom(e.target.value); }}
+                      className="px-3 py-1.5 rounded-lg border border-border bg-background text-xs" />
+                  </div>
+                  <div>
+                    <label className="text-xs text-muted-foreground mb-1 block">Gacha</label>
+                    <input type="date" value={expFilterTo} onChange={function(e) { setExpFilterTo(e.target.value); }}
+                      className="px-3 py-1.5 rounded-lg border border-border bg-background text-xs" />
+                  </div>
+                  {(expFilterFrom || expFilterTo) && (
+                    <button onClick={function() { setExpFilterFrom(""); setExpFilterTo(""); }}
+                      className="px-3 py-1.5 rounded-lg bg-secondary text-xs text-muted-foreground hover:text-foreground">
+                      Tozalash
+                    </button>
+                  )}
+                  <button onClick={function() { setShowExpForm(!showExpForm); setExpResult(null); }}
+                    className={cn("ml-auto px-4 py-1.5 rounded-lg text-xs font-medium transition inline-flex items-center gap-1",
+                      showExpForm ? "bg-primary text-primary-foreground" : "bg-red-600 text-white hover:bg-red-700")}>
+                    <Plus className="h-3.5 w-3.5" />
+                    Chiqim qo'shish
+                  </button>
+                </div>
+
+                {showExpForm && (
+                  <div className="px-5 py-4 border-b border-border bg-secondary/30">
+                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 mb-3">
+                      <div>
+                        <label className="text-xs text-muted-foreground mb-1 block">Summa (so'm)</label>
+                        <input type="text" placeholder="500000" value={expSumma}
+                          onChange={function(e) { setExpSumma(formatSummaInput(e.target.value)); }}
+                          className="w-full px-3 py-2 rounded-lg border border-border bg-background text-sm" />
+                      </div>
+                      <div>
+                        <label className="text-xs text-muted-foreground mb-1 block">Filial</label>
+                        <Toggle left="Novza" right="Yunusobod" value={expFilial} onChange={setExpFilial} />
+                      </div>
+                      <div>
+                        <label className="text-xs text-muted-foreground mb-1 block">Izoh (nimaga sarflandi)</label>
+                        <input type="text" placeholder="Masalan: server, reklama..." value={expIzoh}
+                          onChange={function(e) { setExpIzoh(e.target.value); }}
+                          className="w-full px-3 py-2 rounded-lg border border-border bg-background text-sm" />
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-3">
+                      <button onClick={submitPravaOnExpense} disabled={expSaving}
+                        className="px-5 py-2 bg-red-600 text-white rounded-lg text-sm font-medium hover:bg-red-700 transition disabled:opacity-50 inline-flex items-center gap-2">
+                        {expSaving ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
+                        Saqlash
+                      </button>
+                      {expResult && <span className="text-xs text-muted-foreground">{expResult}</span>}
+                    </div>
+                  </div>
+                )}
+
+                <div className="overflow-y-auto flex-1">
+                  {(() => {
+                    const fromD = expFilterFrom ? new Date(expFilterFrom) : null;
+                    const toD   = expFilterTo   ? new Date(expFilterTo + "T23:59:59") : null;
+                    const filteredExp = pravaOnExpenses.filter(function(e) {
+                      const d = toTashkent(e.created_at);
+                      if (fromD && d < fromD) return false;
+                      if (toD   && d > toD)   return false;
+                      return true;
+                    });
+                    const total = filteredExp.reduce(function(s, e) { return s + Number(e.summa); }, 0);
+                    return (
+                      <>
+                        <div className="px-5 py-3 bg-red-50 border-b border-border flex items-center justify-between">
+                          <span className="text-sm text-red-700 font-medium">{expLoading ? "yuklanmoqda…" : `${filteredExp.length} ta chiqim`}</span>
+                          <span className="num font-bold text-red-900">{fmt(total)}</span>
+                        </div>
+                        <table className="w-full text-sm">
+                          <thead>
+                            <tr className="text-left text-xs text-muted-foreground uppercase tracking-wider bg-secondary/50 border-b border-border">
+                              <th className="px-4 py-3 font-medium w-8">#</th>
+                              <th className="px-4 py-3 font-medium">Sana</th>
+                              <th className="px-4 py-3 font-medium">Filial</th>
+                              <th className="px-4 py-3 font-medium">Izoh</th>
+                              <th className="px-4 py-3 font-medium text-right">Summa</th>
+                            </tr>
+                          </thead>
+                          <tbody className="divide-y divide-border">
+                            {filteredExp.length === 0 ? (
+                              <tr><td colSpan={5} className="px-4 py-10 text-center text-muted-foreground">Chiqimlar topilmadi</td></tr>
+                            ) : filteredExp.map(function(e, i) {
+                              const d = toTashkent(e.created_at);
+                              const dateStr = d.getUTCDate().toString().padStart(2,"0") + "." + (d.getUTCMonth()+1).toString().padStart(2,"0") + "." + d.getUTCFullYear();
+                              return (
+                                <tr key={e.id} className="hover:bg-secondary/40 transition">
+                                  <td className="px-4 py-3 text-muted-foreground text-xs">{i + 1}</td>
+                                  <td className="px-4 py-3 num text-xs text-muted-foreground whitespace-nowrap">{dateStr}</td>
+                                  <td className="px-4 py-3 text-xs text-muted-foreground">{e.filial || "—"}</td>
+                                  <td className="px-4 py-3 text-xs text-muted-foreground">{e.izoh || "—"}</td>
+                                  <td className="px-4 py-3 text-right num font-semibold text-red-600 whitespace-nowrap">-{fmt(Number(e.summa))}</td>
+                                </tr>
+                              );
+                            })}
+                          </tbody>
+                        </table>
+                      </>
+                    );
+                  })()}
+                </div>
+              </>
+            )}
           </div>
         </div>
       )}
