@@ -663,7 +663,7 @@ export function Moliya() {
         </div>
       </div>
 
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-4">
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-6">
         <div className={cn("rounded-2xl p-5 shadow-soft border cursor-pointer transition", novzaProfit < 0 ? "border-red-200 bg-gradient-to-br from-red-50 to-white hover:border-red-300" : "border-blue-100 bg-gradient-to-br from-blue-50 to-white hover:border-blue-300")} onClick={function() { setModalFilial("Novza"); }}>
           <p className={cn("text-sm font-medium mb-2", novzaProfit < 0 ? "text-red-700" : "text-blue-700")}>Novza — Sof foyda</p>
           <p className={cn("text-2xl font-bold num", novzaProfit < 0 ? "text-red-600" : "text-blue-900")}>{novzaProfit < 0 ? "-" : ""}{fmt(novzaProfit)}</p>
@@ -679,19 +679,12 @@ export function Moliya() {
           <p className={cn("text-2xl font-bold num", tinclikProfit < 0 ? "text-red-600" : "text-blue-900")}>{tinclikProfit < 0 ? "-" : ""}{fmt(tinclikProfit)}</p>
           <p className={cn("text-xs mt-2", tinclikProfit < 0 ? "text-red-500" : "text-blue-600")}>Batafsil ko'rish</p>
         </div>
-      </div>
-
-      <div className="grid grid-cols-1 mb-6">
         <div className="rounded-2xl p-5 shadow-soft border border-violet-200 bg-gradient-to-br from-violet-50 to-white hover:border-violet-300 cursor-pointer transition" onClick={function() { setModalPravaOn(true); }}>
-          <div className="flex items-center justify-between flex-wrap gap-2">
-            <div>
-              <p className="text-sm font-medium mb-1 text-violet-700">Prava-On — Daromad (online)</p>
-              <p className="text-xs text-violet-600">
-                {paymentsLoading ? "Yuklanmoqda…" : pravaOnCount + " ta to'lov · Batafsil ko'rish"}
-              </p>
-            </div>
-            <p className="text-2xl font-bold num text-violet-900">{fmt(pravaOnRevenue)}</p>
-          </div>
+          <p className="text-sm font-medium mb-2 text-violet-700">Prava-On — Daromad</p>
+          <p className="text-2xl font-bold num text-violet-900">{fmt(pravaOnRevenue)}</p>
+          <p className="text-xs mt-2 text-violet-600">
+            {paymentsLoading ? "Yuklanmoqda…" : pravaOnCount + " ta to'lov · Batafsil ko'rish"}
+          </p>
         </div>
       </div>
 
