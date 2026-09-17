@@ -95,6 +95,20 @@ function Toggle({ left, right, value, onChange }: {
   );
 }
 
+function FilialSelect3({ value, onChange }: { value: string; onChange: (v: string) => void }) {
+  return (
+    <div className="flex rounded-lg border border-border overflow-hidden text-sm font-medium">
+      {["Novza", "Yunusobod", "Tinclik"].map(f => (
+        <button key={f} onClick={() => onChange(f)}
+          className={cn("flex-1 py-2 px-2 transition border-l border-border first:border-l-0",
+            value === f ? "bg-primary text-primary-foreground" : "bg-background text-muted-foreground hover:text-foreground")}>
+          {f}
+        </button>
+      ))}
+    </div>
+  );
+}
+
 export function Ustoz() {
   const [allRows,  setAllRows]  = useState<DavRow[]>([]);
   const [loading,  setLoading]  = useState(true);
@@ -457,6 +471,11 @@ export function Ustoz() {
             tab === "davomat" && davFilial === "Yunusobod" ? "bg-primary text-primary-foreground" : "bg-secondary text-muted-foreground hover:text-foreground")}>
           Davomat Yunusobod
         </button>
+        <button onClick={() => { setTab("davomat"); setDavFilial("Tinclik"); }}
+          className={cn("px-4 py-1.5 rounded-lg text-sm font-medium transition",
+            tab === "davomat" && davFilial === "Tinclik" ? "bg-primary text-primary-foreground" : "bg-secondary text-muted-foreground hover:text-foreground")}>
+          Davomat Tinclik
+        </button>
         <button onClick={() => setTab("jadval")}
           className={cn("px-4 py-1.5 rounded-lg text-sm font-medium transition",
             tab === "jadval" ? "bg-primary text-primary-foreground" : "bg-secondary text-muted-foreground hover:text-foreground")}>
@@ -489,7 +508,7 @@ export function Ustoz() {
             </div>
             <div>
               <label className="text-xs text-muted-foreground mb-1 block">Filial</label>
-              <Toggle left="Novza" right="Yunusobod" value={addFilial} onChange={setAddFilial} />
+              <FilialSelect3 value={addFilial} onChange={setAddFilial} />
             </div>
             <div>
               <label className="text-xs text-muted-foreground mb-1 block">Smena</label>
@@ -665,7 +684,7 @@ export function Ustoz() {
             ))}
           </div>
           <div className="flex gap-2 mb-4">
-            {["Barchasi", "Novza", "Yunusobod"].map(f => (
+            {["Barchasi", "Novza", "Yunusobod", "Tinclik"].map(f => (
               <button key={f} onClick={() => setFilterFilial(f)}
                 className={cn("px-3 py-1 rounded-full text-xs font-medium transition border",
                   filterFilial === f ? "bg-primary text-primary-foreground border-primary" : "border-border text-muted-foreground hover:text-foreground")}>
@@ -707,6 +726,8 @@ export function Ustoz() {
                           <span className={cn("px-2 py-0.5 rounded-full text-xs font-medium border",
                             s.filial === "Novza"
                               ? "bg-blue-500/10 text-blue-700 border-blue-500/20"
+                              : s.filial === "Tinclik"
+                              ? "bg-teal-500/10 text-teal-700 border-teal-500/20"
                               : "bg-purple-500/10 text-purple-700 border-purple-500/20")}>
                             {s.filial}
                           </span>

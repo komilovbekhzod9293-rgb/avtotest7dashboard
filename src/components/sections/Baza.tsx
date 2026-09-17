@@ -112,6 +112,20 @@ function Toggle({ left, right, value, onChange }: {
   );
 }
 
+function FilialSelect3({ value, onChange }: { value: string; onChange: (v: string) => void }) {
+  return (
+    <div className="flex rounded-lg border border-border overflow-hidden text-sm font-medium">
+      {["Novza", "Yunusobod", "Tinclik"].map(f => (
+        <button key={f} onClick={() => onChange(f)}
+          className={cn("flex-1 py-2 px-2 transition border-l border-border first:border-l-0",
+            value === f ? "bg-primary text-primary-foreground" : "bg-background text-muted-foreground hover:text-foreground")}>
+          {f}
+        </button>
+      ))}
+    </div>
+  );
+}
+
 export function Baza() {
   const [clients, setClients] = useState<Client[]>([]);
   const [loading, setLoading] = useState(true);
@@ -354,7 +368,7 @@ export function Baza() {
             </div>
             <div>
               <label className="text-xs text-muted-foreground mb-1 block">Filial</label>
-              <Toggle left="Novza" right="Yunusobod" value={addFilial} onChange={setAddFilial} />
+              <FilialSelect3 value={addFilial} onChange={setAddFilial} />
             </div>
             <div>
               <label className="text-xs text-muted-foreground mb-1 block">Dars Kuni</label>
@@ -453,7 +467,7 @@ export function Baza() {
             className="w-full pl-9 pr-4 py-2 rounded-lg border border-border bg-card text-sm" />
         </div>
         <div className="flex rounded-lg border border-border overflow-hidden text-sm font-medium">
-          {["Barchasi", "Novza", "Yunusobod"].map(f => (
+          {["Barchasi", "Novza", "Yunusobod", "Tinclik"].map(f => (
             <button key={f} onClick={() => setFilterFilial(f)}
               className={cn("px-4 py-2 transition border-r border-border last:border-0",
                 filterFilial === f ? "bg-primary text-primary-foreground" : "bg-card text-muted-foreground hover:text-foreground")}>
@@ -498,6 +512,8 @@ export function Baza() {
                     <span className={cn("px-2 py-0.5 rounded-full text-xs font-medium border",
                       c.filial === "Novza"
                         ? "bg-blue-500/10 text-blue-700 border-blue-500/20"
+                        : c.filial === "Tinclik"
+                        ? "bg-teal-500/10 text-teal-700 border-teal-500/20"
                         : "bg-purple-500/10 text-purple-700 border-purple-500/20")}>
                       {c.filial}
                     </span>
@@ -551,7 +567,7 @@ export function Baza() {
               </div>
               <div>
                 <label className="text-xs text-muted-foreground mb-1 block">Filial</label>
-                <Toggle left="Novza" right="Yunusobod" value={editFilial} onChange={setEditFilial} />
+                <FilialSelect3 value={editFilial} onChange={setEditFilial} />
               </div>
               <div>
                 <label className="text-xs text-muted-foreground mb-1 block">Dars Vaqti</label>

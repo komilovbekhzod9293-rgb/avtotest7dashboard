@@ -336,7 +336,7 @@ export function Oquvchilar() {
             ))}
           </div>
           <div className="flex gap-2 mb-4">
-            {["Barchasi", "Novza", "Yunusobod"].map(f => (
+            {["Barchasi", "Novza", "Yunusobod", "Tinclik"].map(f => (
               <button key={f} onClick={() => setFilterFilial(f)}
                 className={cn("px-3 py-1 rounded-full text-xs font-medium transition border",
                   filterFilial === f ? "bg-primary text-primary-foreground border-primary" : "border-border text-muted-foreground hover:text-foreground")}>
@@ -378,6 +378,8 @@ export function Oquvchilar() {
                           <span className={cn("px-2 py-0.5 rounded-full text-xs font-medium border",
                             s.filial === "Novza"
                               ? "bg-blue-500/10 text-blue-700 border-blue-500/20"
+                              : s.filial === "Tinclik"
+                              ? "bg-teal-500/10 text-teal-700 border-teal-500/20"
                               : "bg-purple-500/10 text-purple-700 border-purple-500/20")}>
                             {s.filial}
                           </span>

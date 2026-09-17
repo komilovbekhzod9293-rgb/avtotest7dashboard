@@ -45,6 +45,20 @@ function Toggle({ left, right, value, onChange }: {
   );
 }
 
+function FilialSelect3({ value, onChange }: { value: string; onChange: (v: string) => void }) {
+  return (
+    <div className="flex rounded-lg border border-border overflow-hidden text-sm font-medium">
+      {["Novza", "Yunusobod", "Tinclik"].map(f => (
+        <button key={f} onClick={() => onChange(f)}
+          className={cn("flex-1 py-2 px-2 transition border-l border-border first:border-l-0",
+            value === f ? "bg-primary text-primary-foreground" : "bg-background text-muted-foreground hover:text-foreground")}>
+          {f}
+        </button>
+      ))}
+    </div>
+  );
+}
+
 export function OnlineDostup() {
   const [phones, setPhones]   = useState<Phone[]>([]);
   const [loading, setLoading] = useState(true);
@@ -219,7 +233,7 @@ export function OnlineDostup() {
             </div>
             <div>
               <label className="text-xs text-muted-foreground mb-1 block">Filial</label>
-              <Toggle left="Novza" right="Yunusobod" value={addFilial} onChange={setAddFilial} />
+              <FilialSelect3 value={addFilial} onChange={setAddFilial} />
             </div>
           </div>
           <button onClick={submitAdd} disabled={addLoading}
