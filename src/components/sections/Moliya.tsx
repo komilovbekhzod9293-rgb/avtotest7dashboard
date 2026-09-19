@@ -244,6 +244,9 @@ function isOnlineRow(r: Row): boolean {
   const d = new Date(parseInt(p[2]), parseInt(p[1]) - 1, parseInt(p[0]));
   return d >= EKVAYRING_START;
 }
+function isTerminalRow(r: Row): boolean {
+  return r.turi.trim().toLowerCase() === "terminal";
+}
 function toTashkent(iso: string): Date { return new Date(new Date(iso).getTime() + 5 * 3600000); }
 
 function Toggle({ left, right, value, onChange, leftColor, rightColor }: {
@@ -253,6 +256,22 @@ function Toggle({ left, right, value, onChange, leftColor, rightColor }: {
     <div className="flex rounded-lg border border-border overflow-hidden text-sm font-medium">
       <button onClick={() => onChange(left)} className={cn("flex-1 py-2 px-3 transition", value === left ? (leftColor || "bg-primary text-primary-foreground") : "bg-background text-muted-foreground hover:text-foreground")}>{left}</button>
       <button onClick={() => onChange(right)} className={cn("flex-1 py-2 px-3 transition border-l border-border", value === right ? (rightColor || "bg-primary text-primary-foreground") : "bg-background text-muted-foreground hover:text-foreground")}>{right}</button>
+    </div>
+  );
+}
+
+function TuriSelect3({ value, onChange }: { value: string; onChange: (v: string) => void }) {
+  return (
+    <div className="flex rounded-lg border border-border overflow-hidden text-sm font-medium">
+      {[["Naqd", "Naqd"], ["Karta", "Karta"], ["terminal", "Terminal"]].map(function(o) {
+        return (
+          <button key={o[0]} onClick={() => onChange(o[0])}
+            className={cn("flex-1 py-2 px-2 transition border-l border-border first:border-l-0",
+              value === o[0] ? "bg-primary text-primary-foreground" : "bg-background text-muted-foreground hover:text-foreground")}>
+            {o[1]}
+          </button>
+        );
+      })}
     </div>
   );
 }
@@ -307,6 +326,7 @@ export function Moliya() {
   const [onlineLoading, setOnlineLoading] = useState(false);
   const [onlineResult, setOnlineResult] = useState<string | null>(null);
   const [modalFilial, setModalFilial] = useState<"Novza" | "Yunusobod" | "Tinclik" | null>(null);
+  const [modalTerminal, setModalTerminal] = useState(false);
   const [filterKirim, setFilterKirim] = useState("Barchasi");
   const [filterFilial, setFilterFilial] = useState("Barchasi");
   const [filterFrom, setFilterFrom] = useState("");
@@ -492,7 +512,12 @@ export function Moliya() {
     return true;
   });
 
-  const offlineRows = periodFiltered.filter(function(r) { return !isOnlineRow(r); });
+  const offlineRows = periodFiltered.filter(function(r) { return !isOnlineRow(r) && !isTerminalRow(r); });
+
+  const terminalRows     = periodFiltered.filter(isTerminalRow);
+  const terminalRevenue  = terminalRows.filter(function(r) { return r.summa > 0; }).reduce(function(s, r) { return s + r.summa; }, 0);
+  const terminalExpenses = terminalRows.filter(function(r) { return r.summa < 0; }).reduce(function(s, r) { return s + Math.abs(r.summa); }, 0);
+  const terminalProfit   = terminalRevenue - terminalExpenses;
 
   const totalRevenue  = offlineRows.filter(function(r) { return r.summa > 0; }).reduce(function(s, r) { return s + r.summa; }, 0);
   const totalExpenses = offlineRows.filter(function(r) { return r.summa < 0; }).reduce(function(s, r) { return s + Math.abs(r.summa); }, 0);
@@ -515,7 +540,7 @@ export function Moliya() {
   const pravaOnRevenue = pravaOnAllTimeIncome - pravaOnAllTimeExpenses;
   const pravaOnCount   = payments.length;
 
-  const taqsim = taqsimla(rows.filter(function(r) { return !isOnlineRow(r); }), now);
+  const taqsim = taqsimla(rows.filter(function(r) { return !isOnlineRow(r) && !isTerminalRow(r); }), now);
   const yetarliSon = taqsim.items.filter(function(i) { return i.tolanganReal || i.foiz >= 100; }).length;
   const xatarliSon = taqsim.items.filter(function(i) { return !i.tolanganReal && i.foiz < 100 && i.hasDate && (i.kunQoldi <= 3 || i.kechikkan); }).length;
 
@@ -619,7 +644,7 @@ export function Moliya() {
             <div><label className="text-xs text-muted-foreground mb-1 block">Telefon raqami</label><input type="tel" placeholder="+998 90 000 00 00" value={formTelefon} onChange={function(e) { setFormTelefon(e.target.value); }} className="w-full px-3 py-2 rounded-lg border border-border bg-background text-sm" /></div>
             <div><label className="text-xs text-muted-foreground mb-1 block">Summa (so'm)</label><input type="text" value={formSumma} onChange={function(e) { setFormSumma(formatSummaInput(e.target.value)); }} className="w-full px-3 py-2 rounded-lg border border-border bg-background text-sm" /></div>
             <div><label className="text-xs text-muted-foreground mb-1 block">Filial</label><FilialSelect3 value={formFilial} onChange={setFormFilial} /></div>
-            <div><label className="text-xs text-muted-foreground mb-1 block">Turi</label><Toggle left="Naqd" right="Karta" value={formTuri} onChange={setFormTuri} /></div>
+            <div><label className="text-xs text-muted-foreground mb-1 block">Turi</label><TuriSelect3 value={formTuri} onChange={setFormTuri} /></div>
             <div><label className="text-xs text-muted-foreground mb-1 block">Online / Offline</label><Toggle left="Offline" right="Online" value={formOnline} onChange={setFormOnline} /></div>
             <div><label className="text-xs text-muted-foreground mb-1 block">Kirim / Chiqim</label><Toggle left="Kirim" right="Chiqim" value={formKirim} onChange={setFormKirim} leftColor="bg-emerald-600 text-white" rightColor="bg-red-500 text-white" /></div>
             <div className="sm:col-span-2"><label className="text-xs text-muted-foreground mb-1 block">Izoh (ixtiyoriy)</label><input type="text" value={formIzoh} onChange={function(e) { setFormIzoh(e.target.value); }} className="w-full px-3 py-2 rounded-lg border border-border bg-background text-sm" /></div>
@@ -663,23 +688,28 @@ export function Moliya() {
         </div>
       </div>
 
-      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-6">
-        <div className={cn("rounded-2xl p-5 shadow-soft border cursor-pointer transition", novzaProfit < 0 ? "border-red-200 bg-gradient-to-br from-red-50 to-white hover:border-red-300" : "border-blue-100 bg-gradient-to-br from-blue-50 to-white hover:border-blue-300")} onClick={function() { setModalFilial("Novza"); }}>
+      <div className="grid grid-cols-1 sm:grid-cols-6 gap-4 mb-6">
+        <div className={cn("sm:col-span-2 rounded-2xl p-5 shadow-soft border cursor-pointer transition", novzaProfit < 0 ? "border-red-200 bg-gradient-to-br from-red-50 to-white hover:border-red-300" : "border-blue-100 bg-gradient-to-br from-blue-50 to-white hover:border-blue-300")} onClick={function() { setModalFilial("Novza"); }}>
           <p className={cn("text-sm font-medium mb-2", novzaProfit < 0 ? "text-red-700" : "text-blue-700")}>Novza — Sof foyda</p>
           <p className={cn("text-2xl font-bold num", novzaProfit < 0 ? "text-red-600" : "text-blue-900")}>{novzaProfit < 0 ? "-" : ""}{fmt(novzaProfit)}</p>
           <p className={cn("text-xs mt-2", novzaProfit < 0 ? "text-red-500" : "text-blue-600")}>Batafsil ko'rish</p>
         </div>
-        <div className={cn("rounded-2xl p-5 shadow-soft border cursor-pointer transition", yunusobodProfit < 0 ? "border-red-200 bg-gradient-to-br from-red-50 to-white hover:border-red-300" : "border-blue-100 bg-gradient-to-br from-blue-50 to-white hover:border-blue-300")} onClick={function() { setModalFilial("Yunusobod"); }}>
+        <div className={cn("sm:col-span-2 rounded-2xl p-5 shadow-soft border cursor-pointer transition", yunusobodProfit < 0 ? "border-red-200 bg-gradient-to-br from-red-50 to-white hover:border-red-300" : "border-blue-100 bg-gradient-to-br from-blue-50 to-white hover:border-blue-300")} onClick={function() { setModalFilial("Yunusobod"); }}>
           <p className={cn("text-sm font-medium mb-2", yunusobodProfit < 0 ? "text-red-700" : "text-blue-700")}>Yunusobod — Sof foyda</p>
           <p className={cn("text-2xl font-bold num", yunusobodProfit < 0 ? "text-red-600" : "text-blue-900")}>{yunusobodProfit < 0 ? "-" : ""}{fmt(yunusobodProfit)}</p>
           <p className={cn("text-xs mt-2", yunusobodProfit < 0 ? "text-red-500" : "text-blue-600")}>Batafsil ko'rish</p>
         </div>
-        <div className={cn("rounded-2xl p-5 shadow-soft border cursor-pointer transition", tinclikProfit < 0 ? "border-red-200 bg-gradient-to-br from-red-50 to-white hover:border-red-300" : "border-blue-100 bg-gradient-to-br from-blue-50 to-white hover:border-blue-300")} onClick={function() { setModalFilial("Tinclik"); }}>
+        <div className={cn("sm:col-span-2 rounded-2xl p-5 shadow-soft border cursor-pointer transition", tinclikProfit < 0 ? "border-red-200 bg-gradient-to-br from-red-50 to-white hover:border-red-300" : "border-blue-100 bg-gradient-to-br from-blue-50 to-white hover:border-blue-300")} onClick={function() { setModalFilial("Tinclik"); }}>
           <p className={cn("text-sm font-medium mb-2", tinclikProfit < 0 ? "text-red-700" : "text-blue-700")}>Tinclik — Sof foyda</p>
           <p className={cn("text-2xl font-bold num", tinclikProfit < 0 ? "text-red-600" : "text-blue-900")}>{tinclikProfit < 0 ? "-" : ""}{fmt(tinclikProfit)}</p>
           <p className={cn("text-xs mt-2", tinclikProfit < 0 ? "text-red-500" : "text-blue-600")}>Batafsil ko'rish</p>
         </div>
-        <div className="rounded-2xl p-5 shadow-soft border border-violet-200 bg-gradient-to-br from-violet-50 to-white hover:border-violet-300 cursor-pointer transition" onClick={function() { setModalPravaOn(true); }}>
+        <div className={cn("sm:col-span-3 rounded-2xl p-5 shadow-soft border cursor-pointer transition", terminalProfit < 0 ? "border-red-200 bg-gradient-to-br from-red-50 to-white hover:border-red-300" : "border-amber-200 bg-gradient-to-br from-amber-50 to-white hover:border-amber-300")} onClick={function() { setModalTerminal(true); }}>
+          <p className={cn("text-sm font-medium mb-2", terminalProfit < 0 ? "text-red-700" : "text-amber-700")}>Terminal — Sof foyda</p>
+          <p className={cn("text-2xl font-bold num", terminalProfit < 0 ? "text-red-600" : "text-amber-900")}>{terminalProfit < 0 ? "-" : ""}{fmt(terminalProfit)}</p>
+          <p className={cn("text-xs mt-2", terminalProfit < 0 ? "text-red-500" : "text-amber-600")}>{terminalRows.length} ta operatsiya · Batafsil ko'rish</p>
+        </div>
+        <div className="sm:col-span-3 rounded-2xl p-5 shadow-soft border border-violet-200 bg-gradient-to-br from-violet-50 to-white hover:border-violet-300 cursor-pointer transition" onClick={function() { setModalPravaOn(true); }}>
           <p className="text-sm font-medium mb-2 text-violet-700">Prava-On — Daromad</p>
           <p className="text-2xl font-bold num text-violet-900">{fmt(pravaOnRevenue)}</p>
           <p className="text-xs mt-2 text-violet-600">
@@ -886,6 +916,63 @@ export function Moliya() {
                   Novza: {novzaProfit < 0 ? "-" : ""}{fmt(novzaProfit)} + Yunusobod: {yunusobodProfit < 0 ? "-" : ""}{fmt(yunusobodProfit)} + Tinclik: {tinclikProfit < 0 ? "-" : ""}{fmt(tinclikProfit)}
                 </p>
               </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {modalTerminal && (
+        <div className="fixed inset-0 bg-foreground/30 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+          <div className="bg-card rounded-2xl border border-border shadow-elevated w-full max-w-2xl max-h-[90vh] flex flex-col">
+            <div className="flex items-center justify-between px-5 py-4 border-b border-border">
+              <div>
+                <h3 className="font-semibold text-lg">Terminal — Batafsil</h3>
+                <p className="text-xs text-muted-foreground mt-0.5">Alohida hisob · umumiy kassa va filiallarga qo'shilmaydi</p>
+              </div>
+              <button onClick={function() { setModalTerminal(false); }} className="h-8 w-8 rounded-lg hover:bg-secondary flex items-center justify-center"><X className="h-4 w-4" /></button>
+            </div>
+            <div className="px-5 py-4 grid grid-cols-1 sm:grid-cols-3 gap-3 border-b border-border">
+              <div className="rounded-xl p-3 border border-emerald-100 bg-emerald-50">
+                <p className="text-xs text-emerald-700 font-medium mb-1">Jami daromad</p>
+                <p className="text-lg font-bold text-emerald-900 num">{fmt(terminalRevenue)}</p>
+              </div>
+              <div className="rounded-xl p-3 border border-red-100 bg-red-50">
+                <p className="text-xs text-red-700 font-medium mb-1">Jami xarajat</p>
+                <p className="text-lg font-bold text-red-900 num">{fmt(terminalExpenses)}</p>
+              </div>
+              <div className={cn("rounded-xl p-3 border", terminalProfit < 0 ? "border-red-100 bg-red-50" : "border-amber-100 bg-amber-50")}>
+                <p className={cn("text-xs font-medium mb-1", terminalProfit < 0 ? "text-red-700" : "text-amber-700")}>Sof foyda</p>
+                <p className={cn("text-lg font-bold num", terminalProfit < 0 ? "text-red-600" : "text-amber-900")}>{terminalProfit < 0 ? "-" : ""}{fmt(terminalProfit)}</p>
+              </div>
+            </div>
+            <div className="overflow-y-auto flex-1">
+              <table className="w-full text-sm">
+                <thead>
+                  <tr className="text-left text-xs text-muted-foreground uppercase tracking-wider bg-secondary/50 border-b border-border">
+                    <th className="px-4 py-3 font-medium">Sana</th>
+                    <th className="px-4 py-3 font-medium">Ism</th>
+                    <th className="px-4 py-3 font-medium">Filial</th>
+                    <th className="px-4 py-3 font-medium text-right">Summa</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-border">
+                  {terminalRows.length === 0 ? (
+                    <tr><td colSpan={4} className="px-4 py-10 text-center text-muted-foreground">Terminal operatsiyalari topilmadi</td></tr>
+                  ) : terminalRows.slice().reverse().map(function(r, i) {
+                    return (
+                      <tr key={i} className="hover:bg-secondary/40 transition">
+                        <td className="px-4 py-3 num text-xs text-muted-foreground whitespace-nowrap">{r.sana}</td>
+                        <td className="px-4 py-3">
+                          <p className="font-medium text-sm">{r.ism || "—"}</p>
+                          {r.izoh && <p className="text-xs text-muted-foreground">{r.izoh}</p>}
+                        </td>
+                        <td className="px-4 py-3 text-xs text-muted-foreground">{r.filial || "—"}</td>
+                        <td className={cn("px-4 py-3 text-right num font-semibold whitespace-nowrap", r.summa < 0 ? "text-red-600" : "text-emerald-600")}>{r.summa < 0 ? "-" : "+"}{fmt(r.summa)}</td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
             </div>
           </div>
         </div>

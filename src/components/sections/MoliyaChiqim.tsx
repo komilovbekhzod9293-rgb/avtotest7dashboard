@@ -342,9 +342,10 @@ export function MoliyaChiqim() {
     const d = new Date(parseInt(p[2]), parseInt(p[1]) - 1, parseInt(p[0]));
     return d >= EKVAYRING_START;
   }
+  const isTerminalRow = (r: Row) => r.turi.toLowerCase() === "terminal";
   const filtered = isChiqim
-    ? baseFiltered.filter(r => r.kirimChiqim.toLowerCase().includes("chiq") && r.summa < 0 && !isPravaOnRow(r))
-    : baseFiltered.filter(r => r.kirimChiqim.toLowerCase().includes("kirim") && r.summa > 0 && !isPravaOnRow(r));
+    ? baseFiltered.filter(r => r.kirimChiqim.toLowerCase().includes("chiq") && r.summa < 0 && !isPravaOnRow(r) && !isTerminalRow(r))
+    : baseFiltered.filter(r => r.kirimChiqim.toLowerCase().includes("kirim") && r.summa > 0 && !isPravaOnRow(r) && !isTerminalRow(r));
 
   return (
     <div>
